@@ -11,7 +11,7 @@
 		try {
 			const res = await query('select id, title, description from tests');
 			tests = Array.isArray(res) ? res : (res?.data ?? []);
-		} catch (e) {
+		} catch {
 			error = 'Failed to load tests';
 		}
 	}
@@ -24,7 +24,7 @@
 			await uploadSQL(file);
 			file = null;
 			await loadTests();
-		} catch (e) {
+		} catch {
 			error = 'Upload failed';
 		}
 	}
@@ -50,7 +50,7 @@
 		<h2>Available Tests</h2>
 		{#if tests.length}
 			<ul>
-				{#each tests as t}
+				{#each tests as t (t.id)}
 					<li><a href={`/tests/${t.id}`}>{t.title}</a></li>
 				{/each}
 			</ul>
