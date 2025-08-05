@@ -23,13 +23,19 @@ async function run(sql) {
 
 export async function POST({ request }) {
 	const formData = await request.formData();
-	const file = formData.get('file');
-	const title = formData.get('title');
-	const teacher_pin = formData.get('teacher_pin');
-	if (!file || !title || !teacher_pin) {
-		return new Response('Missing file, title or teacher_pin', { status: 400 });
-	}
-	const text = await file.text();
+        const file = formData.get('file');
+        const title = formData.get('title');
+        const teacher_pin = formData.get('teacher_pin');
+        if (!file || !title || !teacher_pin) {
+                return new Response('Missing file, title or teacher_pin', { status: 400 });
+        }
+        const teacherExists = await run(
+                `SELECT 1 FROM teachers WHERE pin = '${escapeSql(teacher_pin)}' LIMIT 1`
+        );
+        if (!Array.isArray(teacherExists) || teacherExists.length === 0) {
+                return new Response('Invalid teacher PIN', { status: 400 });
+        }
+        const text = await file.text();
 	// create test
 	const testRow = await run(
 		`INSERT INTO tests (title, teacher_pin) VALUES ('${escapeSql(title)}', '${escapeSql(teacher_pin)}') RETURNING id`

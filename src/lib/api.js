@@ -1,5 +1,9 @@
 const BASE_URL = '/api';
 
+function escapeSql(str) {
+        return str.replace(/'/g, "''");
+}
+
 export async function query(fetch, sql) {
 	const res = await fetch(`${BASE_URL}/query`, {
 		method: 'POST',
@@ -43,8 +47,15 @@ export async function uploadTestSpreadsheet(fetch, { file, title, teacherPin }) 
 }
 
 export async function assignTest(fetch, { testId, studentName, studentPin }) {
-	const sql = `INSERT INTO test_attempts (test_id, student_name, student_pin) VALUES (${testId}, '${studentName}', '${studentPin}')`;
-	return query(fetch, sql);
+        const sql = `INSERT INTO test_attempts (test_id, student_name, student_pin)
+                SELECT ${testId}, '${escapeSql(studentName)}', '${escapeSql(studentPin)}'
+                WHERE EXISTS (SELECT 1 FROM students WHERE pin = '${escapeSql(studentPin)}')
+                RETURNING id`;
+        const res = await query(fetch, sql);
+        if (!Array.isArray(res) || res.length === 0) {
+                throw new Error('Student not found');
+        }
+        return res;
 }
 
 export async function setTestActive(fetch, { testId, teacherPin, isActive }) {
@@ -59,6 +70,16 @@ export async function getTeacherResults(fetch, teacherPin) {
 
 export async function getStudentResults(fetch, studentPin) {
         const sql = `SELECT t.title, ta.score, ta.completed_at FROM test_attempts ta JOIN tests t ON t.id = ta.test_id WHERE ta.student_pin = '${studentPin}'`;
+        return query(fetch, sql);
+}
+
+export async function addTeacher(fetch, { name, pin }) {
+        const sql = `INSERT INTO teachers (name, pin) VALUES ('${escapeSql(name)}', '${escapeSql(pin)}')`;
+        return query(fetch, sql);
+}
+
+export async function addStudent(fetch, { name, pin }) {
+        const sql = `INSERT INTO students (name, pin) VALUES ('${escapeSql(name)}', '${escapeSql(pin)}')`;
         return query(fetch, sql);
 }
 
