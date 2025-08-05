@@ -85,6 +85,7 @@
                 <img src={logo} alt="Law Test Randomizer logo" />
                 <h1>Law Test Randomizer</h1>
         </header>
+        <nav class="admin-link"><a href="/admin">Admin</a></nav>
 
         {#if error}
                 <p class="error">{error}</p>
@@ -168,7 +169,7 @@
 		font-family: system-ui, sans-serif;
 	}
 
-	.brand {
+        .brand {
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -205,5 +206,14 @@
         .error {
                 color: #c00;
                 margin-top: 1rem;
+        }
+
+        .admin-link {
+                text-align: right;
+        }
+
+        .admin-link a {
+                color: #0d3b66;
+                text-decoration: none;
         }
 </style>
