@@ -1,12 +1,13 @@
+import { PASSPHRASE } from '$env/static/private';
+
 const BASE_URL = 'https://web-production-b1513.up.railway.app';
-const TOKEN = import.meta.env.VITE_API_TOKEN;
 
 export async function query(sql) {
 	const res = await fetch(`${BASE_URL}/query`, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
-			...(TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {})
+			...(PASSPHRASE ? { Authorization: `Bearer ${PASSPHRASE}` } : {})
 		},
 		body: JSON.stringify({ sql, source: 'duckdb' })
 	});
@@ -22,7 +23,7 @@ export async function uploadSQL(file) {
 	const res = await fetch(`${BASE_URL}/query-file`, {
 		method: 'POST',
 		headers: {
-			...(TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {})
+			...(PASSPHRASE ? { Authorization: `Bearer ${PASSPHRASE}` } : {})
 		},
 		body: form
 	});

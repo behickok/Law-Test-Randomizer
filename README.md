@@ -49,11 +49,11 @@ This will create the tables used by the app for tests, questions and student att
 
 ## Authentication
 
-API requests now require a bearer token. Set `VITE_API_TOKEN` in your environment before running the app:
+API requests now require a bearer token. Set `PASSPHRASE` in your environment before running the app:
 
 ```sh
-export VITE_API_TOKEN=your_token_here
+export PASSPHRASE=your_token_here
 npm run dev
 ```
 
-The token will be sent in the `Authorization` header for all queries.
+The token will be sent in the `Authorization` header for all queries using SvelteKit's [environment modules](https://kit.svelte.dev/docs/load#environment).
