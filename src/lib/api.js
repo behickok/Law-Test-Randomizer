@@ -1,15 +1,12 @@
-import { PUBLIC_PASSPHRASE } from '$env/static/public';
+const BASE_URL = '/api';
 
-const BASE_URL = 'https://web-production-b1513.up.railway.app';
-
-export async function query(sql) {
+export async function query(fetch, sql) {
 	const res = await fetch(`${BASE_URL}/query`, {
 		method: 'POST',
 		headers: {
-			'Content-Type': 'application/json',
-			...(PUBLIC_PASSPHRASE ? { Authorization: `Bearer ${PUBLIC_PASSPHRASE}` } : {})
+			'Content-Type': 'application/json'
 		},
-		body: JSON.stringify({ sql, source: 'duckdb' })
+		body: JSON.stringify({ sql })
 	});
 	if (!res.ok) {
 		throw new Error(await res.text());
@@ -17,14 +14,11 @@ export async function query(sql) {
 	return res.json();
 }
 
-export async function uploadSQL(file) {
+export async function uploadSQL(fetch, file) {
 	const form = new FormData();
 	form.append('sql_file', file);
 	const res = await fetch(`${BASE_URL}/query-file`, {
 		method: 'POST',
-		headers: {
-			...(PASSPHRASE ? { Authorization: `Bearer ${PASSPHRASE}` } : {})
-		},
 		body: form
 	});
 	if (!res.ok) {

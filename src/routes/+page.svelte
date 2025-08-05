@@ -1,33 +1,9 @@
 <script>
-	import { onMount } from 'svelte';
-	import { query, uploadSQL } from '$lib/api';
 	import logo from '$lib/assets/favicon.svg';
 
-	let tests = [];
-	let error = '';
-	let file;
-
-	async function loadTests() {
-		try {
-			const res = await query('select id, title, description from tests');
-			tests = Array.isArray(res) ? res : (res?.data ?? []);
-		} catch {
-			error = 'Failed to load tests';
-		}
-	}
-
-	onMount(loadTests);
-
-	async function handleUpload() {
-		if (!file) return;
-		try {
-			await uploadSQL(file);
-			file = null;
-			await loadTests();
-		} catch {
-			error = 'Upload failed';
-		}
-	}
+	let { data, form } = $props();
+	let tests = data.tests;
+	let error = data.error ?? '';
 </script>
 
 <main>
@@ -38,12 +14,14 @@
 
 	<section class="upload">
 		<h2>Upload Test (SQL)</h2>
-		<input type="file" accept=".sql" on:change={(e) => (file = e.target.files[0])} />
-		<button on:click|preventDefault={handleUpload}>Upload</button>
+		<form method="POST" enctype="multipart/form-data">
+			<input type="file" name="sql_file" accept=".sql" />
+			<button type="submit" formaction="?/upload">Upload</button>
+		</form>
 	</section>
 
-	{#if error}
-		<p class="error">{error}</p>
+	{#if form?.error || error}
+		<p class="error">{form?.error || error}</p>
 	{/if}
 
 	<section class="tests">
