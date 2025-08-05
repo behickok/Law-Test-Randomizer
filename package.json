@@ -12,7 +12,7 @@
 		"lint": "prettier --check . && eslint .",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run && npm run test:e2e",
-		"test:e2e": "playwright test"
+		"test:e2e": "cross-env PASSPHRASE=\"dummy-passphrase\" playwright test"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.2.5",
@@ -33,5 +33,9 @@
 		"vite": "^7.0.4",
 		"vitest": "^3.2.3",
 		"vitest-browser-svelte": "^0.1.0"
+	},
+	"dependencies": {
+		"cross-env": "^10.0.0",
+		"dotenv": "^17.2.1"
 	}
 }

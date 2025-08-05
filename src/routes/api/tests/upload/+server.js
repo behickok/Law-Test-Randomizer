@@ -1,4 +1,4 @@
-import { PUBLIC_PASSPHRASE } from '$env/static/public';
+import { PASSPHRASE } from '$env/dynamic/private';
 
 const BASE_URL = 'https://web-production-b1513.up.railway.app';
 
@@ -11,7 +11,7 @@ async function run(sql) {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
-			...(PUBLIC_PASSPHRASE ? { Authorization: `Bearer ${PUBLIC_PASSPHRASE}` } : {})
+			...(PASSPHRASE ? { Authorization: `Bearer ${PASSPHRASE}` } : {})
 		},
 		body: JSON.stringify({ sql, source: 'duckdb' })
 	});
@@ -23,22 +23,21 @@ async function run(sql) {
 
 export async function POST({ request }) {
 	const formData = await request.formData();
-        const file = formData.get('file');
-        const title = formData.get('title');
-        const teacher_pin = formData.get('teacher_pin');
-        if (!file || !title || !teacher_pin) {
-                return new Response('Missing file, title or teacher_pin', { status: 400 });
-        }
-        const teacherExists = await run(
-                `SELECT 1 FROM teachers WHERE pin = '${escapeSql(teacher_pin)}' LIMIT 1`
-        );
-        if (!Array.isArray(teacherExists) || teacherExists.length === 0) {
-                return new Response('Invalid teacher PIN', { status: 400 });
-        }
-        const text = await file.text();
+	const file = formData.get('file');
+	const title = formData.get('title');
+	const teacher_id = formData.get('teacher_id');
+	if (!file || !title || !teacher_id) {
+		return new Response('Missing file, title or teacher_id', { status: 400 });
+	}
+	if (!/^\d+$/.test(teacher_id)) {
+		return new Response('Invalid teacher_id format', { status: 400 });
+	}
+	const text = await file.text();
 	// create test
 	const testRow = await run(
-		`INSERT INTO tests (title, teacher_pin) VALUES ('${escapeSql(title)}', '${escapeSql(teacher_pin)}') RETURNING id`
+		`INSERT INTO tests (title, teacher_id) VALUES ('${escapeSql(
+			title
+		)}', ${teacher_id}) RETURNING id`
 	);
 	const test_id = testRow[0].id;
 	const lines = text.trim().split(/\r?\n/);
