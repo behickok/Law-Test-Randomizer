@@ -58,6 +58,16 @@ export async function getTeacherResults(fetch, teacherPin) {
 }
 
 export async function getStudentResults(fetch, studentPin) {
-	const sql = `SELECT t.title, ta.score, ta.completed_at FROM test_attempts ta JOIN tests t ON t.id = ta.test_id WHERE ta.student_pin = '${studentPin}'`;
-	return query(fetch, sql);
+        const sql = `SELECT t.title, ta.score, ta.completed_at FROM test_attempts ta JOIN tests t ON t.id = ta.test_id WHERE ta.student_pin = '${studentPin}'`;
+        return query(fetch, sql);
+}
+
+export async function updateQuestion(fetch, { questionId, text, teacherPin }) {
+        const sql = `UPDATE questions SET question_text = '${text}' WHERE id = ${questionId} AND EXISTS (SELECT 1 FROM tests t WHERE t.id = questions.test_id AND t.teacher_pin = '${teacherPin}')`;
+        return query(fetch, sql);
+}
+
+export async function updateChoice(fetch, { choiceId, text, isCorrect, teacherPin }) {
+        const sql = `UPDATE choices SET choice_text = '${text}', is_correct = ${isCorrect ? 'TRUE' : 'FALSE'} WHERE id = ${choiceId} AND EXISTS (SELECT 1 FROM questions q JOIN tests t ON q.test_id = t.id WHERE q.id = choices.question_id AND t.teacher_pin = '${teacherPin}')`;
+        return query(fetch, sql);
 }
