@@ -46,3 +46,14 @@ curl -X POST -F "sql_file=@migrations/001_init.sql" https://web-production-b1513
 ```
 
 This will create the tables used by the app for tests, questions and student attempts.
+
+## Authentication
+
+API requests now require a bearer token. Set `VITE_API_TOKEN` in your environment before running the app:
+
+```sh
+export VITE_API_TOKEN=your_token_here
+npm run dev
+```
+
+The token will be sent in the `Authorization` header for all queries.
