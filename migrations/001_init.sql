@@ -37,3 +37,29 @@ CREATE TABLE IF NOT EXISTS attempt_answers (
     is_correct BOOLEAN NOT NULL DEFAULT FALSE
 );
 
+-- ---------------------------------------------------------------------------
+-- Sample seed data to make the application usable out of the box.
+-- ---------------------------------------------------------------------------
+
+INSERT INTO tests (title, description) VALUES
+    ('Civics Sample', 'Basic questions about U.S. law');
+
+-- Questions for test id 1
+INSERT INTO questions (test_id, question_text) VALUES
+    (1, 'What is the supreme law of the land?'),
+    (1, 'Who is in charge of the executive branch?');
+
+-- Choices for question 1
+INSERT INTO choices (question_id, choice_text, is_correct) VALUES
+    (1, 'The Constitution', TRUE),
+    (1, 'The Federalist Papers', FALSE),
+    (1, 'The Declaration of Independence', FALSE),
+    (1, 'The Articles of Confederation', FALSE);
+
+-- Choices for question 2
+INSERT INTO choices (question_id, choice_text, is_correct) VALUES
+    (2, 'The President', TRUE),
+    (2, 'The Chief Justice', FALSE),
+    (2, 'The Speaker of the House', FALSE),
+    (2, 'The Senate Majority Leader', FALSE);
+
