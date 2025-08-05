@@ -36,3 +36,13 @@ npm run build
 You can preview the production build with `npm run preview`.
 
 > To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+
+## Database migrations
+
+This project includes SQL migrations for the DuckDB backend. The scripts live in the `migrations/` directory. To apply the initial schema, upload the SQL file to the FastAPI service:
+
+```sh
+curl -X POST -F "sql_file=@migrations/001_init.sql" https://web-production-b1513.up.railway.app/query-file
+```
+
+This will create the tables used by the app for tests, questions and student attempts.
