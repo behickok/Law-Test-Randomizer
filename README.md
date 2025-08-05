@@ -43,25 +43,27 @@ The app now uses simple PIN codes rather than full authentication. A teacher PIN
 
 ### Upload a test from a spreadsheet
 
-1. Prepare a CSV file where each row is `question,correct answer,wrong answer 1,wrong answer 2...`.
-2. Call `uploadTestSpreadsheet` with the CSV file, a test title and your teacher PIN. The questions and choices will be created for you.
+1. On the home page enter a test title and your teacher PIN in the **Upload Test** section.
+2. Select a CSV where each row is `question,correct answer,wrong answer 1,...`.
+3. Click **Upload** to create the test and its choices.
 
 ### Manage tests
 
-- Toggle whether a test is active with `setTestActive`.
-- Update questions or answers by issuing SQL queries through the existing `query` helper.
+- In **Manage Tests**, enter your teacher PIN to reveal controls.
+- Use the **Activate/Deactivate** buttons next to each test to control availability.
+- Click a test title to edit questions and answers. After entering your teacher PIN on the test page you can modify text, mark the correct choice and save.
 
 ### Review test responses
 
-- Fetch aggregated results for your tests with `getTeacherResults(teacherPin)`.
+- Enter your teacher PIN in **Review Test Responses** and click **Load Results** to see student scores for your tests.
 
 ### Assign a test to a student
 
-- Use `assignTest` with a student's name and a unique student PIN. This creates a test attempt for the student.
+- Use **Assign Test to Student** to pick a test, enter the student's name and a unique student PIN, then click **Assign**.
 
 ### Student review of results
 
-- Students can call `getStudentResults(studentPin)` to see scores and completion times for their attempts.
+- Students can open **Student Results**, provide their PIN and click **Load** to view their scores and completion times.
 
 ## Database migrations
 

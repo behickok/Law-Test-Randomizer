@@ -2,9 +2,9 @@ import { fail } from '@sveltejs/kit';
 import { query, uploadSQL } from '$lib/api';
 
 export async function load({ fetch }) {
-	try {
-		const res = await query(fetch, 'select id, title, description from tests');
-		const tests = Array.isArray(res) ? res : (res?.data ?? []);
+        try {
+                const res = await query(fetch, 'select id, title, description, is_active from tests');
+                const tests = Array.isArray(res) ? res : (res?.data ?? []);
 		return { tests };
 	} catch {
 		return { tests: [], error: 'Failed to load tests' };
