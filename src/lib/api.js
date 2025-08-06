@@ -54,21 +54,26 @@ export async function uploadSQL(fetch, file) {
 }
 
 export async function uploadTestSpreadsheet(fetch, { file, title, teacherId }) {
-	validateString(title);
-	validateNumeric(teacherId);
+        if (!file) {
+                throw new Error('File is required');
+        }
 
-	const form = new FormData();
-	form.append('file', file);
-	form.append('title', title);
-	form.append('teacher_id', teacherId);
-	const res = await fetch(`${BASE_URL}/tests/upload`, {
-		method: 'POST',
-		body: form
-	});
-	if (!res.ok) {
-		throw new Error(await res.text());
-	}
-	return res.json();
+        const derivedTitle = title?.trim() || file.name.replace(/\.[^/.]+$/, '');
+        const cleanTitle = validateString(derivedTitle);
+        const cleanTeacherId = validateNumeric(teacherId);
+
+        const form = new FormData();
+        form.append('file', file);
+        form.append('title', cleanTitle);
+        form.append('teacher_id', cleanTeacherId);
+        const res = await fetch(`${BASE_URL}/tests/upload`, {
+                method: 'POST',
+                body: form
+        });
+        if (!res.ok) {
+                throw new Error(await res.text());
+        }
+        return res.json();
 }
 
 export async function assignTest(fetch, { testId, studentId, studentName }) {
