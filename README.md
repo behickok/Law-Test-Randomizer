@@ -83,10 +83,10 @@ This will create the tables used by the app for tests, questions and student att
 
 ## Authentication
 
-API requests now require a bearer token. Set `PASSPHRASE` in your environment before running the app:
+API requests now require a bearer token. Set `PUBLIC_PASSPHRASE` in your environment before running the app:
 
 ```sh
-export PASSPHRASE=your_token_here
+export PUBLIC_PASSPHRASE=your_token_here
 npm run dev
 ```
 

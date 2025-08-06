@@ -1,4 +1,4 @@
-import { PASSPHRASE } from '$lib/server/env';
+import { PUBLIC_PASSPHRASE } from '$lib/server/env';
 
 const BASE_URL = 'https://web-production-b1513.up.railway.app';
 
@@ -11,7 +11,7 @@ async function run(sql) {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
-			...(PASSPHRASE ? { Authorization: `Bearer ${PASSPHRASE}` } : {})
+                        ...(PUBLIC_PASSPHRASE ? { Authorization: `Bearer ${PUBLIC_PASSPHRASE}` } : {})
 		},
 		body: JSON.stringify({ sql, source: 'duckdb' })
 	});
