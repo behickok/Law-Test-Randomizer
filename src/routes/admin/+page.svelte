@@ -1,6 +1,6 @@
 <script>
 	import { user } from '$lib/user';
-	import { addTeacher, addStudent } from '$lib/api';
+	import { addTeacher, addStudent, query } from '$lib/api';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
@@ -36,6 +36,21 @@
 		}
 	}
 
+	let sql = '';
+	let queryOutput = '';
+	async function handleQuery() {
+		if (!$user || $user.role !== 'teacher') {
+			queryOutput = 'You must be logged in as a teacher to run queries.';
+			return;
+		}
+		try {
+			const res = await query(fetch, sql);
+			queryOutput = JSON.stringify(res, null, 2);
+		} catch (err) {
+			queryOutput = err.message;
+		}
+	}
+
 	onMount(() => {
 		if (!$user || $user.role !== 'teacher') {
 			goto('/');
@@ -62,6 +77,14 @@
 			<button on:click={handleAddStudent}>Add Student</button>
 			{#if studentMsg}
 				<p>{studentMsg}</p>
+			{/if}
+		</section>
+		<section>
+			<h2>Query Panel</h2>
+			<textarea rows="4" bind:value={sql} placeholder="Enter SQL"></textarea>
+			<button on:click={handleQuery}>Run Query</button>
+			{#if queryOutput}
+				<pre>{queryOutput}</pre>
 			{/if}
 		</section>
 	{:else}
