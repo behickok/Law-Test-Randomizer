@@ -22,16 +22,21 @@ async function run(sql) {
 }
 
 export async function POST({ request }) {
-	const formData = await request.formData();
-	const file = formData.get('file');
-	const title = formData.get('title');
-	const teacher_id = formData.get('teacher_id');
-	if (!file || !title || !teacher_id) {
-		return new Response('Missing file, title or teacher_id', { status: 400 });
-	}
-	if (!/^\d+$/.test(teacher_id)) {
-		return new Response('Invalid teacher_id format', { status: 400 });
-	}
+        const formData = await request.formData();
+        const file = formData.get('file');
+        let title = formData.get('title');
+        let teacher_id = formData.get('teacher_id') || request.headers.get('x-teacher-id');
+
+        if (file && !title) {
+                title = file.name.replace(/\.[^/.]+$/, '');
+        }
+
+        if (!file || !title || !teacher_id) {
+                return new Response('Missing file, title or teacher_id', { status: 400 });
+        }
+        if (!/^\d+$/.test(teacher_id)) {
+                return new Response('Invalid teacher_id format', { status: 400 });
+        }
 	const text = await file.text();
 	// create test
 	const testRow = await run(

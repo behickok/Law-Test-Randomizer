@@ -17,18 +17,19 @@
 	let title = '';
 	let uploadMsg = '';
 
-	async function handleUpload() {
-		if (!$user || $user.role !== 'teacher') {
-			uploadMsg = 'You must be logged in as a teacher to upload tests.';
-			return;
-		}
-		try {
-			await uploadTestSpreadsheet(fetch, { file, title, teacherId: $user.id });
-			uploadMsg = 'Uploaded';
-		} catch {
-			uploadMsg = 'Upload failed';
-		}
-	}
+        async function handleUpload() {
+                if (!$user || $user.role !== 'teacher') {
+                        uploadMsg = 'You must be logged in as a teacher to upload tests.';
+                        return;
+                }
+                const autoTitle = title.trim() || file?.name?.replace(/\.[^/.]+$/, '');
+                try {
+                        await uploadTestSpreadsheet(fetch, { file, title: autoTitle, teacherId: $user.id });
+                        uploadMsg = 'Uploaded';
+                } catch {
+                        uploadMsg = 'Upload failed';
+                }
+        }
 
 	async function toggleActive(t) {
 		if (!$user || $user.role !== 'teacher') {
@@ -114,12 +115,21 @@
 		{#if $user.role === 'teacher'}
 			<section class="upload">
 				<h2>Upload Test (Spreadsheet)</h2>
-				<input type="text" placeholder="Title" bind:value={title} />
-				<input type="file" accept=".csv" on:change={(e) => (file = e.target.files[0])} />
-				<button on:click={handleUpload}>Upload</button>
-				{#if uploadMsg}
-					<p>{uploadMsg}</p>
-				{/if}
+                                <input type="text" placeholder="Title" bind:value={title} />
+                                <input
+                                        type="file"
+                                        accept=".csv"
+                                        on:change={(e) => {
+                                                file = e.target.files[0];
+                                                if (!title) {
+                                                        title = file?.name?.replace(/\.[^/.]+$/, '');
+                                                }
+                                        }}
+                                />
+                                <button on:click={handleUpload}>Upload</button>
+                                {#if uploadMsg}
+                                        <p>{uploadMsg}</p>
+                                {/if}
 			</section>
 
 			<section class="tests">
