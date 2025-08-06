@@ -1,4 +1,4 @@
-import { PASSPHRASE } from '$env/dynamic/private';
+import { PASSPHRASE } from '$lib/server/env';
 
 const BASE_URL = 'https://web-production-b1513.up.railway.app';
 
