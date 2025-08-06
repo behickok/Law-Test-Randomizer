@@ -1,6 +1,3 @@
-import { config } from 'dotenv';
+import { PUBLIC_PASSPHRASE } from '$env/static/public';
 
-// Load variables from the .Env file if present
-config({ path: `${process.cwd()}/.Env` });
-
-export const PASSPHRASE = process.env.PASSPHRASE;
+export { PUBLIC_PASSPHRASE };

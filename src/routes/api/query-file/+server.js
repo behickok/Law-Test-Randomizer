@@ -1,4 +1,4 @@
-import { PASSPHRASE } from '$lib/server/env';
+import { PUBLIC_PASSPHRASE } from '$lib/server/env';
 
 const BASE_URL = 'https://web-production-b1513.up.railway.app';
 
@@ -7,7 +7,7 @@ export async function POST({ request }) {
 	const res = await fetch(`${BASE_URL}/query-file`, {
 		method: 'POST',
 		headers: {
-			...(PASSPHRASE ? { Authorization: `Bearer ${PASSPHRASE}` } : {})
+                        ...(PUBLIC_PASSPHRASE ? { Authorization: `Bearer ${PUBLIC_PASSPHRASE}` } : {})
 		},
 		body: formData
 	});
