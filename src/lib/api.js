@@ -139,7 +139,27 @@ export async function addStudent(fetch, { name, pin, teacherId }) {
 
 export async function getClassStudents(fetch, teacherId) {
 	const cleanTeacherId = validateNumeric(teacherId);
-	const sql = `SELECT s.id, s.name FROM classes c JOIN students s ON s.id = c.student_id WHERE c.teacher_id = ${cleanTeacherId}`;
+	const sql = `SELECT s.id, s.name FROM classes c JOIN students s ON s.id = c.student_id WHERE c.teacher_id = ${cleanTeacherId} AND c.status = 'active'`;
+	return query(fetch, sql);
+}
+
+export async function requestClassJoin(fetch, { studentId, teacherPin }) {
+	const cleanStudentId = validateNumeric(studentId);
+	const cleanTeacherPin = validateNumeric(teacherPin);
+	const sql = `INSERT INTO classes (teacher_id, student_id, status) SELECT id, ${cleanStudentId}, 'pending' FROM teachers WHERE pin = '${escapeSql(cleanTeacherPin)}' ON CONFLICT (teacher_id, student_id) DO UPDATE SET status = 'pending'`;
+	return query(fetch, sql);
+}
+
+export async function getPendingStudents(fetch, teacherId) {
+	const cleanTeacherId = validateNumeric(teacherId);
+	const sql = `SELECT s.id, s.name FROM classes c JOIN students s ON s.id = c.student_id WHERE c.teacher_id = ${cleanTeacherId} AND c.status = 'pending'`;
+	return query(fetch, sql);
+}
+
+export async function approveStudent(fetch, { teacherId, studentId }) {
+	const cleanTeacherId = validateNumeric(teacherId);
+	const cleanStudentId = validateNumeric(studentId);
+	const sql = `UPDATE classes SET status = 'active' WHERE teacher_id = ${cleanTeacherId} AND student_id = ${cleanStudentId}`;
 	return query(fetch, sql);
 }
 
