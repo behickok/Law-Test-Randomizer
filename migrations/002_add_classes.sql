@@ -1,7 +1,10 @@
+drop table if exists classes;
+
 -- Create classes table linking teachers and students
 CREATE TABLE IF NOT EXISTS classes (
     teacher_id INTEGER NOT NULL REFERENCES teachers(id),
     student_id INTEGER NOT NULL REFERENCES students(id),
+     status TEXT NOT NULL DEFAULT 'active',
     PRIMARY KEY (teacher_id, student_id)
 );
 
