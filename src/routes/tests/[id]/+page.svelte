@@ -1,6 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
-	import { query, updateQuestion, updateChoice } from '$lib/api';
+	import { updateQuestion, updateChoice } from '$lib/api';
 	import { user } from '$lib/user';
 
 	let { data } = $props();
