@@ -54,26 +54,26 @@ export async function uploadSQL(fetch, file) {
 }
 
 export async function uploadTestSpreadsheet(fetch, { file, title, teacherId }) {
-        if (!file) {
-                throw new Error('File is required');
-        }
+	if (!file) {
+		throw new Error('File is required');
+	}
 
-        const derivedTitle = title?.trim() || file.name.replace(/\.[^/.]+$/, '');
-        const cleanTitle = validateString(derivedTitle);
-        const cleanTeacherId = validateNumeric(teacherId);
+	const derivedTitle = title?.trim() || file.name.replace(/\.[^/.]+$/, '');
+	const cleanTitle = validateString(derivedTitle);
+	const cleanTeacherId = validateNumeric(teacherId);
 
-        const form = new FormData();
-        form.append('file', file);
-        form.append('title', cleanTitle);
-        form.append('teacher_id', cleanTeacherId);
-        const res = await fetch(`${BASE_URL}/tests/upload`, {
-                method: 'POST',
-                body: form
-        });
-        if (!res.ok) {
-                throw new Error(await res.text());
-        }
-        return res.json();
+	const form = new FormData();
+	form.append('file', file);
+	form.append('title', cleanTitle);
+	form.append('teacher_id', cleanTeacherId);
+	const res = await fetch(`${BASE_URL}/tests/upload`, {
+		method: 'POST',
+		body: form
+	});
+	if (!res.ok) {
+		throw new Error(await res.text());
+	}
+	return res.json();
 }
 
 export async function assignTest(fetch, { testId, studentId, studentName }) {
@@ -119,12 +119,27 @@ export async function addTeacher(fetch, { name, pin }) {
 	return query(fetch, sql);
 }
 
-export async function addStudent(fetch, { name, pin }) {
+export async function addStudent(fetch, { name, pin, teacherId }) {
 	const cleanName = validateString(name);
 	const cleanPin = validateNumeric(pin);
-	const sql = `INSERT INTO students (name, pin) VALUES ('${escapeSql(
+	const insertSql = `INSERT INTO students (name, pin) VALUES ('${escapeSql(
 		cleanName
-	)}', '${escapeSql(cleanPin)}')`;
+	)}', '${escapeSql(cleanPin)}') RETURNING id`;
+	const res = await query(fetch, insertSql);
+	const studentId = Array.isArray(res) ? res[0]?.id : res?.data?.[0]?.id;
+	if (teacherId !== undefined) {
+		const cleanTeacherId = validateNumeric(teacherId);
+		await query(
+			fetch,
+			`INSERT INTO classes (teacher_id, student_id) VALUES (${cleanTeacherId}, ${studentId})`
+		);
+	}
+	return res;
+}
+
+export async function getClassStudents(fetch, teacherId) {
+	const cleanTeacherId = validateNumeric(teacherId);
+	const sql = `SELECT s.id, s.name FROM classes c JOIN students s ON s.id = c.student_id WHERE c.teacher_id = ${cleanTeacherId}`;
 	return query(fetch, sql);
 }
 
@@ -143,9 +158,7 @@ export async function updateChoice(fetch, { choiceId, text, isCorrect, teacherId
 	const cleanText = validateString(text);
 	const cleanIsCorrect = validateBoolean(isCorrect);
 	const cleanTeacherId = validateNumeric(teacherId);
-	const sql = `UPDATE choices SET choice_text = '${escapeSql(
-		cleanText
-	)}', is_correct = ${
+	const sql = `UPDATE choices SET choice_text = '${escapeSql(cleanText)}', is_correct = ${
 		cleanIsCorrect ? 'TRUE' : 'FALSE'
 	} WHERE id = ${cleanChoiceId} AND EXISTS (SELECT 1 FROM questions q JOIN tests t ON q.test_id = t.id WHERE q.id = choices.question_id AND t.teacher_id = ${cleanTeacherId})`;
 	return query(fetch, sql);

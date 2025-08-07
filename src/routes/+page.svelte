@@ -6,8 +6,9 @@
 		assignTest,
 		getTeacherResults,
 		getStudentResults,
-		query
+		getClassStudents
 	} from '$lib/api';
+	import { onMount } from 'svelte';
 
 	let { data } = $props();
 	let tests = data.tests;
@@ -17,19 +18,19 @@
 	let title = '';
 	let uploadMsg = '';
 
-        async function handleUpload() {
-                if (!$user || $user.role !== 'teacher') {
-                        uploadMsg = 'You must be logged in as a teacher to upload tests.';
-                        return;
-                }
-                const autoTitle = title.trim() || file?.name?.replace(/\.[^/.]+$/, '');
-                try {
-                        await uploadTestSpreadsheet(fetch, { file, title: autoTitle, teacherId: $user.id });
-                        uploadMsg = 'Uploaded';
-                } catch {
-                        uploadMsg = 'Upload failed';
-                }
-        }
+	async function handleUpload() {
+		if (!$user || $user.role !== 'teacher') {
+			uploadMsg = 'You must be logged in as a teacher to upload tests.';
+			return;
+		}
+		const autoTitle = title.trim() || file?.name?.replace(/\.[^/.]+$/, '');
+		try {
+			await uploadTestSpreadsheet(fetch, { file, title: autoTitle, teacherId: $user.id });
+			uploadMsg = 'Uploaded';
+		} catch {
+			uploadMsg = 'Upload failed';
+		}
+	}
 
 	async function toggleActive(t) {
 		if (!$user || $user.role !== 'teacher') {
@@ -49,23 +50,41 @@
 	}
 
 	let assignTestId = '';
-	let studentName = '';
+	let students = [];
+	let selectedStudentId = '';
 	let assignMsg = '';
+
+	async function loadStudents() {
+		if (!$user || $user.role !== 'teacher') {
+			return;
+		}
+		try {
+			const res = await getClassStudents(fetch, $user.id);
+			students = Array.isArray(res) ? res : (res?.data ?? []);
+		} catch {
+			students = [];
+		}
+	}
+
+	onMount(loadStudents);
 
 	async function handleAssign() {
 		if (!$user || $user.role !== 'teacher') {
 			assignMsg = 'You must be logged in as a teacher to assign tests.';
 			return;
 		}
-		const students = await query(fetch, `SELECT id FROM students WHERE name = '${studentName}'`);
-		if (students.length === 0) {
+		const selectedStudent = students.find((s) => s.id == selectedStudentId);
+		if (!selectedStudent) {
 			assignMsg = 'Student not found';
 			return;
 		}
-		const studentId = students[0].id;
 
 		try {
-			await assignTest(fetch, { testId: assignTestId, studentId, studentName });
+			await assignTest(fetch, {
+				testId: assignTestId,
+				studentId: selectedStudentId,
+				studentName: selectedStudent.name
+			});
 			assignMsg = 'Assigned';
 		} catch (e) {
 			assignMsg = e.message;
@@ -80,7 +99,7 @@
 		}
 		try {
 			const res = await getTeacherResults(fetch, $user.id);
-			teacherResults = Array.isArray(res) ? res : res?.data ?? [];
+			teacherResults = Array.isArray(res) ? res : (res?.data ?? []);
 		} catch {
 			teacherResults = [];
 		}
@@ -94,7 +113,7 @@
 		}
 		try {
 			const res = await getStudentResults(fetch, $user.id);
-			studentResults = Array.isArray(res) ? res : res?.data ?? [];
+			studentResults = Array.isArray(res) ? res : (res?.data ?? []);
 		} catch {
 			studentResults = [];
 		}
@@ -115,21 +134,21 @@
 		{#if $user.role === 'teacher'}
 			<section class="upload">
 				<h2>Upload Test (Spreadsheet)</h2>
-                                <input type="text" placeholder="Title" bind:value={title} />
-                                <input
-                                        type="file"
-                                        accept=".csv"
-                                        on:change={(e) => {
-                                                file = e.target.files[0];
-                                                if (!title) {
-                                                        title = file?.name?.replace(/\.[^/.]+$/, '');
-                                                }
-                                        }}
-                                />
-                                <button on:click={handleUpload}>Upload</button>
-                                {#if uploadMsg}
-                                        <p>{uploadMsg}</p>
-                                {/if}
+				<input type="text" placeholder="Title" bind:value={title} />
+				<input
+					type="file"
+					accept=".csv"
+					on:change={(e) => {
+						file = e.target.files[0];
+						if (!title) {
+							title = file?.name?.replace(/\.[^/.]+$/, '');
+						}
+					}}
+				/>
+				<button on:click={handleUpload}>Upload</button>
+				{#if uploadMsg}
+					<p>{uploadMsg}</p>
+				{/if}
 			</section>
 
 			<section class="tests">
@@ -159,7 +178,12 @@
 						<option value={t.id}>{t.title}</option>
 					{/each}
 				</select>
-				<input type="text" placeholder="Student name" bind:value={studentName} />
+				<select bind:value={selectedStudentId}>
+					<option value="">Select student</option>
+					{#each students as s}
+						<option value={s.id}>{s.name}</option>
+					{/each}
+				</select>
 				<button on:click={handleAssign}>Assign</button>
 				{#if assignMsg}
 					<p>{assignMsg}</p>
