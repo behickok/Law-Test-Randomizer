@@ -3,6 +3,7 @@
 	import { addTeacher, addStudent, query } from '$lib/api';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { writable } from 'svelte/store';
 
 	let teacherName = '';
 	let teacherPin = '';
@@ -37,17 +38,17 @@
 	}
 
 	let sql = '';
-	let queryOutput = '';
+	const queryOutput = writable('');
 	async function handleQuery() {
 		if (!$user || $user.role !== 'teacher') {
-			queryOutput = 'You must be logged in as a teacher to run queries.';
+			queryOutput.set('You must be logged in as a teacher to run queries.');
 			return;
 		}
 		try {
 			const res = await query(fetch, sql);
-			queryOutput = JSON.stringify(res, null, 2);
+			queryOutput.set(JSON.stringify(res, null, 2));
 		} catch (err) {
-			queryOutput = err.message;
+			queryOutput.set(err.message);
 		}
 	}
 
@@ -83,8 +84,8 @@
 			<h2>Query Panel</h2>
 			<textarea rows="4" bind:value={sql} placeholder="Enter SQL"></textarea>
 			<button on:click={handleQuery}>Run Query</button>
-			{#if queryOutput}
-				<pre>{queryOutput}</pre>
+			{#if $queryOutput}
+				<pre>{$queryOutput}</pre>
 			{/if}
 		</section>
 	{:else}

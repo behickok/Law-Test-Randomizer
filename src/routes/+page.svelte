@@ -12,9 +12,10 @@
 		approveStudent
 	} from '$lib/api';
 	import { onMount } from 'svelte';
+	import { writable } from 'svelte/store';
 
 	let { data } = $props();
-	let tests = data.tests;
+	const tests = writable(data.tests ?? []);
 	let error = data.error ?? '';
 
 	let file;
@@ -46,17 +47,17 @@
 				teacherId: $user.id,
 				isActive: !t.is_active
 			});
-			t.is_active = !t.is_active;
+			tests.update((ts) => ts.map((x) => (x.id === t.id ? { ...x, is_active: !x.is_active } : x)));
 		} catch {
 			error = 'Failed to update test';
 		}
 	}
 
 	let assignTestId = '';
-	let students = $state([]);
+	const students = writable([]);
 	let selectedStudentId = '';
 	let assignMsg = '';
-	let pendingStudents = $state([]);
+	const pendingStudents = writable([]);
 
 	async function loadStudents() {
 		if (!$user || $user.role !== 'teacher') {
@@ -64,9 +65,9 @@
 		}
 		try {
 			const res = await getClassStudents(fetch, $user.id);
-			students = Array.isArray(res) ? res : (res?.data ?? []);
+			students.set(Array.isArray(res) ? res : (res?.data ?? []));
 		} catch {
-			students = [];
+			students.set([]);
 		}
 	}
 
@@ -76,9 +77,9 @@
 		}
 		try {
 			const res = await getPendingStudents(fetch, $user.id);
-			pendingStudents = Array.isArray(res) ? res : (res?.data ?? []);
+			pendingStudents.set(Array.isArray(res) ? res : (res?.data ?? []));
 		} catch {
-			pendingStudents = [];
+			pendingStudents.set([]);
 		}
 	}
 
@@ -92,7 +93,7 @@
 			assignMsg = 'You must be logged in as a teacher to assign tests.';
 			return;
 		}
-		const selectedStudent = students.find((s) => s.id == selectedStudentId);
+		const selectedStudent = $students.find((s) => s.id == selectedStudentId);
 		if (!selectedStudent) {
 			assignMsg = 'Student not found';
 			return;
@@ -110,7 +111,7 @@
 		}
 	}
 
-	let teacherResults = [];
+	const teacherResults = writable([]);
 
 	async function loadTeacherResults() {
 		if (!$user || $user.role !== 'teacher') {
@@ -118,13 +119,13 @@
 		}
 		try {
 			const res = await getTeacherResults(fetch, $user.id);
-			teacherResults = Array.isArray(res) ? res : (res?.data ?? []);
+			teacherResults.set(Array.isArray(res) ? res : (res?.data ?? []));
 		} catch {
-			teacherResults = [];
+			teacherResults.set([]);
 		}
 	}
 
-	let studentResults = [];
+	const studentResults = writable([]);
 
 	async function loadStudentResults() {
 		if (!$user || $user.role !== 'student') {
@@ -132,9 +133,9 @@
 		}
 		try {
 			const res = await getStudentResults(fetch, $user.id);
-			studentResults = Array.isArray(res) ? res : (res?.data ?? []);
+			studentResults.set(Array.isArray(res) ? res : (res?.data ?? []));
 		} catch {
-			studentResults = [];
+			studentResults.set([]);
 		}
 	}
 
@@ -160,7 +161,7 @@
 		}
 		try {
 			await approveStudent(fetch, { teacherId: $user.id, studentId: id });
-			pendingStudents = pendingStudents.filter((s) => s.id !== id);
+			pendingStudents.update((ps) => ps.filter((s) => s.id !== id));
 			await loadStudents();
 		} catch {}
 	}
@@ -199,9 +200,9 @@
 
 			<section class="tests">
 				<h2>Manage Tests</h2>
-				{#if tests.length}
+				{#if $tests.length}
 					<ul>
-						{#each tests as t (t.id)}
+						{#each $tests as t (t.id)}
 							<li>
 								<a href={`/tests/${t.id}`}>{t.title}</a>
 								<span>({t.is_active ? 'Active' : 'Inactive'})</span>
@@ -218,9 +219,9 @@
 
 			<section class="pending">
 				<h2>Pending Student Requests</h2>
-				{#if pendingStudents.length}
+				{#if $pendingStudents.length}
 					<ul>
-						{#each pendingStudents as s (s.id)}
+						{#each $pendingStudents as s (s.id)}
 							<li>{s.name} <button on:click={() => handleApprove(s.id)}>Accept</button></li>
 						{/each}
 					</ul>
@@ -233,13 +234,13 @@
 				<h2>Assign Test to Student</h2>
 				<select bind:value={assignTestId}>
 					<option value="">Select test</option>
-					{#each tests as t}
+					{#each $tests as t}
 						<option value={t.id}>{t.title}</option>
 					{/each}
 				</select>
 				<select bind:value={selectedStudentId}>
 					<option value="">Select student</option>
-					{#each students as s}
+					{#each $students as s}
 						<option value={s.id}>{s.name}</option>
 					{/each}
 				</select>
@@ -252,9 +253,9 @@
 			<section class="teacher-results">
 				<h2>Review Test Responses</h2>
 				<button on:click={loadTeacherResults}>Load Results</button>
-				{#if teacherResults.length}
+				{#if $teacherResults.length}
 					<ul>
-						{#each teacherResults as r}
+						{#each $teacherResults as r}
 							<li>{r.student_name}: {r.score} ({r.title})</li>
 						{/each}
 					</ul>
@@ -275,9 +276,9 @@
 			<section class="student-results">
 				<h2>My Tests</h2>
 				<button on:click={loadStudentResults}>Load</button>
-				{#if studentResults.length}
+				{#if $studentResults.length}
 					<ul>
-						{#each studentResults as r}
+						{#each $studentResults as r}
 							<li>
 								{#if r.score == null}
 									<a href={`/tests/${r.test_id}`}>{r.title}</a>
