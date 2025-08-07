@@ -9,6 +9,7 @@ vi.mock('$lib/api', () => ({
 	setTestActive: vi.fn(),
 	assignTest: vi.fn(),
 	getTeacherResults: vi.fn(),
+	getAttemptAnswers: vi.fn(),
 	getStudentResults: vi.fn(),
 	getClassStudents: vi.fn().mockResolvedValue([]),
 	requestClassJoin: vi.fn(),

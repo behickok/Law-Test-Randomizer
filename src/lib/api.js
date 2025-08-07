@@ -100,7 +100,13 @@ export async function setTestActive(fetch, { testId, teacherId, isActive }) {
 
 export async function getTeacherResults(fetch, teacherId) {
 	const cleanTeacherId = validateNumeric(teacherId);
-	const sql = `SELECT ta.student_name, ta.score, ta.completed_at, t.title FROM test_attempts ta JOIN tests t ON t.id = ta.test_id WHERE t.teacher_id = ${cleanTeacherId}`;
+	const sql = `SELECT ta.id, ta.student_name, ta.score, ta.completed_at, t.title FROM test_attempts ta JOIN tests t ON t.id = ta.test_id WHERE t.teacher_id = ${cleanTeacherId}`;
+	return query(fetch, sql);
+}
+
+export async function getAttemptAnswers(fetch, attemptId) {
+	const cleanAttemptId = validateNumeric(attemptId);
+	const sql = `SELECT q.question_text, c.choice_text, aa.is_correct FROM attempt_answers aa JOIN questions q ON q.id = aa.question_id JOIN choices c ON c.id = aa.choice_id WHERE aa.attempt_id = ${cleanAttemptId}`;
 	return query(fetch, sql);
 }
 

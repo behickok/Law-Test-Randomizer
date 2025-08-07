@@ -5,6 +5,7 @@
 		setTestActive,
 		assignTest,
 		getTeacherResults,
+		getAttemptAnswers,
 		getStudentResults,
 		getClassStudents,
 		requestClassJoin,
@@ -112,6 +113,7 @@
 	}
 
 	const teacherResults = writable([]);
+	const attemptAnswers = writable({});
 
 	async function loadTeacherResults() {
 		if (!$user || $user.role !== 'teacher') {
@@ -122,6 +124,18 @@
 			teacherResults.set(Array.isArray(res) ? res : (res?.data ?? []));
 		} catch {
 			teacherResults.set([]);
+		}
+	}
+
+	async function loadAttemptAnswers(id) {
+		try {
+			const res = await getAttemptAnswers(fetch, id);
+			attemptAnswers.update((m) => ({
+				...m,
+				[id]: Array.isArray(res) ? res : (res?.data ?? [])
+			}));
+		} catch {
+			attemptAnswers.update((m) => ({ ...m, [id]: [] }));
 		}
 	}
 
@@ -163,7 +177,9 @@
 			await approveStudent(fetch, { teacherId: $user.id, studentId: id });
 			pendingStudents.update((ps) => ps.filter((s) => s.id !== id));
 			await loadStudents();
-		} catch {}
+		} catch {
+			/* empty */
+		}
 	}
 </script>
 
@@ -234,13 +250,13 @@
 				<h2>Assign Test to Student</h2>
 				<select bind:value={assignTestId}>
 					<option value="">Select test</option>
-					{#each $tests as t}
+					{#each $tests as t (t.id)}
 						<option value={t.id}>{t.title}</option>
 					{/each}
 				</select>
 				<select bind:value={selectedStudentId}>
 					<option value="">Select student</option>
-					{#each $students as s}
+					{#each $students as s (s.id)}
 						<option value={s.id}>{s.name}</option>
 					{/each}
 				</select>
@@ -255,8 +271,30 @@
 				<button on:click={loadTeacherResults}>Load Results</button>
 				{#if $teacherResults.length}
 					<ul>
-						{#each $teacherResults as r}
-							<li>{r.student_name}: {r.score} ({r.title})</li>
+						{#each $teacherResults as r (r.id)}
+							<li>
+								<details
+									on:toggle={(e) => {
+										if (e.target.open) loadAttemptAnswers(r.id);
+									}}
+								>
+									<summary>
+										{r.student_name}: {r.score} ({r.title})
+									</summary>
+									{#if $attemptAnswers[r.id]?.length}
+										<ul>
+											{#each $attemptAnswers[r.id] as a (a.question_text)}
+												<li>
+													{a.question_text}: {a.choice_text}
+													{a.is_correct ? '✅' : '❌'}
+												</li>
+											{/each}
+										</ul>
+									{:else}
+										<p>No answers</p>
+									{/if}
+								</details>
+							</li>
 						{/each}
 					</ul>
 				{/if}
@@ -278,7 +316,7 @@
 				<button on:click={loadStudentResults}>Load</button>
 				{#if $studentResults.length}
 					<ul>
-						{#each $studentResults as r}
+						{#each $studentResults as r (r.test_id)}
 							<li>
 								{#if r.score == null}
 									<a href={`/tests/${r.test_id}`}>{r.title}</a>
