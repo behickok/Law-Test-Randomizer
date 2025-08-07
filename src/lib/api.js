@@ -106,7 +106,7 @@ export async function getTeacherResults(fetch, teacherId) {
 
 export async function getStudentResults(fetch, studentId) {
 	const cleanStudentId = validateNumeric(studentId);
-	const sql = `SELECT t.title, ta.score, ta.completed_at FROM test_attempts ta JOIN tests t ON t.id = ta.test_id WHERE ta.student_id = ${cleanStudentId}`;
+	const sql = `SELECT t.id AS test_id, t.title, ta.score, ta.completed_at FROM test_attempts ta JOIN tests t ON t.id = ta.test_id WHERE ta.student_id = ${cleanStudentId}`;
 	return query(fetch, sql);
 }
 

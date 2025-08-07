@@ -2,6 +2,7 @@ import { page } from '@vitest/browser/context';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { user } from '$lib/user';
+import { getStudentResults } from '$lib/api';
 
 vi.mock('$lib/api', () => ({
 	uploadTestSpreadsheet: vi.fn(),
@@ -47,5 +48,25 @@ describe('/+page.svelte', () => {
 
 		const item = page.getByText('Alice');
 		await expect.element(item).toBeInTheDocument();
+	});
+
+	it('displays assigned tests for students', async () => {
+		user.set({ id: 2, role: 'student' });
+		getStudentResults.mockResolvedValue([
+			{ test_id: 1, title: 'Test', score: null, completed_at: null }
+		]);
+		render(Page, {
+			props: {
+				data: {
+					tests: []
+				}
+			}
+		});
+
+		const loadBtn = page.getByRole('button', { name: 'Load' });
+		await loadBtn.click();
+
+		const link = page.getByRole('link', { name: 'Test' });
+		await expect.element(link).toBeInTheDocument();
 	});
 });

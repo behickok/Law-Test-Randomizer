@@ -273,12 +273,18 @@
 			</section>
 
 			<section class="student-results">
-				<h2>My Results</h2>
+				<h2>My Tests</h2>
 				<button on:click={loadStudentResults}>Load</button>
 				{#if studentResults.length}
 					<ul>
 						{#each studentResults as r}
-							<li>{r.title}: {r.score}</li>
+							<li>
+								{#if r.score == null}
+									<a href={`/tests/${r.test_id}`}>{r.title}</a>
+								{:else}
+									{r.title}: {r.score}
+								{/if}
+							</li>
 						{/each}
 					</ul>
 				{/if}
