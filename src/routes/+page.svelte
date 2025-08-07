@@ -53,10 +53,10 @@
 	}
 
 	let assignTestId = '';
-	let students = [];
+	let students = $state([]);
 	let selectedStudentId = '';
 	let assignMsg = '';
-	let pendingStudents = [];
+	let pendingStudents = $state([]);
 
 	async function loadStudents() {
 		if (!$user || $user.role !== 'teacher') {
