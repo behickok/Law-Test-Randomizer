@@ -5,14 +5,14 @@
 
 	let { data } = $props();
 	let test = data.test;
-	let questions = data.questions ?? [];
-	let student = '';
-	let submitted = false;
-	let score = 0;
-	let error = data.error ?? '';
+	let questions = $state(data.questions ?? []);
+	let student = $state('');
+	let submitted = $state(false);
+	let score = $state(0);
+	let error = $state(data.error ?? '');
 
-	let isTeacherOwner = false;
-	let saveMessage = '';
+	let isTeacherOwner = $state(false);
+	let saveMessage = $state('');
 
 	function shuffle(arr) {
 		return arr.sort(() => Math.random() - 0.5);
@@ -77,16 +77,11 @@
 						<input bind:value={q.text} />
 						{#each q.choices as c (c.id)}
 							<div class="choice">
-								<input
-									type="radio"
-									name={`correct-${q.id}`}
-									value={c.id}
-									bind:group={q.correct}
-								/>
+								<input type="radio" name={`correct-${q.id}`} value={c.id} bind:group={q.correct} />
 								<input bind:value={c.text} />
 							</div>
 						{/each}
-						<button on:click={() => saveQuestion(q)}>Save</button>
+						<button type="button" onclick={() => saveQuestion(q)}>Save</button>
 					</div>
 				{/each}
 				{#if saveMessage}
@@ -111,14 +106,14 @@
 										type="radio"
 										name={`q${q.id}`}
 										value={c.id}
-										on:change={() => (q.selected = c.id)}
+										onchange={() => (q.selected = c.id)}
 									/>
 									{c.text}
 								</label>
 							{/each}
 						</div>
 					{/each}
-					<button on:click={submit}>Submit</button>
+					<button type="button" onclick={submit}>Submit</button>
 				{:else}
 					<p>Score: {score} / {questions.length}</p>
 				{/if}
