@@ -6,7 +6,10 @@
 		assignTest,
 		getTeacherResults,
 		getStudentResults,
-		getClassStudents
+		getClassStudents,
+		requestClassJoin,
+		getPendingStudents,
+		approveStudent
 	} from '$lib/api';
 	import { onMount } from 'svelte';
 
@@ -53,6 +56,7 @@
 	let students = [];
 	let selectedStudentId = '';
 	let assignMsg = '';
+	let pendingStudents = [];
 
 	async function loadStudents() {
 		if (!$user || $user.role !== 'teacher') {
@@ -66,7 +70,22 @@
 		}
 	}
 
-	onMount(loadStudents);
+	async function loadPendingStudents() {
+		if (!$user || $user.role !== 'teacher') {
+			return;
+		}
+		try {
+			const res = await getPendingStudents(fetch, $user.id);
+			pendingStudents = Array.isArray(res) ? res : (res?.data ?? []);
+		} catch {
+			pendingStudents = [];
+		}
+	}
+
+	onMount(() => {
+		loadStudents();
+		loadPendingStudents();
+	});
 
 	async function handleAssign() {
 		if (!$user || $user.role !== 'teacher') {
@@ -117,6 +136,33 @@
 		} catch {
 			studentResults = [];
 		}
+	}
+
+	let teacherPin = '';
+	let joinMsg = '';
+
+	async function handleJoin() {
+		if (!$user || $user.role !== 'student') {
+			joinMsg = 'You must be logged in as a student to join a class.';
+			return;
+		}
+		try {
+			await requestClassJoin(fetch, { studentId: $user.id, teacherPin });
+			joinMsg = 'Request sent';
+		} catch (e) {
+			joinMsg = e.message;
+		}
+	}
+
+	async function handleApprove(id) {
+		if (!$user || $user.role !== 'teacher') {
+			return;
+		}
+		try {
+			await approveStudent(fetch, { teacherId: $user.id, studentId: id });
+			pendingStudents = pendingStudents.filter((s) => s.id !== id);
+			await loadStudents();
+		} catch {}
 	}
 </script>
 
@@ -170,6 +216,19 @@
 				{/if}
 			</section>
 
+			<section class="pending">
+				<h2>Pending Student Requests</h2>
+				{#if pendingStudents.length}
+					<ul>
+						{#each pendingStudents as s (s.id)}
+							<li>{s.name} <button on:click={() => handleApprove(s.id)}>Accept</button></li>
+						{/each}
+					</ul>
+				{:else}
+					<p>No pending requests.</p>
+				{/if}
+			</section>
+
 			<section class="assign">
 				<h2>Assign Test to Student</h2>
 				<select bind:value={assignTestId}>
@@ -204,6 +263,15 @@
 		{/if}
 
 		{#if $user.role === 'student'}
+			<section class="join-class">
+				<h2>Join Teacher's Class</h2>
+				<input type="text" placeholder="Teacher PIN" bind:value={teacherPin} />
+				<button on:click={handleJoin}>Join</button>
+				{#if joinMsg}
+					<p>{joinMsg}</p>
+				{/if}
+			</section>
+
 			<section class="student-results">
 				<h2>My Results</h2>
 				<button on:click={loadStudentResults}>Load</button>
