@@ -189,3 +189,53 @@ export async function updateChoice(fetch, { choiceId, text, isCorrect, teacherId
 	} WHERE id = ${cleanChoiceId} AND EXISTS (SELECT 1 FROM questions q JOIN tests t ON q.test_id = t.id WHERE q.id = choices.question_id AND t.teacher_id = ${cleanTeacherId})`;
 	return query(fetch, sql);
 }
+
+export async function submitAttempt(fetch, { testId, studentId, studentName, answers, score }) {
+	const cleanTestId = validateNumeric(testId);
+	const cleanStudentId = validateNumeric(studentId);
+	const cleanStudentName = validateString(studentName);
+	const cleanScore = validateNumeric(score);
+
+	const attemptRes = await query(
+		fetch,
+		`SELECT id FROM test_attempts WHERE test_id = ${cleanTestId} AND student_id = ${cleanStudentId} ORDER BY started_at DESC LIMIT 1`
+	);
+	const attemptId = Array.isArray(attemptRes) ? attemptRes[0]?.id : attemptRes?.data?.[0]?.id;
+
+	let id = attemptId;
+	if (!id) {
+		const insertRes = await query(
+			fetch,
+			`INSERT INTO test_attempts (test_id, student_id, student_name) VALUES (${cleanTestId}, ${cleanStudentId}, '${escapeSql(cleanStudentName)}') RETURNING id`
+		);
+		id = Array.isArray(insertRes) ? insertRes[0]?.id : insertRes?.data?.[0]?.id;
+	} else {
+		await query(
+			fetch,
+			`UPDATE test_attempts SET student_name = '${escapeSql(cleanStudentName)}' WHERE id = ${id}`
+		);
+		await query(fetch, `DELETE FROM attempt_answers WHERE attempt_id = ${id}`);
+	}
+
+	await query(
+		fetch,
+		`UPDATE test_attempts SET score = ${cleanScore}, completed_at = CURRENT_TIMESTAMP WHERE id = ${id}`
+	);
+
+	if (Array.isArray(answers) && answers.length > 0) {
+		const values = answers
+			.map((a) => {
+				const qId = validateNumeric(a.questionId);
+				const cId = validateNumeric(a.choiceId);
+				const isCorr = validateBoolean(!!a.isCorrect);
+				return `(${id}, ${qId}, ${cId}, ${isCorr ? 'TRUE' : 'FALSE'})`;
+			})
+			.join(', ');
+		await query(
+			fetch,
+			`INSERT INTO attempt_answers (attempt_id, question_id, choice_id, is_correct) VALUES ${values}`
+		);
+	}
+
+	return id;
+}

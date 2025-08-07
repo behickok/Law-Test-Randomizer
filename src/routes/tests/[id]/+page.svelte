@@ -1,6 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
-	import { updateQuestion, updateChoice } from '$lib/api';
+	import { updateQuestion, updateChoice, submitAttempt } from '$lib/api';
 	import { user } from '$lib/user';
 
 	let { data } = $props();
@@ -50,14 +50,27 @@
 		}
 	}
 
-	function submit() {
+	async function submit() {
+		const answers = [];
 		score = 0;
 		for (const q of questions) {
 			const choice = q.choices.find((c) => c.id == q.selected);
-			if (choice?.is_correct) score++;
+			const correct = !!choice?.is_correct;
+			if (correct) score++;
+			answers.push({ questionId: q.id, choiceId: q.selected, isCorrect: correct });
 		}
 		submitted = true;
-		// Here you would typically save the test attempt to the database
+		try {
+			await submitAttempt(fetch, {
+				testId: test.id,
+				studentId: $user.id,
+				studentName: student || $user.name,
+				answers,
+				score
+			});
+		} catch {
+			// ignore save error for now
+		}
 	}
 </script>
 
