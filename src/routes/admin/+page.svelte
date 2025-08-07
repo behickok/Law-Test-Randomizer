@@ -29,7 +29,7 @@
 			return;
 		}
 		try {
-			await addStudent(fetch, { name: studentName, pin: studentPin });
+			await addStudent(fetch, { name: studentName, pin: studentPin, teacherId: $user.id });
 			studentMsg = 'Student added';
 		} catch {
 			studentMsg = 'Failed to add student';
