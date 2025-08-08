@@ -12,7 +12,7 @@
 		getPendingStudents,
 		approveStudent
 	} from '$lib/api';
-	import { onMount } from 'svelte';
+	import { onMount, $effect } from 'svelte';
 	import { writable } from 'svelte/store';
 
 	let { data } = $props();
@@ -87,6 +87,25 @@
 	onMount(() => {
 		loadStudents();
 		loadPendingStudents();
+		if ($user?.role === 'teacher') {
+			loadTeacherResults();
+		}
+		if ($user?.role === 'student') {
+			loadStudentResults();
+		}
+	});
+
+	// Reactive loading when user state changes
+	$effect(() => {
+		if ($user) {
+			if ($user.role === 'teacher') {
+				loadStudents();
+				loadPendingStudents();
+				loadTeacherResults();
+			} else if ($user.role === 'student') {
+				loadStudentResults();
+			}
+		}
 	});
 
 	async function handleAssign() {
@@ -377,9 +396,6 @@
 								<span class="section-icon">📊</span>
 								Test Results
 							</h2>
-							<button on:click={loadTeacherResults} class="btn btn-secondary">
-								Refresh Results
-							</button>
 						</div>
 						<div class="card-content">
 							{#if $teacherResults.length}
@@ -473,7 +489,6 @@
 									<span class="section-icon">📝</span>
 									My Tests
 								</h2>
-								<button on:click={loadStudentResults} class="btn btn-secondary"> Refresh </button>
 							</div>
 							<div class="card-content">
 								{#if $studentResults.length}
@@ -764,17 +779,6 @@
 	.btn-primary:hover {
 		transform: translateY(-2px);
 		box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
-	}
-
-	.btn-secondary {
-		background: rgba(107, 114, 128, 0.1);
-		color: #374151;
-		border: 1px solid rgba(107, 114, 128, 0.3);
-	}
-
-	.btn-secondary:hover {
-		background: rgba(107, 114, 128, 0.2);
-		transform: translateY(-1px);
 	}
 
 	.btn-success {
