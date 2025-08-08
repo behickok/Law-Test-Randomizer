@@ -37,6 +37,31 @@
 		}
 	}
 
+	function downloadTemplate() {
+		// Create sample CSV content with proper format
+		const csvContent = `Question,Option A,Option B,Option C,Option D,Correct Answer
+"What is the primary source of law in most legal systems?","Constitution","Statutes","Case Law","Regulations","A"
+"Which amendment to the US Constitution protects freedom of speech?","First","Second","Fourth","Fifth","A"
+"In contract law, what is consideration?","A written document","Something of value exchanged","A court hearing","Legal advice","B"
+"What does 'pro bono' mean in legal terms?","For the public good (free legal work)","Professional bonus","Proven guilty","Private business","A"
+"Which court has the highest authority in the US legal system?","District Court","Court of Appeals","Supreme Court","State Court","C"`;
+
+		// Create a blob with the CSV content
+		const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+		
+		// Create a download link
+		const link = document.createElement('a');
+		const url = URL.createObjectURL(blob);
+		link.setAttribute('href', url);
+		link.setAttribute('download', 'law_test_template.csv');
+		link.style.visibility = 'hidden';
+		
+		// Add to document, click, and remove
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+	}
+
 	async function toggleActive(t) {
 		if (!$user || $user.role !== 'teacher') {
 			error = 'You must be logged in as a teacher to manage tests.';
@@ -236,6 +261,17 @@
 								</h2>
 							</div>
 							<div class="card-content">
+								<div class="template-section">
+									<div class="template-info">
+										<h4>📋 Need a starting point?</h4>
+										<p>Download our CSV template with sample law questions to get started quickly.</p>
+									</div>
+									<button onclick={downloadTemplate} class="btn btn-outline btn-sm template-btn">
+										<span class="btn-icon">📥</span>
+										Download Template
+									</button>
+								</div>
+
 								<div class="form-group">
 									<label for="title-input">Test Title</label>
 									<input
@@ -253,7 +289,7 @@
 											id="file-input"
 											type="file"
 											accept=".csv"
-											on:change={(e) => {
+											onchange={(e) => {
 												file = e.target.files[0];
 												if (!title) {
 													title = file?.name?.replace(/\.[^/.]+$/, '');
@@ -266,7 +302,7 @@
 										</span>
 									</div>
 								</div>
-								<button on:click={handleUpload} class="btn btn-primary"> Upload Test </button>
+								<button onclick={handleUpload} class="btn btn-primary"> Upload Test </button>
 								{#if uploadMsg}
 									<div class="status-message {uploadMsg === 'Uploaded' ? 'success' : 'error'}">
 										{uploadMsg}
@@ -292,7 +328,7 @@
 										{#each $pendingStudents as s (s.id)}
 											<div class="request-item">
 												<span class="student-name">{s.name}</span>
-												<button on:click={() => handleApprove(s.id)} class="btn btn-success btn-sm">
+												<button onclick={() => handleApprove(s.id)} class="btn btn-success btn-sm">
 													Accept
 												</button>
 											</div>
@@ -332,7 +368,7 @@
 												</div>
 											</div>
 											<button
-												on:click={() => toggleActive(t)}
+												onclick={() => toggleActive(t)}
 												class="btn {t.is_active ? 'btn-warning' : 'btn-success'} btn-sm"
 											>
 												{t.is_active ? 'Deactivate' : 'Activate'}
@@ -373,13 +409,13 @@
 										<label for="student-select">Select Student</label>
 										<select id="student-select" bind:value={selectedStudentId} class="form-select">
 											<option value="">Choose a student...</option>
-											{#each $students as s (s.id)}
+											{#each $students as s}
 												<option value={s.id}>{s.name}</option>
 											{/each}
 										</select>
 									</div>
 								</div>
-								<button on:click={handleAssign} class="btn btn-primary"> Assign Test </button>
+								<button onclick={handleAssign} class="btn btn-primary"> Assign Test </button>
 								{#if assignMsg}
 									<div class="status-message {assignMsg === 'Assigned' ? 'success' : 'error'}">
 										{assignMsg}
@@ -404,7 +440,7 @@
 										<details class="result-details">
 											<summary
 												class="result-summary"
-												on:click={(e) => {
+												onclick={(e) => {
 													const details = e.target.parentElement;
 													if (!details.open) {
 														loadAttemptAnswers(r.id);
@@ -476,7 +512,7 @@
 										class="form-input"
 									/>
 								</div>
-								<button on:click={handleJoin} class="btn btn-primary"> Join Class </button>
+								<button onclick={handleJoin} class="btn btn-primary"> Join Class </button>
 								{#if joinMsg}
 									<div class="status-message {joinMsg === 'Request sent' ? 'success' : 'error'}">
 										{joinMsg}
@@ -496,7 +532,7 @@
 							<div class="card-content">
 								{#if $studentResults.length}
 									<div class="student-tests">
-										{#each $studentResults as r (r.test_id)}
+										{#each $studentResults as r}
 											<div class="test-item {r.score == null ? 'pending' : 'completed'}">
 												{#if r.score == null}
 													<a href={`/tests/${r.test_id}`} class="test-link pending">
@@ -548,23 +584,22 @@
 
 	.app-container {
 		min-height: 100vh;
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		background: #ffffff;
 		font-family:
 			'Inter',
 			-apple-system,
 			BlinkMacSystemFont,
+			'Segoe UI',
+			Roboto,
 			sans-serif;
-		color: #333;
+		color: #1f2937;
 	}
 
 	.main-header {
-		background: rgba(255, 255, 255, 0.95);
-		backdrop-filter: blur(10px);
-		border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-		padding: 1rem 0;
-		position: sticky;
-		top: 0;
-		z-index: 100;
+		background: #ffffff;
+		border-bottom: 1px solid #e5e7eb;
+		padding: 1.5rem 0;
+		margin-bottom: 2rem;
 	}
 
 	.header-content {
@@ -577,16 +612,14 @@
 	}
 
 	.brand-title {
-		font-size: 1.75rem;
-		font-weight: 700;
+		font-size: 1.875rem;
+		font-weight: 800;
 		margin: 0;
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		background: linear-gradient(135deg, #667eea, #764ba2);
-		-webkit-background-clip: text;
-		background-clip: text;
-		-webkit-text-fill-color: transparent;
+		color: #111827;
+		letter-spacing: -0.025em;
 	}
 
 	.law-icon {
@@ -599,19 +632,23 @@
 	}
 
 	.admin-link {
-		padding: 0.5rem 1rem;
-		background: rgba(102, 126, 234, 0.1);
-		border: 1px solid rgba(102, 126, 234, 0.3);
+		padding: 0.625rem 1.25rem;
+		background: linear-gradient(135deg, #2563eb, #1d4ed8);
+		border: none;
 		border-radius: 8px;
-		color: #667eea;
+		color: white;
 		text-decoration: none;
-		font-weight: 500;
-		transition: all 0.3s ease;
+		font-weight: 600;
+		font-size: 0.875rem;
+		transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+		box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
+		letter-spacing: -0.01em;
 	}
 
 	.admin-link:hover {
-		background: rgba(102, 126, 234, 0.2);
-		transform: translateY(-1px);
+		background: linear-gradient(135deg, #1d4ed8, #1e40af);
+		transform: translateY(-2px);
+		box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
 	}
 
 	.main-content {
@@ -650,30 +687,31 @@
 	}
 
 	.card {
-		background: rgba(255, 255, 255, 0.95);
-		backdrop-filter: blur(10px);
-		border: 1px solid rgba(255, 255, 255, 0.2);
-		border-radius: 16px;
+		background: #ffffff;
+		border: 1px solid #e5e7eb;
+		border-radius: 12px;
 		overflow: hidden;
-		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 		transition:
-			transform 0.3s ease,
-			box-shadow 0.3s ease;
+			transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+			box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+			border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 		animation: fadeInUp 0.5s ease-out;
 	}
 
 	.card:hover {
-		transform: translateY(-4px);
-		box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15);
+		transform: translateY(-2px);
+		box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+		border-color: #d1d5db;
 	}
 
 	.card-header {
 		padding: 1.5rem;
-		border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+		border-bottom: 1px solid #f3f4f6;
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+		background: #fafafa;
 	}
 
 	.card-title {
@@ -759,6 +797,40 @@
 		background: rgba(102, 126, 234, 0.1);
 	}
 
+	/* Template Section */
+	.template-section {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		background: rgba(59, 130, 246, 0.05);
+		border: 1px solid rgba(59, 130, 246, 0.2);
+		border-radius: 12px;
+		padding: 1.5rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.template-info h4 {
+		margin: 0 0 0.5rem 0;
+		font-size: 1.1rem;
+		font-weight: 600;
+		color: #1f2937;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.template-info p {
+		margin: 0;
+		color: #6b7280;
+		line-height: 1.5;
+		font-size: 0.9rem;
+	}
+
+	.template-btn {
+		flex-shrink: 0;
+		margin-left: 1rem;
+	}
+
 	.btn {
 		display: inline-flex;
 		align-items: center;
@@ -775,33 +847,42 @@
 	}
 
 	.btn-primary {
-		background: linear-gradient(135deg, #667eea, #764ba2);
+		background: linear-gradient(135deg, #2563eb, #1d4ed8);
 		color: white;
+		border: none;
+		box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
 	}
 
 	.btn-primary:hover {
-		transform: translateY(-2px);
-		box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+		background: linear-gradient(135deg, #1d4ed8, #1e40af);
+		transform: translateY(-1px);
+		box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
 	}
 
 	.btn-success {
-		background: linear-gradient(135deg, #10b981, #059669);
+		background: linear-gradient(135deg, #059669, #047857);
 		color: white;
+		border: none;
+		box-shadow: 0 1px 3px rgba(5, 150, 105, 0.12);
 	}
 
 	.btn-success:hover {
-		transform: translateY(-2px);
-		box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+		background: linear-gradient(135deg, #047857, #065f46);
+		transform: translateY(-1px);
+		box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
 	}
 
 	.btn-warning {
 		background: linear-gradient(135deg, #f59e0b, #d97706);
 		color: white;
+		border: none;
+		box-shadow: 0 1px 3px rgba(245, 158, 11, 0.12);
 	}
 
 	.btn-warning:hover {
-		transform: translateY(-2px);
-		box-shadow: 0 8px 25px rgba(245, 158, 11, 0.3);
+		background: linear-gradient(135deg, #d97706, #b45309);
+		transform: translateY(-1px);
+		box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
 	}
 
 	.btn-sm {
@@ -812,6 +893,20 @@
 	.btn-large {
 		padding: 1rem 2rem;
 		font-size: 1.125rem;
+	}
+
+	.btn-outline {
+		background: transparent;
+		color: #374151;
+		border: 2px solid #d1d5db;
+	}
+
+	.btn-outline:hover {
+		background: rgba(59, 130, 246, 0.05);
+		border-color: #2563eb;
+		color: #2563eb;
+		transform: translateY(-1px);
+		box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
 	}
 
 	.badge {
@@ -1135,23 +1230,21 @@
 
 	.welcome-content {
 		text-align: center;
-		background: rgba(255, 255, 255, 0.95);
-		backdrop-filter: blur(10px);
+		background: #ffffff;
 		padding: 3rem;
-		border-radius: 20px;
-		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
-		border: 1px solid rgba(255, 255, 255, 0.2);
+		border-radius: 16px;
+		box-shadow: 0 4px 25px rgba(0, 0, 0, 0.08);
+		border: 1px solid #e5e7eb;
 		max-width: 500px;
 		animation: fadeInUp 0.6s ease-out;
 	}
 
 	.welcome-content h2 {
 		font-size: 2rem;
+		font-weight: 800;
 		margin-bottom: 1rem;
-		background: linear-gradient(135deg, #667eea, #764ba2);
-		-webkit-background-clip: text;
-		background-clip: text;
-		-webkit-text-fill-color: transparent;
+		color: #111827;
+		letter-spacing: -0.025em;
 	}
 
 	.welcome-content p {
@@ -1206,6 +1299,16 @@
 
 		.form-row {
 			grid-template-columns: 1fr;
+		}
+
+		.template-section {
+			flex-direction: column;
+			gap: 1rem;
+			text-align: center;
+		}
+
+		.template-btn {
+			margin-left: 0;
 		}
 
 		.card-header {

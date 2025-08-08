@@ -332,24 +332,23 @@
 
 	.admin-container {
 		min-height: 100vh;
-		background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%);
+		background: #f9fafb;
 		font-family:
 			'Inter',
 			-apple-system,
 			BlinkMacSystemFont,
+			'Segoe UI',
+			Roboto,
 			sans-serif;
-		color: #333;
+		color: #111827;
 	}
 
 	.admin-header {
-		background: rgba(255, 255, 255, 0.95);
-		backdrop-filter: blur(15px);
-		border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+		background: #ffffff;
+		border-bottom: 1px solid #e5e7eb;
 		padding: 2rem 0;
-		position: sticky;
-		top: 0;
-		z-index: 100;
-		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+		margin-bottom: 2rem;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 	}
 
 	.header-content {
@@ -369,15 +368,13 @@
 
 	.admin-title {
 		font-size: 2.5rem;
-		font-weight: 800;
+		font-weight: 900;
 		margin: 0;
 		display: flex;
 		align-items: center;
 		gap: 1rem;
-		background: linear-gradient(135deg, #1e3a8a, #581c87);
-		-webkit-background-clip: text;
-		background-clip: text;
-		-webkit-text-fill-color: transparent;
+		color: #111827;
+		letter-spacing: -0.025em;
 	}
 
 	.admin-icon {
@@ -399,21 +396,24 @@
 	.nav-link {
 		display: flex;
 		align-items: center;
-		gap: 0.75rem;
-		padding: 0.75rem 1.5rem;
-		background: rgba(30, 58, 138, 0.1);
-		border: 2px solid rgba(30, 58, 138, 0.2);
-		border-radius: 12px;
-		color: #1e3a8a;
+		gap: 0.5rem;
+		padding: 0.625rem 1.25rem;
+		background: linear-gradient(135deg, #2563eb, #1d4ed8);
+		border: none;
+		border-radius: 8px;
+		color: white;
 		text-decoration: none;
 		font-weight: 600;
-		transition: all 0.3s ease;
+		font-size: 0.875rem;
+		transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+		box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
+		letter-spacing: -0.01em;
 	}
 
 	.nav-link:hover {
-		background: rgba(30, 58, 138, 0.2);
+		background: linear-gradient(135deg, #1d4ed8, #1e40af);
 		transform: translateY(-2px);
-		box-shadow: 0 8px 25px rgba(30, 58, 138, 0.2);
+		box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
 	}
 
 	.nav-icon {
@@ -436,30 +436,31 @@
 	}
 
 	.admin-card {
-		background: rgba(255, 255, 255, 0.95);
-		backdrop-filter: blur(15px);
-		border: 1px solid rgba(255, 255, 255, 0.2);
-		border-radius: 20px;
+		background: #ffffff;
+		border: 1px solid #e5e7eb;
+		border-radius: 12px;
 		overflow: hidden;
-		box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 		transition:
-			transform 0.3s ease,
-			box-shadow 0.3s ease;
+			transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+			box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+			border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 		animation: fadeInUp 0.5s ease-out;
 	}
 
 	.admin-card:hover {
-		transform: translateY(-6px);
-		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+		transform: translateY(-2px);
+		box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+		border-color: #d1d5db;
 	}
 
 	.card-header {
-		padding: 2rem;
-		border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+		padding: 1.5rem;
+		border-bottom: 1px solid #f3f4f6;
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		background: linear-gradient(135deg, rgba(30, 58, 138, 0.05), rgba(88, 28, 135, 0.05));
+		background: #fafafa;
 	}
 
 	.card-title {
@@ -476,7 +477,7 @@
 	}
 
 	.card-content {
-		padding: 2rem;
+		padding: 1.5rem;
 	}
 
 	.form-group {
@@ -574,14 +575,16 @@
 	}
 
 	.btn-primary {
-		background: linear-gradient(135deg, #1e3a8a, #3730a3);
+		background: linear-gradient(135deg, #2563eb, #1d4ed8);
 		color: white;
-		box-shadow: 0 4px 15px rgba(30, 58, 138, 0.3);
+		border: none;
+		box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
 	}
 
 	.btn-primary:hover:not(:disabled) {
-		transform: translateY(-2px);
-		box-shadow: 0 8px 30px rgba(30, 58, 138, 0.4);
+		background: linear-gradient(135deg, #1d4ed8, #1e40af);
+		transform: translateY(-1px);
+		box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
 	}
 
 	.btn-secondary {

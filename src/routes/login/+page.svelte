@@ -1,12 +1,15 @@
 <script>
 	import { goto } from '$app/navigation';
 	import { user } from '$lib/user';
-	import { query } from '$lib/api';
+	import { query, signupTeacher, signupStudent } from '$lib/api';
 	import { PUBLIC_PASSPHRASE } from '$env/static/public';
 
 	let pin = '';
+	let name = '';
 	let error = '';
 	let isLoading = false;
+	let mode = 'login'; // 'login', 'signup'
+	let signupRole = 'student'; // 'student', 'teacher'
 
 	async function login() {
 		error = '';
@@ -54,10 +57,69 @@
 		}
 	}
 
+	async function signup() {
+		error = '';
+		isLoading = true;
+
+		if (!name.trim()) {
+			error = 'Name is required';
+			isLoading = false;
+			return;
+		}
+
+		if (!/^\d+$/.test(pin)) {
+			error = 'PIN must be numeric';
+			isLoading = false;
+			return;
+		}
+
+		if (pin.length < 4) {
+			error = 'PIN must be at least 4 digits';
+			isLoading = false;
+			return;
+		}
+
+		try {
+			const authedFetch = (input, init = {}) => {
+				init.headers = {
+					...(init.headers || {}),
+					Authorization: `Bearer ${PUBLIC_PASSPHRASE}`
+				};
+				return fetch(input, init);
+			};
+
+			let result;
+			if (signupRole === 'teacher') {
+				result = await signupTeacher(authedFetch, { name: name.trim(), pin });
+			} else {
+				result = await signupStudent(authedFetch, { name: name.trim(), pin });
+			}
+
+			if (result.length > 0) {
+				$user = result[0];
+				goto('/');
+				return;
+			}
+
+			error = 'Signup failed';
+		} catch (e) {
+			error = e.message;
+		} finally {
+			isLoading = false;
+		}
+	}
+
 	function handleInputChange() {
 		if (error) {
 			error = '';
 		}
+	}
+
+	function switchMode() {
+		mode = mode === 'login' ? 'signup' : 'login';
+		error = '';
+		pin = '';
+		name = '';
 	}
 </script>
 
@@ -65,29 +127,92 @@
 	<div class="login-card">
 		<div class="card-header">
 			<div class="icon-wrapper">
-				<svg class="lock-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-					<path
-						d="M16 12V8C16 5.79086 14.2091 4 12 4C9.79086 4 8 5.79086 8 8V12M8 12H16M8 12C6.89543 12 6 12.8954 6 14V18C6 19.1046 6.89543 20 8 20H16C17.1046 20 18 19.1046 18 18V14C18 12.8954 17.1046 12 16 12Z"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-					/>
-				</svg>
+				{#if mode === 'login'}
+					<svg class="lock-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<path
+							d="M16 12V8C16 5.79086 14.2091 4 12 4C9.79086 4 8 5.79086 8 8V12M8 12H16M8 12C6.89543 12 6 12.8954 6 14V18C6 19.1046 6.89543 20 8 20H16C17.1046 20 18 19.1046 18 18V14C18 12.8954 17.1046 12 16 12Z"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+						/>
+					</svg>
+				{:else}
+					<svg class="user-plus-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<path
+							d="M16 21V19C16 17.9391 15.5786 16.9217 14.8284 16.1716C14.0783 15.4214 13.0609 15 12 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21M20 8V14M17 11H23M12.5 7C12.5 9.20914 10.7091 11 8.5 11C6.29086 11 4.5 9.20914 4.5 7C4.5 4.79086 6.29086 3 8.5 3C10.7091 3 12.5 4.79086 12.5 7Z"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						/>
+					</svg>
+				{/if}
 			</div>
-			<h1>Welcome Back</h1>
-			<p class="subtitle">Enter your PIN to access your account</p>
+			<h1>{mode === 'login' ? 'Welcome Back' : 'Create Account'}</h1>
+			<p class="subtitle">
+				{mode === 'login' ? 'Enter your PIN to access your account' : 'Sign up to get started'}
+			</p>
 		</div>
 
-		<form on:submit|preventDefault={login} class="login-form">
+		<form on:submit|preventDefault={mode === 'login' ? login : signup} class="auth-form">
+			{#if mode === 'signup'}
+				<div class="input-group">
+					<label for="name-input">Full Name</label>
+					<div class="input-wrapper">
+						<input
+							id="name-input"
+							type="text"
+							bind:value={name}
+							on:input={handleInputChange}
+							placeholder="Enter your full name"
+							class:error
+							disabled={isLoading}
+							autocomplete="name"
+						/>
+						<div class="input-underline"></div>
+					</div>
+				</div>
+
+				<div class="input-group">
+					<label for="role-select">Account Type</label>
+					<div class="role-selector">
+						<label class="role-option">
+							<input
+								type="radio"
+								bind:group={signupRole}
+								value="student"
+								disabled={isLoading}
+							/>
+							<span class="role-label">
+								<span class="role-icon">👨‍🎓</span>
+								Student
+							</span>
+						</label>
+						<label class="role-option">
+							<input
+								type="radio"
+								bind:group={signupRole}
+								value="teacher"
+								disabled={isLoading}
+							/>
+							<span class="role-label">
+								<span class="role-icon">👨‍🏫</span>
+								Teacher
+							</span>
+						</label>
+					</div>
+				</div>
+			{/if}
+
 			<div class="input-group">
-				<label for="pin-input">PIN</label>
+				<label for="pin-input">{mode === 'signup' ? 'Create PIN' : 'PIN'}</label>
 				<div class="input-wrapper">
 					<input
 						id="pin-input"
 						type="password"
 						bind:value={pin}
 						on:input={handleInputChange}
-						placeholder="Enter your PIN"
+						placeholder={mode === 'signup' ? 'Create a 4+ digit PIN' : 'Enter your PIN'}
 						class:error
 						disabled={isLoading}
 						autocomplete="off"
@@ -95,6 +220,9 @@
 					/>
 					<div class="input-underline"></div>
 				</div>
+				{#if mode === 'signup'}
+					<p class="pin-hint">Your PIN must be at least 4 digits and contain only numbers</p>
+				{/if}
 			</div>
 
 			{#if error}
@@ -110,7 +238,11 @@
 				</div>
 			{/if}
 
-			<button type="submit" class="login-button" disabled={isLoading || !pin.trim()}>
+			<button 
+				type="submit" 
+				class="auth-button" 
+				disabled={isLoading || !pin.trim() || (mode === 'signup' && !name.trim())}
+			>
 				{#if isLoading}
 					<svg class="loading-spinner" viewBox="0 0 24 24">
 						<circle
@@ -127,11 +259,17 @@
 							fill="currentColor"
 						/>
 					</svg>
-					Logging in...
+					{mode === 'login' ? 'Logging in...' : 'Creating account...'}
 				{:else}
-					Login
+					{mode === 'login' ? 'Login' : 'Create Account'}
 				{/if}
 			</button>
+			
+			<div class="mode-switch">
+				<button type="button" class="switch-button" on:click={switchMode} disabled={isLoading}>
+					{mode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Log in'}
+				</button>
+			</div>
 		</form>
 
 		<div class="card-footer">
@@ -154,50 +292,24 @@
 	/* Container and Layout */
 	.container {
 		min-height: 100vh;
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		padding: 2rem 1rem;
 		position: relative;
-		overflow: hidden;
-	}
-
-	.container::before {
-		content: '';
-		position: absolute;
-		top: -50%;
-		right: -50%;
-		width: 200%;
-		height: 200%;
-		background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
-		background-size: 30px 30px;
-		animation: float 20s infinite linear;
-		pointer-events: none;
-	}
-
-	@keyframes float {
-		0% {
-			transform: rotate(0deg) translate(-50%, -50%);
-		}
-		100% {
-			transform: rotate(360deg) translate(-50%, -50%);
-		}
 	}
 
 	/* Login Card */
 	.login-card {
-		background: rgba(255, 255, 255, 0.95);
-		backdrop-filter: blur(20px);
-		border-radius: 1.5rem;
-		box-shadow:
-			0 25px 50px -12px rgba(0, 0, 0, 0.25),
-			0 0 0 1px rgba(255, 255, 255, 0.5);
+		background: #ffffff;
+		border-radius: 16px;
+		box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+		border: 1px solid #e5e7eb;
 		width: 100%;
 		max-width: 420px;
 		overflow: hidden;
 		position: relative;
-		z-index: 1;
 		animation: slideUp 0.6s ease-out;
 	}
 
@@ -216,19 +328,20 @@
 	.card-header {
 		padding: 3rem 2.5rem 2rem;
 		text-align: center;
-		background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+		background: #fafafa;
 	}
 
 	.icon-wrapper {
 		display: inline-flex;
 		padding: 1rem;
-		background: linear-gradient(135deg, #667eea, #764ba2);
+		background: linear-gradient(135deg, #2563eb, #1d4ed8);
 		border-radius: 50%;
 		margin-bottom: 1.5rem;
-		box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+		box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
 	}
 
-	.lock-icon {
+	.lock-icon,
+	.user-plus-icon {
 		width: 2rem;
 		height: 2rem;
 		color: white;
@@ -236,13 +349,10 @@
 
 	h1 {
 		font-size: 2rem;
-		font-weight: 700;
-		color: #1f2937;
+		font-weight: 800;
+		color: #111827;
 		margin: 0 0 0.5rem 0;
-		background: linear-gradient(135deg, #667eea, #764ba2);
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
-		background-clip: text;
+		letter-spacing: -0.025em;
 	}
 
 	.subtitle {
@@ -253,7 +363,7 @@
 	}
 
 	/* Form Styling */
-	.login-form {
+	.auth-form {
 		padding: 0 2.5rem 2rem;
 	}
 
@@ -306,7 +416,7 @@
 		left: 0;
 		height: 2px;
 		width: 0;
-		background: linear-gradient(135deg, #667eea, #764ba2);
+		background: linear-gradient(135deg, #2563eb, #1d4ed8);
 		transition: width 0.3s ease;
 	}
 
@@ -318,6 +428,66 @@
 	input.error + .input-underline {
 		background: #ef4444;
 		width: 100%;
+	}
+
+	.pin-hint {
+		margin: 0.5rem 0 0 0;
+		font-size: 0.8rem;
+		color: #6b7280;
+		line-height: 1.4;
+	}
+
+	/* Role Selector */
+	.role-selector {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 0.75rem;
+		margin-top: 0.5rem;
+	}
+
+	.role-option {
+		position: relative;
+		cursor: pointer;
+	}
+
+	.role-option input[type="radio"] {
+		position: absolute;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.role-label {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 1rem;
+		border: 2px solid #e5e7eb;
+		border-radius: 8px;
+		background: #fafafa;
+		transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+		font-weight: 500;
+		color: #6b7280;
+	}
+
+	.role-option input[type="radio"]:checked + .role-label {
+		border-color: #2563eb;
+		background: rgba(37, 99, 235, 0.05);
+		color: #2563eb;
+	}
+
+	.role-option:hover .role-label {
+		border-color: #d1d5db;
+		background: #f3f4f6;
+	}
+
+	.role-option input[type="radio"]:checked:hover + .role-label {
+		border-color: #1d4ed8;
+		background: rgba(37, 99, 235, 0.08);
+	}
+
+	.role-icon {
+		font-size: 1.5rem;
 	}
 
 	/* Error Message */
@@ -355,25 +525,52 @@
 		flex-shrink: 0;
 	}
 
-	/* Login Button */
-	.login-button {
+	/* Mode Switch */
+	.mode-switch {
+		margin-top: 1.5rem;
+		text-align: center;
+	}
+
+	.switch-button {
+		background: transparent;
+		border: none;
+		color: #6b7280;
+		font-size: 0.9rem;
+		cursor: pointer;
+		transition: color 0.2s ease;
+		text-decoration: underline;
+		text-underline-offset: 2px;
+	}
+
+	.switch-button:hover:not(:disabled) {
+		color: #2563eb;
+	}
+
+	.switch-button:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	/* Auth Button */
+	.auth-button {
 		width: 100%;
 		padding: 1rem 1.5rem;
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		background: linear-gradient(135deg, #2563eb, #1d4ed8);
 		color: white;
 		border: none;
-		border-radius: 0.75rem;
+		border-radius: 8px;
 		font-size: 1rem;
 		font-weight: 600;
 		cursor: pointer;
-		transition: all 0.3s ease;
+		transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		gap: 0.5rem;
-		box-shadow: 0 4px 14px rgba(102, 126, 234, 0.3);
+		box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
 		position: relative;
 		overflow: hidden;
+		letter-spacing: -0.01em;
 	}
 
 	.login-button::before {
@@ -387,20 +584,21 @@
 		transition: left 0.5s;
 	}
 
-	.login-button:hover:not(:disabled) {
+	.auth-button:hover:not(:disabled) {
+		background: linear-gradient(135deg, #1d4ed8, #1e40af);
 		transform: translateY(-2px);
-		box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+		box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
 	}
 
-	.login-button:hover:not(:disabled)::before {
+	.auth-button:hover:not(:disabled)::before {
 		left: 100%;
 	}
 
-	.login-button:active:not(:disabled) {
+	.auth-button:active:not(:disabled) {
 		transform: translateY(0);
 	}
 
-	.login-button:disabled {
+	.auth-button:disabled {
 		opacity: 0.7;
 		cursor: not-allowed;
 		transform: none;
@@ -424,8 +622,8 @@
 	/* Card Footer */
 	.card-footer {
 		padding: 1.5rem 2.5rem;
-		background: rgba(249, 250, 251, 0.5);
-		border-top: 1px solid rgba(229, 231, 235, 0.5);
+		background: #f9fafb;
+		border-top: 1px solid #f3f4f6;
 		text-align: center;
 	}
 
@@ -449,8 +647,19 @@
 			padding: 2rem 1.5rem 1.5rem;
 		}
 
-		.login-form {
+		.auth-form {
 			padding: 0 1.5rem 1.5rem;
+		}
+
+		.role-selector {
+			grid-template-columns: 1fr;
+			gap: 0.5rem;
+		}
+
+		.role-label {
+			flex-direction: row;
+			justify-content: center;
+			padding: 0.75rem;
 		}
 
 		.card-footer {
@@ -465,15 +674,18 @@
 			padding: 0.75rem;
 		}
 
-		.lock-icon {
+		.lock-icon,
+		.user-plus-icon {
 			width: 1.5rem;
 			height: 1.5rem;
 		}
 	}
 
 	/* Focus styles for accessibility */
-	.login-button:focus-visible {
-		outline: 2px solid #667eea;
+	.auth-button:focus-visible,
+	.switch-button:focus-visible,
+	.role-option:focus-within .role-label {
+		outline: 2px solid #2563eb;
 		outline-offset: 2px;
 	}
 

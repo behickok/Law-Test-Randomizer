@@ -239,3 +239,40 @@ export async function submitAttempt(fetch, { testId, studentId, studentName, ans
 
 	return id;
 }
+
+// Public signup functions (no authentication required)
+export async function signupTeacher(fetch, { name, pin }) {
+	const cleanName = validateString(name);
+	const cleanPin = validateNumeric(pin);
+	
+	// Check if PIN is already taken
+	const existingUsers = await query(fetch, 
+		`SELECT 1 FROM teachers WHERE pin = '${escapeSql(cleanPin)}' 
+		 UNION SELECT 1 FROM students WHERE pin = '${escapeSql(cleanPin)}' LIMIT 1`
+	);
+	
+	if (existingUsers.length > 0) {
+		throw new Error('PIN already exists. Please choose a different PIN.');
+	}
+	
+	const sql = `INSERT INTO teachers (name, pin) VALUES ('${escapeSql(cleanName)}', '${escapeSql(cleanPin)}') RETURNING id, name, 'teacher' as role`;
+	return query(fetch, sql);
+}
+
+export async function signupStudent(fetch, { name, pin }) {
+	const cleanName = validateString(name);
+	const cleanPin = validateNumeric(pin);
+	
+	// Check if PIN is already taken
+	const existingUsers = await query(fetch, 
+		`SELECT 1 FROM teachers WHERE pin = '${escapeSql(cleanPin)}' 
+		 UNION SELECT 1 FROM students WHERE pin = '${escapeSql(cleanPin)}' LIMIT 1`
+	);
+	
+	if (existingUsers.length > 0) {
+		throw new Error('PIN already exists. Please choose a different PIN.');
+	}
+	
+	const sql = `INSERT INTO students (name, pin) VALUES ('${escapeSql(cleanName)}', '${escapeSql(cleanPin)}') RETURNING id, name, 'student' as role`;
+	return query(fetch, sql);
+}

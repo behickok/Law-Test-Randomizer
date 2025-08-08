@@ -12,6 +12,7 @@
 	<nav>
 		<ul class="nav-left">
 			<li><a href="/" class="home-link">Home</a></li>
+			<li><a href="/help" class="help-link">Help</a></li>
 		</ul>
 		<ul class="nav-right">
 			{#if $user}
@@ -40,19 +41,20 @@
 			'Inter',
 			-apple-system,
 			BlinkMacSystemFont,
+			'Segoe UI',
+			Roboto,
 			sans-serif;
 	}
 
 	/* Header and Navigation */
 	header {
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-		box-shadow:
-			0 4px 6px -1px rgba(0, 0, 0, 0.1),
-			0 2px 4px -1px rgba(0, 0, 0, 0.06);
+		background: rgba(255, 255, 255, 0.98);
+		backdrop-filter: blur(20px);
+		border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 		position: sticky;
 		top: 0;
 		z-index: 1000;
-		backdrop-filter: blur(10px);
 	}
 
 	nav {
@@ -86,45 +88,69 @@
 
 	/* Links */
 	a {
-		color: white;
+		color: #374151;
 		text-decoration: none;
 		font-weight: 500;
-		font-size: 1rem;
-		padding: 0.5rem 1rem;
-		border-radius: 0.5rem;
-		transition: all 0.3s ease;
+		font-size: 0.95rem;
+		padding: 0.625rem 1.25rem;
+		border-radius: 8px;
+		transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 		position: relative;
-		overflow: hidden;
+		letter-spacing: -0.01em;
 	}
 
 	a:hover {
-		background: rgba(255, 255, 255, 0.15);
-		transform: translateY(-2px);
-		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+		background: rgba(59, 130, 246, 0.08);
+		color: #2563eb;
+		transform: translateY(-1px);
 	}
 
 	.home-link {
 		font-weight: 600;
-		font-size: 1.1rem;
-		background: rgba(255, 255, 255, 0.1);
-		border: 1px solid rgba(255, 255, 255, 0.2);
+		font-size: 1rem;
+		background: linear-gradient(135deg, #2563eb, #1d4ed8);
+		color: white;
+		border: none;
+		box-shadow: 0 1px 3px rgba(37, 99, 235, 0.2);
+	}
+
+	.home-link:hover {
+		background: linear-gradient(135deg, #1d4ed8, #1e40af);
+		color: white;
+		box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+		transform: translateY(-2px);
 	}
 
 	.login-link {
-		background: rgba(255, 255, 255, 0.1);
-		border: 1px solid rgba(255, 255, 255, 0.3);
-		font-weight: 600;
+		background: transparent;
+		border: 1px solid #d1d5db;
+		font-weight: 500;
+		color: #6b7280;
 	}
 
 	.login-link:hover {
-		background: rgba(255, 255, 255, 0.2);
-		border-color: rgba(255, 255, 255, 0.4);
+		background: rgba(59, 130, 246, 0.05);
+		border-color: #2563eb;
+		color: #2563eb;
+	}
+
+	.help-link {
+		background: transparent;
+		border: 1px solid #d1d5db;
+		font-weight: 500;
+		color: #6b7280;
+	}
+
+	.help-link:hover {
+		background: rgba(16, 185, 129, 0.05);
+		border-color: #059669;
+		color: #059669;
 	}
 
 	/* Welcome Text */
 	.welcome-text {
-		color: white;
-		font-size: 0.95rem;
+		color: #374151;
+		font-size: 0.9rem;
 		padding: 0.5rem 0;
 		display: flex;
 		align-items: center;
@@ -132,45 +158,51 @@
 	}
 
 	.welcome-text strong {
-		color: #f8fafc;
+		color: #1f2937;
 		font-weight: 600;
 	}
 
 	.role {
-		color: rgba(255, 255, 255, 0.8);
-		font-size: 0.85rem;
-		font-style: italic;
+		color: #6b7280;
+		font-size: 0.8rem;
+		font-weight: 500;
+		background: rgba(59, 130, 246, 0.08);
+		padding: 0.125rem 0.5rem;
+		border-radius: 12px;
+		border: 1px solid rgba(59, 130, 246, 0.12);
 	}
 
 	/* Logout Button */
 	.logout-btn {
-		background: linear-gradient(45deg, #ef4444, #dc2626);
-		color: white;
-		border: none;
-		padding: 0.5rem 1.25rem;
-		border-radius: 0.5rem;
-		font-weight: 600;
-		font-size: 0.9rem;
+		background: transparent;
+		color: #dc2626;
+		border: 1px solid #fca5a5;
+		padding: 0.5rem 1rem;
+		border-radius: 6px;
+		font-weight: 500;
+		font-size: 0.875rem;
 		cursor: pointer;
-		transition: all 0.3s ease;
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+		transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+		letter-spacing: -0.01em;
 	}
 
 	.logout-btn:hover {
-		background: linear-gradient(45deg, #dc2626, #b91c1c);
-		transform: translateY(-2px);
-		box-shadow: 0 4px 8px rgba(220, 38, 38, 0.3);
+		background: rgba(239, 68, 68, 0.05);
+		border-color: #dc2626;
+		color: #b91c1c;
+		transform: translateY(-1px);
+		box-shadow: 0 2px 8px rgba(220, 38, 38, 0.15);
 	}
 
 	.logout-btn:active {
 		transform: translateY(0);
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 1px 3px rgba(220, 38, 38, 0.1);
 	}
 
 	/* Main Content */
 	main {
 		min-height: calc(100vh - 4rem);
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
 		padding: 2rem;
 	}
 
