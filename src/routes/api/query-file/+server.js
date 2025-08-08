@@ -7,7 +7,7 @@ export async function POST({ request }) {
 	const res = await fetch(`${BASE_URL}/query-file`, {
 		method: 'POST',
 		headers: {
-                        ...(PUBLIC_PASSPHRASE ? { Authorization: `Bearer ${PUBLIC_PASSPHRASE}` } : {})
+			...(PUBLIC_PASSPHRASE ? { Authorization: `Bearer ${PUBLIC_PASSPHRASE}` } : {})
 		},
 		body: formData
 	});
