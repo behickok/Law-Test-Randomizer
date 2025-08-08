@@ -8,7 +8,7 @@ export async function POST({ request }) {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
-                        ...(PUBLIC_PASSPHRASE ? { Authorization: `Bearer ${PUBLIC_PASSPHRASE}` } : {})
+			...(PUBLIC_PASSPHRASE ? { Authorization: `Bearer ${PUBLIC_PASSPHRASE}` } : {})
 		},
 		body: JSON.stringify({ sql: body.sql, source: 'duckdb' })
 	});

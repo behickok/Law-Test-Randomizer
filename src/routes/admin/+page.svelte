@@ -105,25 +105,29 @@
 					<div class="card-content">
 						<div class="form-group">
 							<label for="teacher-name">Teacher Name</label>
-							<input 
+							<input
 								id="teacher-name"
-								type="text" 
-								placeholder="Enter teacher's full name..." 
+								type="text"
+								placeholder="Enter teacher's full name..."
 								bind:value={teacherName}
 								class="form-input"
 							/>
 						</div>
 						<div class="form-group">
 							<label for="teacher-pin">Teacher PIN</label>
-							<input 
+							<input
 								id="teacher-pin"
-								type="text" 
-								placeholder="Create a secure PIN..." 
+								type="text"
+								placeholder="Create a secure PIN..."
 								bind:value={teacherPin}
 								class="form-input"
 							/>
 						</div>
-						<button on:click={handleAddTeacher} class="btn btn-primary" disabled={!teacherName || !teacherPin}>
+						<button
+							on:click={handleAddTeacher}
+							class="btn btn-primary"
+							disabled={!teacherName || !teacherPin}
+						>
 							<span class="btn-icon">➕</span>
 							Add Teacher
 						</button>
@@ -149,25 +153,29 @@
 					<div class="card-content">
 						<div class="form-group">
 							<label for="student-name">Student Name</label>
-							<input 
+							<input
 								id="student-name"
-								type="text" 
-								placeholder="Enter student's full name..." 
+								type="text"
+								placeholder="Enter student's full name..."
 								bind:value={studentName}
 								class="form-input"
 							/>
 						</div>
 						<div class="form-group">
 							<label for="student-pin">Student PIN</label>
-							<input 
+							<input
 								id="student-pin"
-								type="text" 
-								placeholder="Create a secure PIN..." 
+								type="text"
+								placeholder="Create a secure PIN..."
 								bind:value={studentPin}
 								class="form-input"
 							/>
 						</div>
-						<button on:click={handleAddStudent} class="btn btn-primary" disabled={!studentName || !studentPin}>
+						<button
+							on:click={handleAddStudent}
+							class="btn btn-primary"
+							disabled={!studentName || !studentPin}
+						>
 							<span class="btn-icon">➕</span>
 							Add Student
 						</button>
@@ -191,7 +199,11 @@
 						Database Query Panel
 					</h2>
 					<div class="query-actions">
-						<button on:click={clearQuery} class="btn btn-secondary btn-sm" disabled={!sql && !$queryOutput}>
+						<button
+							on:click={clearQuery}
+							class="btn btn-secondary btn-sm"
+							disabled={!sql && !$queryOutput}
+						>
 							<span class="btn-icon">🗑️</span>
 							Clear
 						</button>
@@ -202,23 +214,21 @@
 						<div class="form-group">
 							<label for="sql-query">SQL Query</label>
 							<div class="query-input-wrapper">
-								<textarea 
+								<textarea
 									id="sql-query"
-									rows="6" 
-									bind:value={sql} 
+									rows="6"
+									bind:value={sql}
 									placeholder="SELECT * FROM users WHERE role = 'student';"
 									class="query-textarea"
 									disabled={isQueryRunning}
 								></textarea>
 								<div class="query-toolbar">
 									<div class="query-info">
-										<span class="query-tip">
-											💡 Tip: Use LIMIT to avoid large result sets
-										</span>
+										<span class="query-tip"> 💡 Tip: Use LIMIT to avoid large result sets </span>
 									</div>
-									<button 
-										on:click={handleQuery} 
-										class="btn btn-accent" 
+									<button
+										on:click={handleQuery}
+										class="btn btn-accent"
 										disabled={!sql.trim() || isQueryRunning}
 									>
 										{#if isQueryRunning}
@@ -232,7 +242,7 @@
 								</div>
 							</div>
 						</div>
-						
+
 						{#if $queryOutput}
 							<div class="query-results">
 								<div class="results-header">
@@ -240,8 +250,8 @@
 										<span class="results-icon">📊</span>
 										Query Results
 									</h3>
-									<button 
-										on:click={() => navigator.clipboard.writeText($queryOutput)} 
+									<button
+										on:click={() => navigator.clipboard.writeText($queryOutput)}
 										class="btn btn-outline btn-sm"
 										title="Copy to clipboard"
 									>
@@ -323,7 +333,11 @@
 	.admin-container {
 		min-height: 100vh;
 		background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #581c87 100%);
-		font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+		font-family:
+			'Inter',
+			-apple-system,
+			BlinkMacSystemFont,
+			sans-serif;
 		color: #333;
 	}
 
@@ -428,7 +442,9 @@
 		border-radius: 20px;
 		overflow: hidden;
 		box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-		transition: transform 0.3s ease, box-shadow 0.3s ease;
+		transition:
+			transform 0.3s ease,
+			box-shadow 0.3s ease;
 		animation: fadeInUp 0.5s ease-out;
 	}
 
@@ -982,3 +998,4 @@
 	.results-output::-webkit-scrollbar-thumb:hover {
 		background: rgba(255, 255, 255, 0.5);
 	}
+</style>

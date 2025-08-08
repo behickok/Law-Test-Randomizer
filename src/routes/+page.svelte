@@ -219,10 +219,10 @@
 							<div class="card-content">
 								<div class="form-group">
 									<label for="title-input">Test Title</label>
-									<input 
+									<input
 										id="title-input"
-										type="text" 
-										placeholder="Enter test title..." 
+										type="text"
+										placeholder="Enter test title..."
 										bind:value={title}
 										class="form-input"
 									/>
@@ -247,9 +247,7 @@
 										</span>
 									</div>
 								</div>
-								<button on:click={handleUpload} class="btn btn-primary">
-									Upload Test
-								</button>
+								<button on:click={handleUpload} class="btn btn-primary"> Upload Test </button>
 								{#if uploadMsg}
 									<div class="status-message {uploadMsg === 'Uploaded' ? 'success' : 'error'}">
 										{uploadMsg}
@@ -275,10 +273,7 @@
 										{#each $pendingStudents as s (s.id)}
 											<div class="request-item">
 												<span class="student-name">{s.name}</span>
-												<button 
-													on:click={() => handleApprove(s.id)} 
-													class="btn btn-success btn-sm"
-												>
+												<button on:click={() => handleApprove(s.id)} class="btn btn-success btn-sm">
 													Accept
 												</button>
 											</div>
@@ -317,8 +312,8 @@
 													</span>
 												</div>
 											</div>
-											<button 
-												on:click={() => toggleActive(t)} 
+											<button
+												on:click={() => toggleActive(t)}
 												class="btn {t.is_active ? 'btn-warning' : 'btn-success'} btn-sm"
 											>
 												{t.is_active ? 'Deactivate' : 'Activate'}
@@ -365,9 +360,7 @@
 										</select>
 									</div>
 								</div>
-								<button on:click={handleAssign} class="btn btn-primary">
-									Assign Test
-								</button>
+								<button on:click={handleAssign} class="btn btn-primary"> Assign Test </button>
 								{#if assignMsg}
 									<div class="status-message {assignMsg === 'Assigned' ? 'success' : 'error'}">
 										{assignMsg}
@@ -393,7 +386,7 @@
 								<div class="results-list">
 									{#each $teacherResults as r (r.id)}
 										<details class="result-details">
-											<summary 
+											<summary
 												class="result-summary"
 												on:click={(e) => {
 													if (e.target.open) loadAttemptAnswers(r.id);
@@ -456,17 +449,15 @@
 							<div class="card-content">
 								<div class="form-group">
 									<label for="pin-input">Teacher PIN</label>
-									<input 
+									<input
 										id="pin-input"
-										type="text" 
-										placeholder="Enter teacher's PIN..." 
+										type="text"
+										placeholder="Enter teacher's PIN..."
 										bind:value={teacherPin}
 										class="form-input"
 									/>
 								</div>
-								<button on:click={handleJoin} class="btn btn-primary">
-									Join Class
-								</button>
+								<button on:click={handleJoin} class="btn btn-primary"> Join Class </button>
 								{#if joinMsg}
 									<div class="status-message {joinMsg === 'Request sent' ? 'success' : 'error'}">
 										{joinMsg}
@@ -482,9 +473,7 @@
 									<span class="section-icon">📝</span>
 									My Tests
 								</h2>
-								<button on:click={loadStudentResults} class="btn btn-secondary">
-									Refresh
-								</button>
+								<button on:click={loadStudentResults} class="btn btn-secondary"> Refresh </button>
 							</div>
 							<div class="card-content">
 								{#if $studentResults.length}
@@ -527,9 +516,7 @@
 				<div class="welcome-content">
 					<h2>Welcome to Law Test Randomizer</h2>
 					<p>Please log in to access your dashboard and manage your tests.</p>
-					<a href="/login" class="btn btn-primary btn-large">
-						Log In to Continue
-					</a>
+					<a href="/login" class="btn btn-primary btn-large"> Log In to Continue </a>
 				</div>
 			</div>
 		{/if}
@@ -544,7 +531,11 @@
 	.app-container {
 		min-height: 100vh;
 		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-		font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+		font-family:
+			'Inter',
+			-apple-system,
+			BlinkMacSystemFont,
+			sans-serif;
 		color: #333;
 	}
 
@@ -647,7 +638,9 @@
 		border-radius: 16px;
 		overflow: hidden;
 		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-		transition: transform 0.3s ease, box-shadow 0.3s ease;
+		transition:
+			transform 0.3s ease,
+			box-shadow 0.3s ease;
 		animation: fadeInUp 0.5s ease-out;
 	}
 
@@ -706,7 +699,9 @@
 		border: 2px solid rgba(0, 0, 0, 0.1);
 		border-radius: 12px;
 		font-size: 1rem;
-		transition: border-color 0.3s ease, box-shadow 0.3s ease;
+		transition:
+			border-color 0.3s ease,
+			box-shadow 0.3s ease;
 		background: rgba(255, 255, 255, 0.8);
 	}
 
@@ -1281,3 +1276,4 @@
 	.student-tests {
 		animation: fadeInUp 0.4s ease-out;
 	}
+</style>
