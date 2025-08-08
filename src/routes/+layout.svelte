@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 
 	function logout() {
-		$user = null;
+		user.logout();
 		goto('/login');
 	}
 </script>

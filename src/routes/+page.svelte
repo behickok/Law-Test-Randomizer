@@ -12,7 +12,7 @@
 		getPendingStudents,
 		approveStudent
 	} from '$lib/api';
-	import { onMount, $effect } from 'svelte';
+	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 
 	let { data } = $props();
@@ -405,7 +405,10 @@
 											<summary
 												class="result-summary"
 												on:click={(e) => {
-													if (e.target.open) loadAttemptAnswers(r.id);
+													const details = e.target.parentElement;
+													if (!details.open) {
+														loadAttemptAnswers(r.id);
+													}
 												}}
 											>
 												<div class="result-info">
