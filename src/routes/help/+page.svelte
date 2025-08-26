@@ -1,5 +1,5 @@
 <script>
-	import { user } from '$lib/user';
+	// import { user } from '$lib/user';
 </script>
 
 <div class="help-container">
@@ -68,13 +68,26 @@
 				</div>
 				<div class="card-content">
 					<div class="feature-list">
+<<<<<<< HEAD
                                                 <div class="feature-item">
                                                         <h4>📝 Paste Tests</h4>
                                                         <p>Paste CSV rows containing your law test questions. Use the provided template to ensure proper formatting, preview the questions, and remove any you don't need before saving.</p>
                                                 </div>
+=======
+						<div class="feature-item">
+							<h4>📤 Upload Tests</h4>
+							<p>
+								Upload CSV files containing your law test questions. Download our ready-to-use
+								template with sample questions to get started quickly. The system automatically
+								randomizes question order for each student.
+							</p>
+						</div>
+>>>>>>> 96402c6 (CSV)
 						<div class="feature-item">
 							<h4>📋 Manage Tests</h4>
-							<p>Activate or deactivate tests as needed. Only active tests can be taken by students.</p>
+							<p>
+								Activate or deactivate tests as needed. Only active tests can be taken by students.
+							</p>
 						</div>
 						<div class="feature-item">
 							<h4>🎯 Assign Tests</h4>
@@ -86,7 +99,9 @@
 						</div>
 						<div class="feature-item">
 							<h4>📊 View Results</h4>
-							<p>See detailed test results including scores and individual answers for each student.</p>
+							<p>
+								See detailed test results including scores and individual answers for each student.
+							</p>
 						</div>
 					</div>
 				</div>
@@ -108,11 +123,17 @@
 						</div>
 						<div class="feature-item">
 							<h4>📝 Take Tests</h4>
-							<p>Click on assigned tests to start taking them. Questions will be randomized for each attempt.</p>
+							<p>
+								Click on assigned tests to start taking them. Questions will be randomized for each
+								attempt.
+							</p>
 						</div>
 						<div class="feature-item">
 							<h4>📈 View Scores</h4>
-							<p>See your completed test scores on your dashboard. Detailed results are available to your teacher.</p>
+							<p>
+								See your completed test scores on your dashboard. Detailed results are available to
+								your teacher.
+							</p>
 						</div>
 					</div>
 				</div>
@@ -135,7 +156,14 @@
                                                         <p>When pasting questions, your CSV rows should follow this format:</p>
 							<div class="template-info-box">
 								<h4>💡 Quick Start with Template</h4>
+<<<<<<< HEAD
                                                                 <p>The easiest way to get started is to download our CSV template from the "Edit Test Questions" section. It includes:</p>
+=======
+								<p>
+									The easiest way to get started is to download our CSV template from the "Upload
+									New Test" section. It includes:
+								</p>
+>>>>>>> 96402c6 (CSV)
 								<ul>
 									<li>Correct header format</li>
 									<li>5 sample law questions</li>
@@ -165,19 +193,32 @@
 							<div class="account-info">
 								<div class="info-item">
 									<h4>Creating an Account</h4>
-									<p>New users can create accounts directly from the login page. Click "Don't have an account? Sign up" to get started. Choose your role (Student or Teacher) and create a secure numeric PIN.</p>
+									<p>
+										New users can create accounts directly from the login page. Click "Don't have an
+										account? Sign up" to get started. Choose your role (Student or Teacher) and
+										create a secure numeric PIN.
+									</p>
 								</div>
 								<div class="info-item">
 									<h4>Login</h4>
-									<p>Use your assigned or created PIN to log in. PINs are numeric and must be unique across the system.</p>
+									<p>
+										Use your assigned or created PIN to log in. PINs are numeric and must be unique
+										across the system.
+									</p>
 								</div>
 								<div class="info-item">
 									<h4>PIN Requirements</h4>
-									<p>PINs must be at least 4 digits long, contain only numbers, and be unique across all users.</p>
+									<p>
+										PINs must be at least 4 digits long, contain only numbers, and be unique across
+										all users.
+									</p>
 								</div>
 								<div class="info-item">
 									<h4>Role-Based Access</h4>
-									<p>Your role (Teacher or Student) determines which features you can access. This is set during account creation.</p>
+									<p>
+										Your role (Teacher or Student) determines which features you can access. This is
+										set during account creation.
+									</p>
 								</div>
 								<div class="info-item">
 									<h4>Logout</h4>
@@ -202,9 +243,17 @@
 							<div class="randomization-info">
 								<p>The system automatically randomizes tests to ensure academic integrity:</p>
 								<ul>
-									<li><strong>Question Order:</strong> Questions appear in different orders for each student</li>
-									<li><strong>Fair Assessment:</strong> All students receive the same questions, just in random order</li>
-									<li><strong>Automatic Process:</strong> No additional setup required - randomization happens automatically</li>
+									<li>
+										<strong>Question Order:</strong> Questions appear in different orders for each student
+									</li>
+									<li>
+										<strong>Fair Assessment:</strong> All students receive the same questions, just in
+										random order
+									</li>
+									<li>
+										<strong>Automatic Process:</strong> No additional setup required - randomization
+										happens automatically
+									</li>
 								</ul>
 							</div>
 						</div>
@@ -226,10 +275,16 @@
 					<details class="faq-item">
 						<summary class="faq-question">How do I create an account?</summary>
 						<div class="faq-answer">
-							<p>From the login page, click "Don't have an account? Sign up". Fill in your full name, choose your role (Student or Teacher), and create a numeric PIN of at least 4 digits. Your PIN must be unique - if someone already uses that PIN, you'll need to choose a different one.</p>
+							<p>
+								From the login page, click "Don't have an account? Sign up". Fill in your full name,
+								choose your role (Student or Teacher), and create a numeric PIN of at least 4
+								digits. Your PIN must be unique - if someone already uses that PIN, you'll need to
+								choose a different one.
+							</p>
 						</div>
 					</details>
 
+<<<<<<< HEAD
                                         <details class="faq-item">
                                                 <summary class="faq-question">How do I add a test?</summary>
                                                 <div class="faq-answer">
@@ -237,6 +292,20 @@
                                                 </div>
                                         </details>
 					
+=======
+					<details class="faq-item">
+						<summary class="faq-question">How do I upload a test?</summary>
+						<div class="faq-answer">
+							<p>
+								As a teacher, go to your dashboard and find the "Upload New Test" section. You can
+								download our CSV template with sample questions to get started quickly, then
+								customize it with your own content. Choose your CSV file, optionally add a title,
+								and click "Upload Test".
+							</p>
+						</div>
+					</details>
+
+>>>>>>> 96402c6 (CSV)
 					<details class="faq-item">
 						<summary class="faq-question">Why can't my student see the test I uploaded?</summary>
 						<div class="faq-answer">
@@ -248,46 +317,69 @@
 							</ul>
 						</div>
 					</details>
-					
+
 					<details class="faq-item">
 						<summary class="faq-question">How do students join my class?</summary>
 						<div class="faq-answer">
-							<p>Students enter your teacher PIN in the "Join Teacher's Class" section. You'll see their request in "Pending Requests" and can approve them. Your teacher PIN is the same PIN you use to log in.</p>
+							<p>
+								Students enter your teacher PIN in the "Join Teacher's Class" section. You'll see
+								their request in "Pending Requests" and can approve them. Your teacher PIN is the
+								same PIN you use to log in.
+							</p>
 						</div>
 					</details>
-					
+
 					<details class="faq-item">
 						<summary class="faq-question">Can students retake tests?</summary>
 						<div class="faq-answer">
-							<p>Currently, students can only take each assigned test once. Once completed, they can view their score but cannot retake the test.</p>
+							<p>
+								Currently, students can only take each assigned test once. Once completed, they can
+								view their score but cannot retake the test.
+							</p>
 						</div>
 					</details>
-					
+
 					<details class="faq-item">
 						<summary class="faq-question">How is test randomization handled?</summary>
 						<div class="faq-answer">
-							<p>The system automatically randomizes the order of questions for each student when they take a test. This happens behind the scenes - no setup required. All students get the same questions, just in different orders.</p>
+							<p>
+								The system automatically randomizes the order of questions for each student when
+								they take a test. This happens behind the scenes - no setup required. All students
+								get the same questions, just in different orders.
+							</p>
 						</div>
 					</details>
-					
+
 					<details class="faq-item">
 						<summary class="faq-question">I forgot my PIN. How do I recover it?</summary>
 						<div class="faq-answer">
-							<p>PINs cannot be recovered through the application. If you created your account recently, you may need to create a new account with a different PIN. For older accounts, contact your system administrator who can reset your PIN with database access.</p>
+							<p>
+								PINs cannot be recovered through the application. If you created your account
+								recently, you may need to create a new account with a different PIN. For older
+								accounts, contact your system administrator who can reset your PIN with database
+								access.
+							</p>
 						</div>
 					</details>
-					
+
 					<details class="faq-item">
 						<summary class="faq-question">My PIN is already taken. What should I do?</summary>
 						<div class="faq-answer">
-							<p>All PINs must be unique across the system. If you get an error saying your PIN already exists, try a different number combination. Consider using a longer PIN (more than 4 digits) for better uniqueness.</p>
+							<p>
+								All PINs must be unique across the system. If you get an error saying your PIN
+								already exists, try a different number combination. Consider using a longer PIN
+								(more than 4 digits) for better uniqueness.
+							</p>
 						</div>
 					</details>
-					
+
 					<details class="faq-item">
 						<summary class="faq-question">What file formats are supported for tests?</summary>
 						<div class="faq-answer">
-							<p>Currently, only CSV (Comma Separated Values) files are supported. Make sure to follow the exact format shown in the detailed instructions above.</p>
+							<p>
+								Currently, only CSV (Comma Separated Values) files are supported. Make sure to
+								follow the exact format shown in the detailed instructions above.
+							</p>
 						</div>
 					</details>
 				</div>
@@ -304,7 +396,10 @@
 			</div>
 			<div class="card-content">
 				<div class="support-content">
-					<p>If you can't find the answer to your question in this help center, please contact your system administrator or IT support team.</p>
+					<p>
+						If you can't find the answer to your question in this help center, please contact your
+						system administrator or IT support team.
+					</p>
 					<div class="support-tips">
 						<h4>When contacting support, please provide:</h4>
 						<ul>

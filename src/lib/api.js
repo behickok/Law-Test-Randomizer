@@ -75,6 +75,28 @@ export async function uploadTestText(fetch, { text, title, teacherId, testId }) 
         return res.json();
 }
 
+export async function uploadTestData(fetch, { data, title, teacherId }) {
+	if (!data || !data.trim()) {
+		throw new Error('Test data is required');
+	}
+
+	const cleanTitle = validateString(title);
+	const cleanTeacherId = validateNumeric(teacherId);
+
+	const form = new FormData();
+	form.append('data', data.trim());
+	form.append('title', cleanTitle);
+	form.append('teacher_id', cleanTeacherId);
+	const res = await fetch(`${BASE_URL}/tests/upload`, {
+		method: 'POST',
+		body: form
+	});
+	if (!res.ok) {
+		throw new Error(await res.text());
+	}
+	return res.json();
+}
+
 export async function assignTest(fetch, { testId, studentId, studentName }) {
 	const cleanTestId = validateNumeric(testId);
 	const cleanStudentId = validateNumeric(studentId);
@@ -243,17 +265,18 @@ export async function submitAttempt(fetch, { testId, studentId, studentName, ans
 export async function signupTeacher(fetch, { name, pin }) {
 	const cleanName = validateString(name);
 	const cleanPin = validateNumeric(pin);
-	
+
 	// Check if PIN is already taken
-	const existingUsers = await query(fetch, 
+	const existingUsers = await query(
+		fetch,
 		`SELECT 1 FROM teachers WHERE pin = '${escapeSql(cleanPin)}' 
 		 UNION SELECT 1 FROM students WHERE pin = '${escapeSql(cleanPin)}' LIMIT 1`
 	);
-	
+
 	if (existingUsers.length > 0) {
 		throw new Error('PIN already exists. Please choose a different PIN.');
 	}
-	
+
 	const sql = `INSERT INTO teachers (name, pin) VALUES ('${escapeSql(cleanName)}', '${escapeSql(cleanPin)}') RETURNING id, name, 'teacher' as role`;
 	return query(fetch, sql);
 }
@@ -261,17 +284,18 @@ export async function signupTeacher(fetch, { name, pin }) {
 export async function signupStudent(fetch, { name, pin }) {
 	const cleanName = validateString(name);
 	const cleanPin = validateNumeric(pin);
-	
+
 	// Check if PIN is already taken
-	const existingUsers = await query(fetch, 
+	const existingUsers = await query(
+		fetch,
 		`SELECT 1 FROM teachers WHERE pin = '${escapeSql(cleanPin)}' 
 		 UNION SELECT 1 FROM students WHERE pin = '${escapeSql(cleanPin)}' LIMIT 1`
 	);
-	
+
 	if (existingUsers.length > 0) {
 		throw new Error('PIN already exists. Please choose a different PIN.');
 	}
-	
+
 	const sql = `INSERT INTO students (name, pin) VALUES ('${escapeSql(cleanName)}', '${escapeSql(cleanPin)}') RETURNING id, name, 'student' as role`;
 	return query(fetch, sql);
 }

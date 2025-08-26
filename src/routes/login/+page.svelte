@@ -137,7 +137,12 @@
 						/>
 					</svg>
 				{:else}
-					<svg class="user-plus-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+					<svg
+						class="user-plus-icon"
+						viewBox="0 0 24 24"
+						fill="none"
+						xmlns="http://www.w3.org/2000/svg"
+					>
 						<path
 							d="M16 21V19C16 17.9391 15.5786 16.9217 14.8284 16.1716C14.0783 15.4214 13.0609 15 12 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21M20 8V14M17 11H23M12.5 7C12.5 9.20914 10.7091 11 8.5 11C6.29086 11 4.5 9.20914 4.5 7C4.5 4.79086 6.29086 3 8.5 3C10.7091 3 12.5 4.79086 12.5 7Z"
 							stroke="currentColor"
@@ -177,24 +182,14 @@
 					<label for="role-select">Account Type</label>
 					<div class="role-selector">
 						<label class="role-option">
-							<input
-								type="radio"
-								bind:group={signupRole}
-								value="student"
-								disabled={isLoading}
-							/>
+							<input type="radio" bind:group={signupRole} value="student" disabled={isLoading} />
 							<span class="role-label">
 								<span class="role-icon">👨‍🎓</span>
 								Student
 							</span>
 						</label>
 						<label class="role-option">
-							<input
-								type="radio"
-								bind:group={signupRole}
-								value="teacher"
-								disabled={isLoading}
-							/>
+							<input type="radio" bind:group={signupRole} value="teacher" disabled={isLoading} />
 							<span class="role-label">
 								<span class="role-icon">👨‍🏫</span>
 								Teacher
@@ -238,9 +233,9 @@
 				</div>
 			{/if}
 
-			<button 
-				type="submit" 
-				class="auth-button" 
+			<button
+				type="submit"
+				class="auth-button"
 				disabled={isLoading || !pin.trim() || (mode === 'signup' && !name.trim())}
 			>
 				{#if isLoading}
@@ -264,7 +259,7 @@
 					{mode === 'login' ? 'Login' : 'Create Account'}
 				{/if}
 			</button>
-			
+
 			<div class="mode-switch">
 				<button type="button" class="switch-button" on:click={switchMode} disabled={isLoading}>
 					{mode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Log in'}
@@ -450,7 +445,7 @@
 		cursor: pointer;
 	}
 
-	.role-option input[type="radio"] {
+	.role-option input[type='radio'] {
 		position: absolute;
 		opacity: 0;
 		pointer-events: none;
@@ -470,7 +465,7 @@
 		color: #6b7280;
 	}
 
-	.role-option input[type="radio"]:checked + .role-label {
+	.role-option input[type='radio']:checked + .role-label {
 		border-color: #2563eb;
 		background: rgba(37, 99, 235, 0.05);
 		color: #2563eb;
@@ -481,7 +476,7 @@
 		background: #f3f4f6;
 	}
 
-	.role-option input[type="radio"]:checked:hover + .role-label {
+	.role-option input[type='radio']:checked:hover + .role-label {
 		border-color: #1d4ed8;
 		background: rgba(37, 99, 235, 0.08);
 	}

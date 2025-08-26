@@ -1,5 +1,6 @@
 <script>
 	import { user } from '$lib/user';
+<<<<<<< HEAD
         import {
                 uploadTestText,
                 setTestActive,
@@ -12,6 +13,21 @@
                 getPendingStudents,
                 approveStudent
         } from '$lib/api';
+=======
+	import {
+		uploadTestSpreadsheet,
+		uploadTestData,
+		setTestActive,
+		assignTest,
+		getTeacherResults,
+		getAttemptAnswers,
+		getStudentResults,
+		getClassStudents,
+		requestClassJoin,
+		getPendingStudents,
+		approveStudent
+	} from '$lib/api';
+>>>>>>> 96402c6 (CSV)
 	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 
@@ -19,6 +35,7 @@
 	const tests = writable(data.tests ?? []);
 	let error = data.error ?? '';
 
+<<<<<<< HEAD
         let pasteText = '';
         let parsedQuestions = [];
         let editTestId = '';
@@ -69,26 +86,64 @@
                         saveMsg = e.message || 'Save failed';
                 }
         }
+=======
+	let file;
+	let testData = '';
+	let title = '';
+	let uploadMsg = '';
+	let uploadMethod = 'paste'; // 'paste' or 'file'
+
+	async function handleUpload() {
+		if (!$user || $user.role !== 'teacher') {
+			uploadMsg = 'You must be logged in as a teacher to upload tests.';
+			return;
+		}
+		const autoTitle = title.trim() || file?.name?.replace(/\.[^/.]+$/, '');
+		try {
+			if (uploadMethod === 'paste') {
+				if (!testData.trim()) {
+					uploadMsg = 'Please enter test data';
+					return;
+				}
+				await uploadTestData(fetch, { data: testData, title: autoTitle, teacherId: $user.id });
+			} else {
+				if (!file) {
+					uploadMsg = 'Please select a file';
+					return;
+				}
+				await uploadTestSpreadsheet(fetch, { file, title: autoTitle, teacherId: $user.id });
+			}
+			uploadMsg = 'Uploaded';
+			// Clear form
+			testData = '';
+			file = null;
+			title = '';
+		} catch (err) {
+			uploadMsg = err.message || 'Upload failed';
+		}
+	}
+>>>>>>> 96402c6 (CSV)
 
 	function downloadTemplate() {
-		// Create sample CSV content with proper format
-		const csvContent = `Question,Option A,Option B,Option C,Option D,Correct Answer
-"What is the primary source of law in most legal systems?","Constitution","Statutes","Case Law","Regulations","A"
-"Which amendment to the US Constitution protects freedom of speech?","First","Second","Fourth","Fifth","A"
-"In contract law, what is consideration?","A written document","Something of value exchanged","A court hearing","Legal advice","B"
-"What does 'pro bono' mean in legal terms?","For the public good (free legal work)","Professional bonus","Proven guilty","Private business","A"
-"Which court has the highest authority in the US legal system?","District Court","Court of Appeals","Supreme Court","State Court","C"`;
+		// Create sample content with proper format including Question ID
+		const csvContent = `Question ID	Question	Answer 1	Answer 2	Answer 3	Answer 4	ANSWER
+Q001	When must an appellate court have subject-matter jurisdiction?	When the notice of appeal is filed	When oral argument occurs	When a decision is issued	All of the above	d
+Q002	What is the primary source of law in most legal systems?	Constitution	Statutes	Case Law	Regulations	a
+Q003	Which amendment to the US Constitution protects freedom of speech?	First	Second	Fourth	Fifth	a
+Q004	In contract law, what is consideration?	A written document	Something of value exchanged	A court hearing	Legal advice	b
+Q005	What does 'pro bono' mean in legal terms?	For the public good (free legal work)	Professional bonus	Proven guilty	Private business	a
+Q006	Which court has the highest authority in the US legal system?	District Court	Court of Appeals	Supreme Court	State Court	c`;
 
 		// Create a blob with the CSV content
 		const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-		
+
 		// Create a download link
 		const link = document.createElement('a');
 		const url = URL.createObjectURL(blob);
 		link.setAttribute('href', url);
 		link.setAttribute('download', 'law_test_template.csv');
 		link.style.visibility = 'hidden';
-		
+
 		// Add to document, click, and remove
 		document.body.appendChild(link);
 		link.click();
@@ -285,6 +340,7 @@
 			{#if $user.role === 'teacher'}
 				<div class="dashboard teacher-dashboard">
 					<div class="dashboard-grid">
+<<<<<<< HEAD
                                                 <!-- Test Editor Section -->
                                                 <section class="card upload-card">
                                                         <div class="card-header">
@@ -361,6 +417,94 @@
                                                                 {/if}
                                                         </div>
                                                 </section>
+=======
+						<!-- Upload Section -->
+						<section class="card upload-card">
+							<div class="card-header">
+								<h2 class="card-title">
+									<span class="section-icon">📤</span>
+									Upload New Test
+								</h2>
+							</div>
+							<div class="card-content">
+								<div class="template-section">
+									<div class="template-info">
+										<h4>📋 Need a starting point?</h4>
+										<p>
+											Download our template with sample law questions. Format: Question ID,
+											Question, Answer 1, Answer 2, Answer 3, Answer 4, ANSWER (a/b/c/d).
+										</p>
+									</div>
+									<button onclick={downloadTemplate} class="btn btn-outline btn-sm template-btn">
+										<span class="btn-icon">📥</span>
+										Download Template
+									</button>
+								</div>
+
+								<div class="upload-method-selector">
+									<label class="method-option">
+										<input type="radio" bind:group={uploadMethod} value="paste" />
+										<span>📝 Paste Data</span>
+									</label>
+									<label class="method-option">
+										<input type="radio" bind:group={uploadMethod} value="file" />
+										<span>📁 Upload File</span>
+									</label>
+								</div>
+
+								<div class="form-group">
+									<label for="title-input">Test Title</label>
+									<input
+										id="title-input"
+										type="text"
+										placeholder="Enter test title..."
+										bind:value={title}
+										class="form-input"
+									/>
+								</div>
+
+								{#if uploadMethod === 'paste'}
+									<div class="form-group">
+										<label for="test-data">Test Data</label>
+										<textarea
+											id="test-data"
+											placeholder="Paste your test data here... Each line should have: Question ID, Question, Answer 1, Answer 2, Answer 3, Answer 4, ANSWER (a/b/c/d), separated by tabs."
+											bind:value={testData}
+											class="form-textarea"
+											rows="8"
+										></textarea>
+									</div>
+								{:else}
+									<div class="form-group">
+										<label for="file-input">CSV/TSV File</label>
+										<div class="file-input-wrapper">
+											<input
+												id="file-input"
+												type="file"
+												accept=".csv,.tsv,.txt"
+												onchange={(e) => {
+													file = e.target.files[0];
+													if (!title) {
+														title = file?.name?.replace(/\.[^/.]+$/, '');
+													}
+												}}
+												class="file-input"
+											/>
+											<span class="file-input-label">
+												{file ? file.name : 'Choose file...'}
+											</span>
+										</div>
+									</div>
+								{/if}
+								<button onclick={handleUpload} class="btn btn-primary"> Upload Test </button>
+								{#if uploadMsg}
+									<div class="status-message {uploadMsg === 'Uploaded' ? 'success' : 'error'}">
+										{uploadMsg}
+									</div>
+								{/if}
+							</div>
+						</section>
+>>>>>>> 96402c6 (CSV)
 
 						<!-- Pending Students -->
 						<section class="card pending-card">
@@ -460,7 +604,7 @@
 										<label for="student-select">Select Student</label>
 										<select id="student-select" bind:value={selectedStudentId} class="form-select">
 											<option value="">Choose a student...</option>
-											{#each $students as s}
+											{#each $students as s (s.id)}
 												<option value={s.id}>{s.name}</option>
 											{/each}
 										</select>
@@ -583,7 +727,7 @@
 							<div class="card-content">
 								{#if $studentResults.length}
 									<div class="student-tests">
-										{#each $studentResults as r}
+										{#each $studentResults as r (r.test_id)}
 											<div class="test-item {r.score == null ? 'pending' : 'completed'}">
 												{#if r.score == null}
 													<a href={`/tests/${r.test_id}`} class="test-link pending">
@@ -819,6 +963,89 @@
 		box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 	}
 
+<<<<<<< HEAD
+=======
+	.form-textarea {
+		width: 100%;
+		padding: 0.75rem 1rem;
+		border: 2px solid rgba(0, 0, 0, 0.1);
+		border-radius: 12px;
+		font-size: 0.9rem;
+		font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+		transition:
+			border-color 0.3s ease,
+			box-shadow 0.3s ease;
+		background: rgba(248, 250, 252, 0.8);
+		resize: vertical;
+		min-height: 120px;
+	}
+
+	.form-textarea:focus {
+		outline: none;
+		border-color: #667eea;
+		box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+		background: white;
+	}
+
+	.upload-method-selector {
+		display: flex;
+		gap: 1rem;
+		margin-bottom: 1.5rem;
+		padding: 1rem;
+		background: rgba(248, 250, 252, 0.5);
+		border-radius: 12px;
+		border: 1px solid rgba(0, 0, 0, 0.1);
+	}
+
+	.method-option {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 1rem;
+		border-radius: 8px;
+		cursor: pointer;
+		transition: background-color 0.2s ease;
+		font-weight: 500;
+	}
+
+	.method-option:hover {
+		background: rgba(102, 126, 234, 0.1);
+	}
+
+	.method-option input[type='radio'] {
+		margin: 0;
+	}
+
+	.file-input-wrapper {
+		position: relative;
+		overflow: hidden;
+		display: inline-block;
+		width: 100%;
+	}
+
+	.file-input {
+		position: absolute;
+		left: -9999px;
+	}
+
+	.file-input-label {
+		display: block;
+		padding: 0.75rem 1rem;
+		border: 2px dashed rgba(102, 126, 234, 0.3);
+		border-radius: 12px;
+		text-align: center;
+		cursor: pointer;
+		transition: all 0.3s ease;
+		background: rgba(102, 126, 234, 0.05);
+		color: #667eea;
+	}
+
+	.file-input-label:hover {
+		border-color: #667eea;
+		background: rgba(102, 126, 234, 0.1);
+	}
+
+>>>>>>> 96402c6 (CSV)
 	/* Template Section */
 	.template-section {
 		display: flex;

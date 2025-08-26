@@ -234,7 +234,7 @@
 		background: rgba(59, 130, 246, 0.05);
 	}
 
-	.question input[type="radio"] {
+	.question input[type='radio'] {
 		margin: 0;
 		width: 1rem;
 		height: 1rem;
@@ -243,7 +243,7 @@
 		margin-top: 0.125rem;
 	}
 
-	.question input[type="radio"]:checked + label {
+	.question input[type='radio']:checked + label {
 		background: rgba(37, 99, 235, 0.1);
 		border-color: #2563eb;
 	}
@@ -316,7 +316,7 @@
 	}
 
 	/* Teacher interface styles */
-	.question input[type="text"] {
+	.question input[type='text'] {
 		width: 100%;
 		padding: 0.75rem 1rem;
 		border: 2px solid #e5e7eb;
@@ -326,7 +326,7 @@
 		margin-bottom: 0.75rem;
 	}
 
-	.question input[type="text"]:focus {
+	.question input[type='text']:focus {
 		outline: none;
 		border-color: #2563eb;
 		box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
@@ -339,17 +339,17 @@
 		margin-bottom: 0.5rem;
 	}
 
-	.choice input[type="radio"] {
+	.choice input[type='radio'] {
 		flex-shrink: 0;
 	}
 
-	.choice input[type="text"] {
+	.choice input[type='text'] {
 		flex: 1;
 		margin-bottom: 0;
 	}
 
 	/* Submit button centering */
-	button[onclick*="submit"] {
+	button[onclick*='submit'] {
 		display: block;
 		margin: 2rem auto 0;
 		min-width: 200px;
@@ -407,7 +407,7 @@
 		outline-offset: 2px;
 	}
 
-	.question input[type="radio"]:focus {
+	.question input[type='radio']:focus {
 		outline: 2px solid #2563eb;
 		outline-offset: 2px;
 	}
