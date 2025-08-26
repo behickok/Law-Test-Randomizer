@@ -4,18 +4,23 @@ import { render } from 'vitest-browser-svelte';
 import { user } from '$lib/user';
 import { getStudentResults } from '$lib/api';
 
-vi.mock('$lib/api', () => ({
-	uploadTestText: vi.fn(),
-	setTestActive: vi.fn(),
-	assignTest: vi.fn(),
-	getTeacherResults: vi.fn(),
-	getAttemptAnswers: vi.fn(),
-	getStudentResults: vi.fn(),
-	getClassStudents: vi.fn().mockResolvedValue([]),
-	requestClassJoin: vi.fn(),
-	getPendingStudents: vi.fn().mockResolvedValue([{ id: 1, name: 'Alice' }]),
-	approveStudent: vi.fn()
-}));
+vi.mock('$lib/api', async (importOriginal) => {
+	const original = await importOriginal();
+	return {
+		...original,
+		uploadTestText: vi.fn(),
+		setTestActive: vi.fn(),
+		assignTest: vi.fn(),
+		getTeacherResults: vi.fn(),
+		getAttemptAnswers: vi.fn(),
+		getStudentResults: vi.fn(),
+		getClassStudents: vi.fn().mockResolvedValue([]),
+		requestClassJoin: vi.fn(),
+		getPendingStudents: vi.fn().mockResolvedValue([{ id: 1, name: 'Alice' }]),
+		approveStudent: vi.fn(),
+		deleteTest: vi.fn()
+	};
+});
 
 import Page from './+page.svelte';
 
@@ -63,9 +68,6 @@ describe('/+page.svelte', () => {
 				}
 			}
 		});
-
-		const loadBtn = page.getByRole('button', { name: 'Load' });
-		await loadBtn.click();
 
 		const link = page.getByRole('link', { name: 'Test' });
 		await expect.element(link).toBeInTheDocument();
