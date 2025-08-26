@@ -41,11 +41,13 @@ You can preview the production build with `npm run preview`.
 
 The app now uses simple PIN codes rather than full authentication. A teacher PIN is stored with each test and a student PIN is stored with each test attempt.
 
-### Upload a test from a spreadsheet
+### Create or update a test by pasting from a spreadsheet
 
-1. On the home page enter a test title and your teacher PIN in the **Upload Test** section.
-2. Select a CSV where each row is `question,correct answer,wrong answer 1,...`.
-3. Click **Upload** to create the test and its choices.
+1. On the home page, open the **Edit Test Questions** section.
+2. Choose an existing test to update or select "New Test..." and enter a title.
+3. Paste rows from your spreadsheet where each row is `question,correct answer,wrong answer 1,...`.
+4. Click **Preview** to review and optionally remove questions.
+5. Click **Save Test** to create or update the test and its choices.
 
 ### Manage tests
 
