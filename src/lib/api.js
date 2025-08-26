@@ -316,6 +316,17 @@ export async function deleteTest(fetch, { testId, teacherId }) {
 	return { success: true };
 }
 
+export async function getTestsForTeacher(fetch, teacherId) {
+	const cleanTeacherId = validateNumeric(teacherId);
+	const sql = `SELECT id, title, description, is_active FROM tests WHERE teacher_id = ${cleanTeacherId}`;
+	return query(fetch, sql);
+}
+
+export async function getActiveTests(fetch) {
+	const sql = `SELECT id, title, description, is_active FROM tests WHERE is_active = TRUE`;
+	return query(fetch, sql);
+}
+
 export async function getTestQuestions(fetch, { testId, teacherId }) {
 	const cleanTestId = validateNumeric(testId);
 	const cleanTeacherId = validateNumeric(teacherId);

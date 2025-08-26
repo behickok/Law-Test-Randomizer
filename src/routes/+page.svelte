@@ -12,7 +12,9 @@
 		getPendingStudents,
 		approveStudent,
 		deleteTest,
-		getTestQuestions
+		getTestQuestions,
+		getTestsForTeacher,
+		getActiveTests
 	} from '$lib/api';
 	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
@@ -290,9 +292,29 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 		}
 	}
 
+	async function loadTests() {
+		if (!$user) {
+			tests.set([]);
+			return;
+		}
+		try {
+			let res;
+			if ($user.role === 'teacher') {
+				res = await getTestsForTeacher(fetch, $user.id);
+			} else {
+				res = await getActiveTests(fetch);
+			}
+			tests.set(Array.isArray(res) ? res : res?.data ?? []);
+		} catch (err) {
+			error = err.message;
+			tests.set([]);
+		}
+	}
+
 	onMount(() => {
 		loadStudents();
 		loadPendingStudents();
+		loadTests();
 		if ($user?.role === 'teacher') {
 			loadTeacherResults();
 		}
@@ -323,6 +345,7 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 	// Reactive loading when user state changes
 	$effect(() => {
 		if ($user) {
+			loadTests();
 			if ($user.role === 'teacher') {
 				loadStudents();
 				loadPendingStudents();
@@ -330,6 +353,8 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 			} else if ($user.role === 'student') {
 				loadStudentResults();
 			}
+		} else {
+			tests.set([]);
 		}
 	});
 
