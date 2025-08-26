@@ -11,8 +11,8 @@ export async function load({ params, fetch }) {
 
 		const qRes = await query(
 			fetch,
-			`select q.id as question_id, q.question_text, c.id as choice_id, c.choice_text, c.is_correct
-                        from questions q join choices c on q.id = c.question_id
+			`select q.id as question_id, q.question_text, q.points, c.id as choice_id, c.choice_text, c.is_correct
+                        from questions q left join choices c on q.id = c.question_id
                         where q.test_id = ${params.id}`
 		);
 		const rows = Array.isArray(qRes) ? qRes : (qRes?.data ?? []);
@@ -22,14 +22,17 @@ export async function load({ params, fetch }) {
 				map.set(r.question_id, {
 					id: r.question_id,
 					text: r.question_text,
+					points: r.points,
 					choices: []
 				});
 			}
-			map.get(r.question_id).choices.push({
-				id: r.choice_id,
-				text: r.choice_text,
-				is_correct: r.is_correct
-			});
+			if (r.choice_id) {
+				map.get(r.question_id).choices.push({
+					id: r.choice_id,
+					text: r.choice_text,
+					is_correct: r.is_correct
+				});
+			}
 		}
 		const questions = Array.from(map.values()).map((q) => ({
 			...q,

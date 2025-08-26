@@ -11,7 +11,8 @@
 		deleteTest,
 		getTestQuestions,
 		getTestsForTeacher,
-		getActiveTests
+		getActiveTests,
+		gradeAttemptAnswer
 	} from '$lib/api';
 	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
@@ -288,7 +289,7 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 			} else {
 				res = await getActiveTests(fetch);
 			}
-			tests.set(Array.isArray(res) ? res : res?.data ?? []);
+			tests.set(Array.isArray(res) ? res : (res?.data ?? []));
 		} catch (err) {
 			error = err.message;
 			tests.set([]);
@@ -390,6 +391,29 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 		}
 	}
 
+	async function toggleCorrect(attemptId, answer) {
+		const newCorrect = !answer.is_correct;
+		const points = newCorrect ? answer.points : 0;
+		await gradeAttemptAnswer(fetch, {
+			answerId: answer.id,
+			isCorrect: newCorrect,
+			pointsAwarded: points
+		});
+		await loadTeacherResults();
+		await loadAttemptAnswers(attemptId);
+	}
+
+	async function saveFreeResponse(attemptId, answer) {
+		const pts = Number(answer.points_awarded || 0);
+		await gradeAttemptAnswer(fetch, {
+			answerId: answer.id,
+			isCorrect: pts > 0,
+			pointsAwarded: pts
+		});
+		await loadTeacherResults();
+		await loadAttemptAnswers(attemptId);
+	}
+
 	const studentResults = writable([]);
 
 	async function loadStudentResults() {
@@ -403,7 +427,6 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 			studentResults.set([]);
 		}
 	}
-
 </script>
 
 <div class="app-container">
@@ -714,31 +737,49 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 														<span class="student-name">{r.student_name}</span>
 														<span class="test-title">{r.title}</span>
 													</div>
-													{#if r.completed_at}
+													{#if r.score !== null}
 														<span class="score-badge">
 															Score: {r.score}
 														</span>
 													{:else}
-														<span class="status-badge pending">
-															Pending
-														</span>
+														<span class="status-badge pending"> Pending </span>
 													{/if}
 												</summary>
 												<div class="result-content">
 													{#if r.completed_at}
 														{#if $attemptAnswers[r.id]?.length}
 															<div class="answers-list">
-																{#each $attemptAnswers[r.id] as a (a.question_text)}
-																	<div
-																		class="answer-item {a.is_correct ? 'correct' : 'incorrect'}"
-																	>
-																		<div class="question-text">{a.question_text}</div>
-																		<div class="choice-text">
-																			{a.choice_text}
-																			<span class="result-icon">
-																				{a.is_correct ? '✅' : '❌'}
-																			</span>
+																{#each $attemptAnswers[r.id] as a (a.id)}
+																	<div class="answer-item">
+																		<div class="question-text">
+																			{a.question_text} ({a.points} pts)
 																		</div>
+																		{#if a.choice_text}
+																			<div class="choice-text">
+																				{a.choice_text}
+																				<span class="result-icon">{a.is_correct ? '✅' : '❌'}</span
+																				>
+																				<button
+																					class="override-btn"
+																					onclick={() => toggleCorrect(r.id, a)}>Override</button
+																				>
+																			</div>
+																		{:else}
+																			<div class="choice-text">
+																				<div class="response-text">{a.answer_text}</div>
+																				<input
+																					type="number"
+																					min="0"
+																					max={a.points}
+																					bind:value={a.points_awarded}
+																					class="grade-input"
+																				/>
+																				<button
+																					class="override-btn"
+																					onclick={() => saveFreeResponse(r.id, a)}>Save</button
+																				>
+																			</div>
+																		{/if}
 																	</div>
 																{/each}
 															</div>
@@ -785,8 +826,14 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 								{#if $studentResults.length}
 									<div class="student-tests">
 										{#each $studentResults as r (r.test_id)}
-											<div class="test-item {r.score == null ? 'pending' : 'completed'}">
-												{#if r.score == null}
+											<div
+												class="test-item {r.completed_at
+													? r.score == null
+														? 'pending'
+														: 'completed'
+													: 'pending'}"
+											>
+												{#if !r.completed_at}
 													<a href={`/tests/${r.test_id}`} class="test-link pending">
 														<div class="test-info">
 															<span class="test-title">{r.title}</span>
@@ -794,6 +841,13 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 														</div>
 														<span class="action-indicator">→</span>
 													</a>
+												{:else if r.score == null}
+													<div class="completed-test">
+														<div class="test-info">
+															<span class="test-title">{r.title}</span>
+															<span class="test-status completed">Pending Review</span>
+														</div>
+													</div>
 												{:else}
 													<div class="completed-test">
 														<div class="test-info">
@@ -1735,6 +1789,20 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 
 	.result-icon {
 		font-size: 1.2rem;
+	}
+
+	.response-text {
+		margin-bottom: 0.5rem;
+	}
+
+	.grade-input {
+		width: 4rem;
+		margin-right: 0.5rem;
+	}
+
+	.override-btn {
+		margin-left: 0.5rem;
+		padding: 0.25rem 0.5rem;
 	}
 
 	.student-tests {
