@@ -189,6 +189,7 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 	}
 
 	function compareQuestions(newQuestions, existingQuestions) {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const existingMap = new Map();
 		existingQuestions.forEach((q) => {
 			existingMap.set(q.questionId, q);
@@ -587,7 +588,7 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 										{updateMode ? '🔄 Update Test' : '📋 Create Test'}
 									{/if}
 								</button>
-								
+
 								{#if isUploading}
 									<div class="upload-progress">
 										<div class="progress-bar">
@@ -599,7 +600,7 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 										</div>
 									</div>
 								{/if}
-								
+
 								{#if uploadMsg && !isUploading}
 									<div
 										class="status-message {uploadMsg === 'Created' || uploadMsg === 'Updated'
@@ -643,162 +644,166 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 								{/if}
 							</div>
 						</section>
-					</div>
-
-					<!-- Tests Management -->
-					<section class="card tests-card">
-						<div class="card-header">
-							<h2 class="card-title">
-								<span class="section-icon">📋</span>
-								Manage Tests
-							</h2>
-						</div>
-						<div class="card-content">
-							{#if $tests.length}
-								<div class="tests-grid">
-									{#each $tests as t (t.id)}
-										<div class="test-item {t.is_active ? 'active' : 'inactive'}">
-											<div class="test-header">
-												<a href={`/tests/${t.id}`} class="test-link">
-													{t.title}
-												</a>
-												<div class="test-status">
-													<span class="status-indicator {t.is_active ? 'active' : 'inactive'}">
-														{t.is_active ? 'Active' : 'Inactive'}
-													</span>
+						<!-- Tests Management -->
+						<section class="card tests-card">
+							<div class="card-header">
+								<h2 class="card-title">
+									<span class="section-icon">📋</span>
+									Manage Tests
+								</h2>
+							</div>
+							<div class="card-content">
+								{#if $tests.length}
+									<div class="tests-grid">
+										{#each $tests as t (t.id)}
+											<div class="test-item {t.is_active ? 'active' : 'inactive'}">
+												<div class="test-header">
+													<a href={`/tests/${t.id}`} class="test-link">
+														{t.title}
+													</a>
+													<div class="test-status">
+														<span class="status-indicator {t.is_active ? 'active' : 'inactive'}">
+															{t.is_active ? 'Active' : 'Inactive'}
+														</span>
+													</div>
+												</div>
+												<div class="test-actions">
+													<button
+														onclick={() => toggleActive(t)}
+														class="btn {t.is_active ? 'btn-warning' : 'btn-success'} btn-sm"
+													>
+														{t.is_active ? 'Deactivate' : 'Activate'}
+													</button>
+													<button
+														onclick={() => handleDeleteTest(t)}
+														class="btn btn-danger btn-sm"
+														title="Delete test permanently"
+													>
+														🗑️ Delete
+													</button>
 												</div>
 											</div>
-											<div class="test-actions">
-												<button
-													onclick={() => toggleActive(t)}
-													class="btn {t.is_active ? 'btn-warning' : 'btn-success'} btn-sm"
-												>
-													{t.is_active ? 'Deactivate' : 'Activate'}
-												</button>
-												<button
-													onclick={() => handleDeleteTest(t)}
-													class="btn btn-danger btn-sm"
-													title="Delete test permanently"
-												>
-													🗑️ Delete
-												</button>
-											</div>
-										</div>
-									{/each}
-								</div>
-							{:else}
-								<div class="empty-state">
-									<span class="empty-icon">📚</span>
-									<p>No tests available. Upload your first test above!</p>
-								</div>
-							{/if}
-						</div>
-					</section>
-
-					<!-- Assignment Section -->
-					<section class="card assign-card">
-						<div class="card-header">
-							<h2 class="card-title">
-								<span class="section-icon">🎯</span>
-								Assign Test to Student
-							</h2>
-						</div>
-						<div class="card-content">
-							<div class="assign-form">
-								<div class="form-row">
-									<div class="form-group">
-										<label for="test-select">Select Test</label>
-										<select id="test-select" bind:value={assignTestId} class="form-select">
-											<option value="">Choose a test...</option>
-											{#each $tests as t (t.id)}
-												<option value={t.id}>{t.title}</option>
-											{/each}
-										</select>
+										{/each}
 									</div>
-									<div class="form-group">
-										<label for="student-select">Select Student</label>
-										<select id="student-select" bind:value={selectedStudentId} class="form-select">
-											<option value="">Choose a student...</option>
-											{#each $students as s (s.id)}
-												<option value={s.id}>{s.name}</option>
-											{/each}
-										</select>
-									</div>
-								</div>
-								<button onclick={handleAssign} class="btn btn-primary"> Assign Test </button>
-								{#if assignMsg}
-									<div class="status-message {assignMsg === 'Assigned' ? 'success' : 'error'}">
-										{assignMsg}
+								{:else}
+									<div class="empty-state">
+										<span class="empty-icon">📚</span>
+										<p>No tests available. Upload your first test above!</p>
 									</div>
 								{/if}
 							</div>
-						</div>
-					</section>
+						</section>
 
-					<!-- Results Section -->
-					<section class="card results-card">
-						<div class="card-header">
-							<h2 class="card-title">
-								<span class="section-icon">📊</span>
-								Test Results
-							</h2>
-						</div>
-						<div class="card-content">
-							{#if $teacherResults.length}
-								<div class="results-list">
-									{#each $teacherResults as r (r.id)}
-										<details class="result-details">
-											<summary
-												class="result-summary"
-												onclick={(e) => {
-													const details = e.target.parentElement;
-													if (!details.open) {
-														loadAttemptAnswers(r.id);
-													}
-												}}
+						<!-- Assignment Section -->
+						<section class="card assign-card">
+							<div class="card-header">
+								<h2 class="card-title">
+									<span class="section-icon">🎯</span>
+									Assign Test to Student
+								</h2>
+							</div>
+							<div class="card-content">
+								<div class="assign-form">
+									<div class="form-row">
+										<div class="form-group">
+											<label for="test-select">Select Test</label>
+											<select id="test-select" bind:value={assignTestId} class="form-select">
+												<option value="">Choose a test...</option>
+												{#each $tests as t (t.id)}
+													<option value={t.id}>{t.title}</option>
+												{/each}
+											</select>
+										</div>
+										<div class="form-group">
+											<label for="student-select">Select Student</label>
+											<select
+												id="student-select"
+												bind:value={selectedStudentId}
+												class="form-select"
 											>
-												<div class="result-info">
-													<span class="student-name">{r.student_name}</span>
-													<span class="test-title">{r.title}</span>
-												</div>
-												<span class="score-badge">
-													Score: {r.score}
-												</span>
-											</summary>
-											<div class="result-content">
-												{#if $attemptAnswers[r.id]?.length}
-													<div class="answers-list">
-														{#each $attemptAnswers[r.id] as a (a.question_text)}
-															<div class="answer-item {a.is_correct ? 'correct' : 'incorrect'}">
-																<div class="question-text">{a.question_text}</div>
-																<div class="choice-text">
-																	{a.choice_text}
-																	<span class="result-icon">
-																		{a.is_correct ? '✅' : '❌'}
-																	</span>
+												<option value="">Choose a student...</option>
+												{#each $students as s (s.id)}
+													<option value={s.id}>{s.name}</option>
+												{/each}
+											</select>
+										</div>
+									</div>
+									<button onclick={handleAssign} class="btn btn-primary"> Assign Test </button>
+									{#if assignMsg}
+										<div class="status-message {assignMsg === 'Assigned' ? 'success' : 'error'}">
+											{assignMsg}
+										</div>
+									{/if}
+								</div>
+							</div>
+						</section>
+
+						<!-- Results Section -->
+						<section class="card results-card">
+							<div class="card-header">
+								<h2 class="card-title">
+									<span class="section-icon">📊</span>
+									Test Results
+								</h2>
+							</div>
+							<div class="card-content">
+								{#if $teacherResults.length}
+									<div class="results-list">
+										{#each $teacherResults as r (r.id)}
+											<details class="result-details">
+												<summary
+													class="result-summary"
+													onclick={(e) => {
+														const details = e.target.parentElement;
+														if (!details.open) {
+															loadAttemptAnswers(r.id);
+														}
+													}}
+												>
+													<div class="result-info">
+														<span class="student-name">{r.student_name}</span>
+														<span class="test-title">{r.title}</span>
+													</div>
+													<span class="score-badge">
+														Score: {r.score}
+													</span>
+												</summary>
+												<div class="result-content">
+													{#if $attemptAnswers[r.id]?.length}
+														<div class="answers-list">
+															{#each $attemptAnswers[r.id] as a (a.question_text)}
+																<div class="answer-item {a.is_correct ? 'correct' : 'incorrect'}">
+																	<div class="question-text">{a.question_text}</div>
+																	<div class="choice-text">
+																		{a.choice_text}
+																		<span class="result-icon">
+																			{a.is_correct ? '✅' : '❌'}
+																		</span>
+																	</div>
 																</div>
-															</div>
-														{/each}
-													</div>
-												{:else}
-													<div class="empty-state">
-														<p>No answers available</p>
-													</div>
-												{/if}
-											</div>
-										</details>
-									{/each}
-								</div>
-							{:else}
-								<div class="empty-state">
-									<span class="empty-icon">📈</span>
-									<p>No results yet. Click "Refresh Results" to check for new submissions.</p>
-								</div>
-							{/if}
-						</div>
-					</section>
-					</div> <!-- Close dashboard-grid -->
-				</div> <!-- Close teacher-dashboard -->
+															{/each}
+														</div>
+													{:else}
+														<div class="empty-state">
+															<p>No answers available</p>
+														</div>
+													{/if}
+												</div>
+											</details>
+										{/each}
+									</div>
+								{:else}
+									<div class="empty-state">
+										<span class="empty-icon">📈</span>
+										<p>No results yet. Click "Refresh Results" to check for new submissions.</p>
+									</div>
+								{/if}
+							</div>
+						</section>
+					</div>
+					<!-- Close dashboard-grid -->
+				</div>
+				<!-- Close teacher-dashboard -->
 			{/if}
 
 			{#if $user.role === 'student'}
@@ -1419,8 +1424,12 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 	}
 
 	@keyframes shimmer {
-		0% { transform: translateX(-100%); }
-		100% { transform: translateX(100%); }
+		0% {
+			transform: translateX(-100%);
+		}
+		100% {
+			transform: translateX(100%);
+		}
 	}
 
 	.progress-text {
@@ -1437,8 +1446,12 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 	}
 
 	@keyframes spin {
-		from { transform: rotate(0deg); }
-		to { transform: rotate(360deg); }
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
 	}
 
 	/* Preview Pane Styles */
