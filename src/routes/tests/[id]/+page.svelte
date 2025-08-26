@@ -22,12 +22,10 @@
 			isTeacherOwner = true;
 		}
 
-		questions = shuffle(
-			questions.map((q) => ({
-				...q,
-				choices: shuffle([...q.choices])
-			}))
-		);
+		// Only randomize questions for students, keep in order for teachers
+		if ($user && $user.role === 'student') {
+			questions = shuffle([...questions]);
+		}
 	});
 
 	async function saveQuestion(q) {
@@ -87,9 +85,10 @@
 				{#each questions as q (q.id)}
 					<div class="question">
 						<input bind:value={q.text} />
-						{#each q.choices as c (c.id)}
+						{#each q.choices as c, choiceIndex (c.id)}
 							<div class="choice">
 								<input type="radio" name={`correct-${q.id}`} value={c.id} bind:group={q.correct} />
+								<span class="choice-label">{String.fromCharCode(97 + choiceIndex)}.</span>
 								<input bind:value={c.text} />
 							</div>
 						{/each}
@@ -109,7 +108,7 @@
 							<p>
 								{i + 1}. {q.text}
 							</p>
-							{#each q.choices as c (c.id)}
+							{#each q.choices as c, choiceIndex (c.id)}
 								<label>
 									<input
 										type="radio"
@@ -117,6 +116,7 @@
 										value={c.id}
 										onchange={() => (q.selected = c.id)}
 									/>
+									<span class="choice-label">{String.fromCharCode(97 + choiceIndex)}.</span>
 									{c.text}
 								</label>
 							{/each}
@@ -346,6 +346,14 @@
 	.choice input[type='text'] {
 		flex: 1;
 		margin-bottom: 0;
+	}
+
+	.choice-label {
+		font-weight: 600;
+		color: #374151;
+		margin-right: 0.5rem;
+		min-width: 1.5rem;
+		display: inline-block;
 	}
 
 	/* Submit button centering */

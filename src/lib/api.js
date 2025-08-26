@@ -53,35 +53,6 @@ export async function uploadSQL(fetch, file) {
 	return res.json();
 }
 
-export async function uploadTestSpreadsheet(fetch, { file, title, teacherId, testId }) {
-	if (!file) {
-		throw new Error('File is required');
-	}
-
-	const derivedTitle = title?.trim() || file.name.replace(/\.[^/.]+$/, '');
-	const cleanTitle = validateString(derivedTitle);
-	const cleanTeacherId = validateNumeric(teacherId);
-
-	const form = new FormData();
-	form.append('file', file);
-	form.append('title', cleanTitle);
-	form.append('teacher_id', cleanTeacherId);
-
-	// Add test_id if updating existing test
-	if (testId) {
-		form.append('test_id', validateNumeric(testId));
-	}
-
-	const res = await fetch(`${BASE_URL}/tests/upload`, {
-		method: 'POST',
-		body: form
-	});
-	if (!res.ok) {
-		throw new Error(await res.text());
-	}
-	return res.json();
-}
-
 export async function uploadTestData(fetch, { data, title, teacherId, testId }) {
 	if (!data || !data.trim()) {
 		throw new Error('Test data is required');
@@ -313,4 +284,77 @@ export async function signupStudent(fetch, { name, pin }) {
 
 	const sql = `INSERT INTO students (name, pin) VALUES ('${escapeSql(cleanName)}', '${escapeSql(cleanPin)}') RETURNING id, name, 'student' as role`;
 	return query(fetch, sql);
+}
+
+export async function deleteTest(fetch, { testId, teacherId }) {
+	const cleanTestId = validateNumeric(testId);
+	const cleanTeacherId = validateNumeric(teacherId);
+
+	// Verify ownership first
+	const ownershipCheck = await query(
+		fetch,
+		`SELECT id FROM tests WHERE id = ${cleanTestId} AND teacher_id = ${cleanTeacherId}`
+	);
+
+	if (ownershipCheck.length === 0) {
+		throw new Error('Test not found or access denied');
+	}
+
+	// Delete in correct order: attempt_answers, choices, questions, test_attempts, then test
+	await query(
+		fetch,
+		`DELETE FROM attempt_answers WHERE question_id IN (SELECT id FROM questions WHERE test_id = ${cleanTestId})`
+	);
+	await query(
+		fetch,
+		`DELETE FROM choices WHERE question_id IN (SELECT id FROM questions WHERE test_id = ${cleanTestId})`
+	);
+	await query(fetch, `DELETE FROM questions WHERE test_id = ${cleanTestId}`);
+	await query(fetch, `DELETE FROM test_attempts WHERE test_id = ${cleanTestId}`);
+	await query(fetch, `DELETE FROM tests WHERE id = ${cleanTestId}`);
+
+	return { success: true };
+}
+
+export async function getTestQuestions(fetch, { testId, teacherId }) {
+	const cleanTestId = validateNumeric(testId);
+	const cleanTeacherId = validateNumeric(teacherId);
+
+	// Verify ownership first
+	const ownershipCheck = await query(
+		fetch,
+		`SELECT id FROM tests WHERE id = ${cleanTestId} AND teacher_id = ${cleanTeacherId}`
+	);
+
+	if (ownershipCheck.length === 0) {
+		throw new Error('Test not found or access denied');
+	}
+
+	// Get questions with their choices
+	const sql = `SELECT q.id as db_id, q.question_id, q.question_text, c.choice_text, c.is_correct
+		FROM questions q 
+		JOIN choices c ON q.id = c.question_id 
+		WHERE q.test_id = ${cleanTestId} 
+		ORDER BY q.id, c.id`;
+
+	const rows = await query(fetch, sql);
+	const questionsMap = new Map();
+
+	for (const row of rows) {
+		// Use question_id if available, otherwise generate one based on db_id
+		const qId = row.question_id || `Q${row.db_id}`;
+		if (!questionsMap.has(qId)) {
+			questionsMap.set(qId, {
+				questionId: qId,
+				questionText: row.question_text,
+				choices: []
+			});
+		}
+		questionsMap.get(qId).choices.push({
+			text: row.choice_text,
+			isCorrect: row.is_correct
+		});
+	}
+
+	return Array.from(questionsMap.values());
 }

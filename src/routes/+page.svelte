@@ -1,7 +1,6 @@
 <script>
 	import { user } from '$lib/user';
 	import {
-		uploadTestSpreadsheet,
 		uploadTestData,
 		setTestActive,
 		assignTest,
@@ -11,60 +10,85 @@
 		getClassStudents,
 		requestClassJoin,
 		getPendingStudents,
-		approveStudent
+		approveStudent,
+		deleteTest,
+		getTestQuestions
 	} from '$lib/api';
 	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 
 	let { data } = $props();
 	const tests = writable(data.tests ?? []);
-	let error = data.error ?? '';
+	let error = $state(data.error ?? '');
 
-	let file = $state();
 	let testData = $state('');
 	let title = $state('');
 	let uploadMsg = $state('');
-	let uploadMethod = $state('paste'); // 'paste' or 'file'
 	let selectedTestId = $state(''); // For updating existing tests
 	let updateMode = $state(false); // Toggle between create and update
+	let previewQuestions = $state([]); // Parsed questions for preview
+	let existingQuestions = $state([]); // Existing questions when updating
+	let isUploading = $state(false); // Loading state
+	let uploadProgress = $state(0); // Progress percentage
 
 	async function handleUpload() {
 		if (!$user || $user.role !== 'teacher') {
 			uploadMsg = 'You must be logged in as a teacher to upload tests.';
 			return;
 		}
-		const autoTitle = title.trim() || file?.name?.replace(/\.[^/.]+$/, '');
-		try {
-			const testId = updateMode && selectedTestId ? selectedTestId : undefined;
-			const actionWord = updateMode ? 'Updated' : 'Uploaded';
+		if (!testData.trim()) {
+			uploadMsg = 'Please enter test data';
+			return;
+		}
 
-			if (uploadMethod === 'paste') {
-				if (!testData.trim()) {
-					uploadMsg = 'Please enter test data';
-					return;
+		// Start loading state
+		isUploading = true;
+		uploadProgress = 0;
+		uploadMsg = '';
+
+		try {
+			// Simulate progress based on number of questions for user feedback
+			const questionCount = previewQuestions.length;
+			const progressIncrement = questionCount > 0 ? 90 / questionCount : 90;
+			let currentProgress = 0;
+
+			// Progress simulation
+			const progressInterval = setInterval(() => {
+				if (currentProgress < 80) {
+					currentProgress += progressIncrement;
+					uploadProgress = Math.min(currentProgress, 80);
 				}
-				await uploadTestData(fetch, {
-					data: testData,
-					title: autoTitle,
-					teacherId: $user.id,
-					testId
-				});
-			} else {
-				if (!file) {
-					uploadMsg = 'Please select a file';
-					return;
+			}, 100);
+
+			const testId = updateMode && selectedTestId ? selectedTestId : undefined;
+			const actionWord = updateMode ? 'Updated' : 'Created';
+
+			await uploadTestData(fetch, {
+				data: testData,
+				title: title.trim(),
+				teacherId: $user.id,
+				testId
+			});
+
+			// Complete progress
+			clearInterval(progressInterval);
+			uploadProgress = 100;
+
+			// Short delay to show completion
+			setTimeout(() => {
+				uploadMsg = actionWord;
+				// Clear form
+				testData = '';
+				title = '';
+				if (updateMode) {
+					selectedTestId = '';
 				}
-				await uploadTestSpreadsheet(fetch, { file, title: autoTitle, teacherId: $user.id, testId });
-			}
-			uploadMsg = actionWord;
-			// Clear form
-			testData = '';
-			file = null;
-			title = '';
-			if (updateMode) {
-				selectedTestId = '';
-			}
+				isUploading = false;
+				uploadProgress = 0;
+			}, 500);
 		} catch (err) {
+			isUploading = false;
+			uploadProgress = 0;
 			uploadMsg = err.message || 'Upload failed';
 		}
 	}
@@ -95,6 +119,106 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 		document.body.removeChild(link);
 	}
 
+	function parseTestData(data) {
+		if (!data.trim()) {
+			return [];
+		}
+
+		const lines = data
+			.split(/\r?\n/)
+			.map((l) => l.trim())
+			.filter(Boolean);
+		const questions = [];
+
+		for (const line of lines) {
+			const cols = line.split('\t');
+			if (cols.length < 7) {
+				continue; // Skip malformed lines
+			}
+
+			const questionId = cols[0].trim();
+			const questionText = cols[1].trim();
+			const answer1 = cols[2].trim();
+			const answer2 = cols[3].trim();
+			const answer3 = cols[4].trim();
+			const answer4 = cols[5].trim();
+			const correctAnswer = cols[6].trim().toLowerCase();
+
+			const correctIndex =
+				correctAnswer === 'a'
+					? 0
+					: correctAnswer === 'b'
+						? 1
+						: correctAnswer === 'c'
+							? 2
+							: correctAnswer === 'd'
+								? 3
+								: -1;
+
+			questions.push({
+				questionId,
+				questionText,
+				choices: [
+					{ text: answer1, isCorrect: correctIndex === 0 },
+					{ text: answer2, isCorrect: correctIndex === 1 },
+					{ text: answer3, isCorrect: correctIndex === 2 },
+					{ text: answer4, isCorrect: correctIndex === 3 }
+				],
+				status: 'new' // Will be updated when comparing with existing
+			});
+		}
+
+		return questions;
+	}
+
+	async function loadExistingQuestions() {
+		if (!updateMode || !selectedTestId || !$user) {
+			existingQuestions = [];
+			return;
+		}
+
+		try {
+			existingQuestions = await getTestQuestions(fetch, {
+				testId: selectedTestId,
+				teacherId: $user.id
+			});
+		} catch (err) {
+			existingQuestions = [];
+			console.error('Failed to load existing questions:', err);
+		}
+	}
+
+	function compareQuestions(newQuestions, existingQuestions) {
+		const existingMap = new Map();
+		existingQuestions.forEach((q) => {
+			existingMap.set(q.questionId, q);
+		});
+
+		return newQuestions.map((newQ) => {
+			const existing = existingMap.get(newQ.questionId);
+			if (!existing) {
+				return { ...newQ, status: 'added' };
+			}
+
+			// Check if question or choices changed
+			const questionChanged = existing.questionText !== newQ.questionText;
+			const choicesChanged = existing.choices.some((existingChoice, index) => {
+				const newChoice = newQ.choices[index];
+				return (
+					!newChoice ||
+					existingChoice.text !== newChoice.text ||
+					existingChoice.isCorrect !== newChoice.isCorrect
+				);
+			});
+
+			if (questionChanged || choicesChanged) {
+				return { ...newQ, status: 'changed' };
+			}
+
+			return { ...newQ, status: 'unchanged' };
+		});
+	}
+
 	async function toggleActive(t) {
 		if (!$user || $user.role !== 'teacher') {
 			error = 'You must be logged in as a teacher to manage tests.';
@@ -109,6 +233,29 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 			tests.update((ts) => ts.map((x) => (x.id === t.id ? { ...x, is_active: !x.is_active } : x)));
 		} catch {
 			error = 'Failed to update test';
+		}
+	}
+
+	async function handleDeleteTest(t) {
+		if (!$user || $user.role !== 'teacher') {
+			error = 'You must be logged in as a teacher to delete tests.';
+			return;
+		}
+
+		const confirmed = confirm(
+			`Are you sure you want to delete "${t.title}"? This will permanently remove the test and all associated questions and answers. This action cannot be undone.`
+		);
+
+		if (!confirmed) return;
+
+		try {
+			await deleteTest(fetch, {
+				testId: t.id,
+				teacherId: $user.id
+			});
+			tests.update((ts) => ts.filter((x) => x.id !== t.id));
+		} catch (err) {
+			error = err.message || 'Failed to delete test';
 		}
 	}
 
@@ -150,6 +297,25 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 		}
 		if ($user?.role === 'student') {
 			loadStudentResults();
+		}
+	});
+
+	// Reactive preview update when test data changes
+	$effect(() => {
+		const parsed = parseTestData(testData);
+		if (updateMode && existingQuestions.length > 0) {
+			previewQuestions = compareQuestions(parsed, existingQuestions);
+		} else {
+			previewQuestions = parsed.map((q) => ({ ...q, status: 'added' }));
+		}
+	});
+
+	// Load existing questions when update mode or selected test changes
+	$effect(() => {
+		if (updateMode && selectedTestId) {
+			loadExistingQuestions();
+		} else {
+			existingQuestions = [];
 		}
 	});
 
@@ -285,22 +451,18 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 			{#if $user.role === 'teacher'}
 				<div class="dashboard teacher-dashboard">
 					<div class="dashboard-grid">
-						<!-- Upload Section -->
-						<section class="card upload-card">
+						<!-- Full-width Upload Section -->
+						<section class="card upload-card full-width">
 							<div class="card-header">
 								<h2 class="card-title">
-									<span class="section-icon">📤</span>
-									Upload New Test
+									<span class="section-icon">📝</span>
+									Create or Update Test
 								</h2>
 							</div>
 							<div class="card-content">
 								<div class="template-section">
 									<div class="template-info">
 										<h4>📋 Need a starting point?</h4>
-										<p>
-											Download our template with sample law questions. Format: Question ID,
-											Question, Answer 1, Answer 2, Answer 3, Answer 4, ANSWER (a/b/c/d).
-										</p>
 									</div>
 									<button onclick={downloadTemplate} class="btn btn-outline btn-sm template-btn">
 										<span class="btn-icon">📥</span>
@@ -343,17 +505,6 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 									</div>
 								{/if}
 
-								<div class="upload-method-selector">
-									<label class="method-option">
-										<input type="radio" bind:group={uploadMethod} value="paste" />
-										<span>📝 Paste Data</span>
-									</label>
-									<label class="method-option">
-										<input type="radio" bind:group={uploadMethod} value="file" />
-										<span>📁 Upload File</span>
-									</label>
-								</div>
-
 								<div class="form-group">
 									<label for="title-input">Test Title</label>
 									<input
@@ -365,49 +516,93 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 									/>
 								</div>
 
-								{#if uploadMethod === 'paste'}
-									<div class="form-group">
-										<label for="test-data">Test Data</label>
-										<textarea
-											id="test-data"
-											placeholder="Paste your test data here... Each line should have: Question ID, Question, Answer 1, Answer 2, Answer 3, Answer 4, ANSWER (a/b/c/d), separated by tabs."
-											bind:value={testData}
-											class="form-textarea"
-											rows="8"
-										></textarea>
-									</div>
-								{:else}
-									<div class="form-group">
-										<label for="file-input">CSV/TSV File</label>
-										<div class="file-input-wrapper">
-											<input
-												id="file-input"
-												type="file"
-												accept=".csv,.tsv,.txt"
-												onchange={(e) => {
-													file = e.target.files[0];
-													if (!title) {
-														title = file?.name?.replace(/\.[^/.]+$/, '');
-													}
-												}}
-												class="file-input"
-											/>
-											<span class="file-input-label">
-												{file ? file.name : 'Choose file...'}
-											</span>
+								<div class="form-group">
+									<label for="test-data">Test Data & Preview</label>
+									<div class="data-preview-container">
+										<div class="data-input-section">
+											<textarea
+												id="test-data"
+												placeholder="Paste your test data here... Each line should have: Question ID, Question, Answer 1, Answer 2, Answer 3, Answer 4, ANSWER (a/b/c/d), separated by tabs."
+												bind:value={testData}
+												class="form-textarea"
+												rows="12"
+											></textarea>
+										</div>
+										<div class="preview-section">
+											<div class="preview-header">
+												<h4>📋 Preview</h4>
+												{#if previewQuestions.length > 0}
+													<span class="question-count">{previewQuestions.length} questions</span>
+												{/if}
+											</div>
+											<div class="preview-content">
+												{#if previewQuestions.length === 0}
+													<div class="preview-empty">
+														<span class="empty-icon">📝</span>
+														<p>Paste your test data to see a preview</p>
+													</div>
+												{:else}
+													{#each previewQuestions as question, index (question.questionId)}
+														<div class="preview-question {question.status}">
+															<div class="question-header">
+																<span class="question-number">{index + 1}.</span>
+																<span class="question-id">{question.questionId}</span>
+																<span class="status-badge {question.status}">
+																	{question.status === 'added'
+																		? '✅ New'
+																		: question.status === 'changed'
+																			? '⚠️ Changed'
+																			: '✓ Unchanged'}
+																</span>
+															</div>
+															<div class="question-text">{question.questionText}</div>
+															<div class="choices-preview">
+																{#each question.choices as choice, choiceIndex (choiceIndex)}
+																	<div class="choice-preview {choice.isCorrect ? 'correct' : ''}">
+																		<span class="choice-label"
+																			>{String.fromCharCode(97 + choiceIndex)}.</span
+																		>
+																		{choice.text}
+																		{#if choice.isCorrect}<span class="correct-indicator">✓</span
+																			>{/if}
+																	</div>
+																{/each}
+															</div>
+														</div>
+													{/each}
+												{/if}
+											</div>
 										</div>
 									</div>
-								{/if}
+								</div>
 								<button
 									onclick={handleUpload}
 									class="btn btn-primary"
-									disabled={updateMode && !selectedTestId}
+									disabled={(updateMode && !selectedTestId) || isUploading}
 								>
-									{updateMode ? '🔄 Update Test' : '📤 Upload Test'}
+									{#if isUploading}
+										<span class="btn-spinner">⏳</span>
+										{updateMode ? 'Updating...' : 'Creating...'}
+									{:else}
+										{updateMode ? '🔄 Update Test' : '📋 Create Test'}
+									{/if}
 								</button>
-								{#if uploadMsg}
+								
+								{#if isUploading}
+									<div class="upload-progress">
+										<div class="progress-bar">
+											<div class="progress-fill" style="width: {uploadProgress}%"></div>
+										</div>
+										<div class="progress-text">
+											{uploadProgress < 100 ? 'Processing questions...' : 'Finalizing...'}
+											{Math.round(uploadProgress)}%
+										</div>
+									</div>
+								{/if}
+								
+								{#if uploadMsg && !isUploading}
 									<div
-										class="status-message {uploadMsg === 'Uploaded' || uploadMsg === 'Updated'
+										class="status-message {uploadMsg === 'Created' || uploadMsg === 'Updated'
 											? 'success'
 											: 'error'}"
 									>
@@ -473,12 +668,21 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 													</span>
 												</div>
 											</div>
-											<button
-												onclick={() => toggleActive(t)}
-												class="btn {t.is_active ? 'btn-warning' : 'btn-success'} btn-sm"
-											>
-												{t.is_active ? 'Deactivate' : 'Activate'}
-											</button>
+											<div class="test-actions">
+												<button
+													onclick={() => toggleActive(t)}
+													class="btn {t.is_active ? 'btn-warning' : 'btn-success'} btn-sm"
+												>
+													{t.is_active ? 'Deactivate' : 'Activate'}
+												</button>
+												<button
+													onclick={() => handleDeleteTest(t)}
+													class="btn btn-danger btn-sm"
+													title="Delete test permanently"
+												>
+													🗑️ Delete
+												</button>
+											</div>
 										</div>
 									{/each}
 								</div>
@@ -593,7 +797,8 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 							{/if}
 						</div>
 					</section>
-				</div>
+					</div> <!-- Close dashboard-grid -->
+				</div> <!-- Close teacher-dashboard -->
 			{/if}
 
 			{#if $user.role === 'student'}
@@ -896,35 +1101,6 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 		background: white;
 	}
 
-	.upload-method-selector {
-		display: flex;
-		gap: 1rem;
-		margin-bottom: 1.5rem;
-		padding: 1rem;
-		background: rgba(248, 250, 252, 0.5);
-		border-radius: 12px;
-		border: 1px solid rgba(0, 0, 0, 0.1);
-	}
-
-	.method-option {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem 1rem;
-		border-radius: 8px;
-		cursor: pointer;
-		transition: background-color 0.2s ease;
-		font-weight: 500;
-	}
-
-	.method-option:hover {
-		background: rgba(102, 126, 234, 0.1);
-	}
-
-	.method-option input[type='radio'] {
-		margin: 0;
-	}
-
 	.mode-selector {
 		margin-bottom: 1.5rem;
 	}
@@ -957,34 +1133,6 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 		margin: 0;
 	}
 
-	.file-input-wrapper {
-		position: relative;
-		overflow: hidden;
-		display: inline-block;
-		width: 100%;
-	}
-
-	.file-input {
-		position: absolute;
-		left: -9999px;
-	}
-
-	.file-input-label {
-		display: block;
-		padding: 0.75rem 1rem;
-		border: 2px dashed rgba(102, 126, 234, 0.3);
-		border-radius: 12px;
-		text-align: center;
-		cursor: pointer;
-		transition: all 0.3s ease;
-		background: rgba(102, 126, 234, 0.05);
-		color: #667eea;
-	}
-
-	.file-input-label:hover {
-		border-color: #667eea;
-		background: rgba(102, 126, 234, 0.1);
-	}
 	/* Template Section */
 	.template-section {
 		display: flex;
@@ -1071,6 +1219,19 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 		background: linear-gradient(135deg, #d97706, #b45309);
 		transform: translateY(-1px);
 		box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+	}
+
+	.btn-danger {
+		background: linear-gradient(135deg, #ef4444, #dc2626);
+		color: white;
+		border: none;
+		box-shadow: 0 1px 3px rgba(239, 68, 68, 0.12);
+	}
+
+	.btn-danger:hover {
+		background: linear-gradient(135deg, #dc2626, #b91c1c);
+		transform: translateY(-1px);
+		box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
 	}
 
 	.btn-sm {
@@ -1198,6 +1359,288 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 	.status-indicator.inactive {
 		background: rgba(107, 114, 128, 0.2);
 		color: #374151;
+	}
+
+	.test-actions {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+		flex-shrink: 0;
+	}
+
+	/* Full-width Upload Section */
+	.upload-card.full-width {
+		margin-bottom: 2rem;
+		grid-column: 1 / -1;
+		width: 100%;
+		max-width: none;
+	}
+
+	/* Upload Progress Styles */
+	.upload-progress {
+		margin-top: 1rem;
+		padding: 1rem;
+		background: rgba(59, 130, 246, 0.05);
+		border: 1px solid rgba(59, 130, 246, 0.2);
+		border-radius: 8px;
+	}
+
+	.progress-bar {
+		width: 100%;
+		height: 8px;
+		background: rgba(0, 0, 0, 0.1);
+		border-radius: 4px;
+		overflow: hidden;
+		margin-bottom: 0.5rem;
+	}
+
+	.progress-fill {
+		height: 100%;
+		background: linear-gradient(135deg, #2563eb, #1d4ed8);
+		border-radius: 4px;
+		transition: width 0.3s ease;
+		position: relative;
+	}
+
+	.progress-fill::after {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: linear-gradient(
+			90deg,
+			transparent 0%,
+			rgba(255, 255, 255, 0.3) 50%,
+			transparent 100%
+		);
+		animation: shimmer 1.5s ease-in-out infinite;
+	}
+
+	@keyframes shimmer {
+		0% { transform: translateX(-100%); }
+		100% { transform: translateX(100%); }
+	}
+
+	.progress-text {
+		font-size: 0.9rem;
+		color: #374151;
+		text-align: center;
+		font-weight: 500;
+	}
+
+	.btn-spinner {
+		animation: spin 1s linear infinite;
+		display: inline-block;
+		margin-right: 0.5rem;
+	}
+
+	@keyframes spin {
+		from { transform: rotate(0deg); }
+		to { transform: rotate(360deg); }
+	}
+
+	/* Preview Pane Styles */
+	.data-preview-container {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 1.5rem;
+		margin-top: 0.5rem;
+	}
+
+	.data-input-section {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.preview-section {
+		background: rgba(248, 250, 252, 0.8);
+		border: 1px solid rgba(0, 0, 0, 0.1);
+		border-radius: 12px;
+		overflow: hidden;
+	}
+
+	.preview-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 1rem;
+		background: rgba(59, 130, 246, 0.05);
+		border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+	}
+
+	.preview-header h4 {
+		margin: 0;
+		font-size: 1.1rem;
+		font-weight: 600;
+		color: #374151;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.question-count {
+		font-size: 0.875rem;
+		color: #6b7280;
+		background: rgba(59, 130, 246, 0.1);
+		padding: 0.25rem 0.5rem;
+		border-radius: 6px;
+		font-weight: 500;
+	}
+
+	.preview-content {
+		max-height: 400px;
+		overflow-y: auto;
+		padding: 0.5rem;
+	}
+
+	.preview-empty {
+		text-align: center;
+		padding: 3rem 1rem;
+		color: #9ca3af;
+	}
+
+	.preview-empty .empty-icon {
+		font-size: 3rem;
+		display: block;
+		margin-bottom: 1rem;
+		opacity: 0.6;
+	}
+
+	.preview-question {
+		margin-bottom: 1rem;
+		padding: 1rem;
+		border-radius: 8px;
+		border: 1px solid transparent;
+		background: white;
+		transition: all 0.2s ease;
+	}
+
+	.preview-question.added {
+		border-color: rgba(34, 197, 94, 0.3);
+		background: rgba(34, 197, 94, 0.05);
+	}
+
+	.preview-question.changed {
+		border-color: rgba(245, 158, 11, 0.3);
+		background: rgba(245, 158, 11, 0.05);
+	}
+
+	.preview-question.unchanged {
+		border-color: rgba(107, 114, 128, 0.2);
+		background: rgba(249, 250, 251, 0.5);
+	}
+
+	.question-header {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.question-number {
+		font-weight: 700;
+		color: #374151;
+		min-width: 1.5rem;
+	}
+
+	.question-id {
+		font-weight: 600;
+		color: #6b7280;
+		background: rgba(0, 0, 0, 0.05);
+		padding: 0.125rem 0.5rem;
+		border-radius: 4px;
+		font-size: 0.875rem;
+	}
+
+	.status-badge {
+		font-size: 0.75rem;
+		font-weight: 600;
+		padding: 0.25rem 0.5rem;
+		border-radius: 4px;
+		margin-left: auto;
+	}
+
+	.status-badge.added {
+		background: rgba(34, 197, 94, 0.1);
+		color: #059669;
+	}
+
+	.status-badge.changed {
+		background: rgba(245, 158, 11, 0.1);
+		color: #d97706;
+	}
+
+	.status-badge.unchanged {
+		background: rgba(107, 114, 128, 0.1);
+		color: #6b7280;
+	}
+
+	.question-text {
+		font-weight: 500;
+		color: #111827;
+		margin-bottom: 0.75rem;
+		line-height: 1.4;
+	}
+
+	.choices-preview {
+		display: flex;
+		flex-direction: column;
+		gap: 0.375rem;
+	}
+
+	.choice-preview {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem;
+		border-radius: 6px;
+		background: rgba(0, 0, 0, 0.02);
+		font-size: 0.9rem;
+		transition: background 0.2s ease;
+	}
+
+	.choice-preview.correct {
+		background: rgba(34, 197, 94, 0.1);
+		border: 1px solid rgba(34, 197, 94, 0.2);
+		font-weight: 500;
+	}
+
+	.choice-label {
+		font-weight: 600;
+		color: #6b7280;
+		min-width: 1.5rem;
+	}
+
+	.correct-indicator {
+		color: #059669;
+		font-weight: 700;
+		margin-left: auto;
+	}
+
+	/* Responsive design for preview */
+	@media (max-width: 1400px) {
+		.data-preview-container {
+			grid-template-columns: 1fr;
+			gap: 1rem;
+		}
+
+		.preview-section {
+			order: 2;
+		}
+
+		.data-input-section {
+			order: 1;
+		}
+	}
+
+	/* Enhanced responsive layout */
+	@media (max-width: 1200px) {
+		.upload-card.full-width {
+			margin-left: 0;
+			margin-right: 0;
+		}
 	}
 
 	.student-requests {

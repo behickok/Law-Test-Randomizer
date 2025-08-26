@@ -24,20 +24,14 @@ async function run(sql) {
 
 export async function POST({ request }) {
 	const formData = await request.formData();
-	const file = formData.get('file');
 	const data = formData.get('data');
 	const test_id = formData.get('test_id');
 
 	let title = formData.get('title') || undefined;
 	let teacher_id = formData.get('teacher_id') || request.headers.get('x-teacher-id') || undefined;
 
-	// If a file was uploaded and no explicit title, use filename (no extension)
-	if (file && !title) {
-		title = file.name.replace(/\.[^/.]+$/, '');
-	}
-
-	if ((!file && !data) || !title || !teacher_id) {
-		return new Response('Missing file/data, title or teacher_id', { status: 400 });
+	if (!data || !title || !teacher_id) {
+		return new Response('Missing data, title or teacher_id', { status: 400 });
 	}
 	if (!/^\d+$/.test(teacher_id)) {
 		return new Response('Invalid teacher_id format', { status: 400 });
@@ -48,7 +42,7 @@ export async function POST({ request }) {
 		return new Response('Invalid test_id format', { status: 400 });
 	}
 
-	const text = file ? await file.text() : data;
+	const text = data;
 	const lines = text
 		.split(/\r?\n/)
 		.map((l) => l.trim())
@@ -97,7 +91,8 @@ export async function POST({ request }) {
 				continue;
 			}
 
-			// For now, ignore the question ID (cols[0]) until migration is applied
+			// Extract question ID and other data
+			const question_id = escapeSql(cols[0].trim());
 			const question_text = escapeSql(cols[1].trim());
 			const answer1 = escapeSql(cols[2].trim());
 			const answer2 = escapeSql(cols[3].trim());
@@ -105,9 +100,9 @@ export async function POST({ request }) {
 			const answer4 = escapeSql(cols[5].trim());
 			const correctAnswer = cols[6].trim().toLowerCase();
 
-			// Just insert new question without upsert functionality for now
+			// Insert new question with question_id
 			const qRow = await run(
-				`INSERT INTO questions (test_id, question_text) VALUES (${final_test_id}, '${question_text}') RETURNING id`
+				`INSERT INTO questions (test_id, question_text, question_id) VALUES (${final_test_id}, '${question_text}', '${question_id}') RETURNING id`
 			);
 			const question_pk_id = qRow[0].id;
 
