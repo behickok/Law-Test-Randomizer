@@ -1,19 +1,5 @@
 <script>
 	import { user } from '$lib/user';
-<<<<<<< HEAD
-        import {
-                uploadTestText,
-                setTestActive,
-                assignTest,
-                getTeacherResults,
-                getAttemptAnswers,
-                getStudentResults,
-                getClassStudents,
-                requestClassJoin,
-                getPendingStudents,
-                approveStudent
-        } from '$lib/api';
-=======
 	import {
 		uploadTestSpreadsheet,
 		uploadTestData,
@@ -27,7 +13,6 @@
 		getPendingStudents,
 		approveStudent
 	} from '$lib/api';
->>>>>>> 96402c6 (CSV)
 	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 
@@ -35,63 +20,13 @@
 	const tests = writable(data.tests ?? []);
 	let error = data.error ?? '';
 
-<<<<<<< HEAD
-        let pasteText = '';
-        let parsedQuestions = [];
-        let editTestId = '';
-        let title = '';
-        let saveMsg = '';
-
-        function parsePasted() {
-                parsedQuestions = pasteText
-                        .trim()
-                        .split(/\r?\n/)
-                        .map((line) => line.split(',').map((c) => c.trim()))
-                        .filter((cols) => cols.length >= 2 && cols[0] && cols[1])
-                        .map(([q, correct, ...wrong]) => ({ question: q, correct, wrong }));
-        }
-
-        function removeQuestion(i) {
-                parsedQuestions.splice(i, 1);
-        }
-
-        async function saveParsed() {
-                if (!$user || $user.role !== 'teacher') {
-                        saveMsg = 'You must be logged in as a teacher to save tests.';
-                        return;
-                }
-                if (!parsedQuestions.length) {
-                        saveMsg = 'No questions to save';
-                        return;
-                }
-                const text = parsedQuestions
-                        .map((q) => [q.question, q.correct, ...q.wrong].join(','))
-                        .join('\n');
-                try {
-                        const res = await uploadTestText(fetch, {
-                                text,
-                                title,
-                                teacherId: $user.id,
-                                testId: editTestId || undefined
-                        });
-                        saveMsg = 'Saved';
-                        const id = res.test_id;
-                        if (!editTestId) {
-                                tests.update((ts) => [...ts, { id, title, is_active: false }]);
-                                editTestId = id;
-                        } else {
-                                tests.update((ts) => ts.map((t) => (t.id === editTestId ? { ...t, title } : t)));
-                        }
-                } catch (e) {
-                        saveMsg = e.message || 'Save failed';
-                }
-        }
-=======
-	let file;
-	let testData = '';
-	let title = '';
-	let uploadMsg = '';
-	let uploadMethod = 'paste'; // 'paste' or 'file'
+	let file = $state();
+	let testData = $state('');
+	let title = $state('');
+	let uploadMsg = $state('');
+	let uploadMethod = $state('paste'); // 'paste' or 'file'
+	let selectedTestId = $state(''); // For updating existing tests
+	let updateMode = $state(false); // Toggle between create and update
 
 	async function handleUpload() {
 		if (!$user || $user.role !== 'teacher') {
@@ -100,29 +35,39 @@
 		}
 		const autoTitle = title.trim() || file?.name?.replace(/\.[^/.]+$/, '');
 		try {
+			const testId = updateMode && selectedTestId ? selectedTestId : undefined;
+			const actionWord = updateMode ? 'Updated' : 'Uploaded';
+
 			if (uploadMethod === 'paste') {
 				if (!testData.trim()) {
 					uploadMsg = 'Please enter test data';
 					return;
 				}
-				await uploadTestData(fetch, { data: testData, title: autoTitle, teacherId: $user.id });
+				await uploadTestData(fetch, {
+					data: testData,
+					title: autoTitle,
+					teacherId: $user.id,
+					testId
+				});
 			} else {
 				if (!file) {
 					uploadMsg = 'Please select a file';
 					return;
 				}
-				await uploadTestSpreadsheet(fetch, { file, title: autoTitle, teacherId: $user.id });
+				await uploadTestSpreadsheet(fetch, { file, title: autoTitle, teacherId: $user.id, testId });
 			}
-			uploadMsg = 'Uploaded';
+			uploadMsg = actionWord;
 			// Clear form
 			testData = '';
 			file = null;
 			title = '';
+			if (updateMode) {
+				selectedTestId = '';
+			}
 		} catch (err) {
 			uploadMsg = err.message || 'Upload failed';
 		}
 	}
->>>>>>> 96402c6 (CSV)
 
 	function downloadTemplate() {
 		// Create sample content with proper format including Question ID
@@ -167,10 +112,10 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 		}
 	}
 
-	let assignTestId = '';
+	let assignTestId = $state('');
 	const students = writable([]);
-	let selectedStudentId = '';
-	let assignMsg = '';
+	let selectedStudentId = $state('');
+	let assignMsg = $state('');
 	const pendingStudents = writable([]);
 
 	async function loadStudents() {
@@ -285,8 +230,8 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 		}
 	}
 
-	let teacherPin = '';
-	let joinMsg = '';
+	let teacherPin = $state('');
+	let joinMsg = $state('');
 
 	async function handleJoin() {
 		if (!$user || $user.role !== 'student') {
@@ -340,84 +285,6 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 			{#if $user.role === 'teacher'}
 				<div class="dashboard teacher-dashboard">
 					<div class="dashboard-grid">
-<<<<<<< HEAD
-                                                <!-- Test Editor Section -->
-                                                <section class="card upload-card">
-                                                        <div class="card-header">
-                                                                <h2 class="card-title">
-                                                                        <span class="section-icon">📝</span>
-                                                                        Edit Test Questions
-                                                                </h2>
-                                                        </div>
-                                                        <div class="card-content">
-                                                                <div class="template-section">
-                                                                        <div class="template-info">
-                                                                                <h4>📋 Need a starting point?</h4>
-                                                                                <p>Download our CSV template with sample law questions to get started quickly.</p>
-                                                                        </div>
-                                                                        <button onclick={downloadTemplate} class="btn btn-outline btn-sm template-btn">
-                                                                                <span class="btn-icon">📥</span>
-                                                                                Download Template
-                                                                        </button>
-                                                                </div>
-
-                                                                <div class="form-group">
-                                                                        <label for="edit-test-select">Select Test</label>
-                                                                        <select
-                                                                                id="edit-test-select"
-                                                                                bind:value={editTestId}
-                                                                                class="form-select"
-                                                                                on:change={() => {
-                                                                                        const t = $tests.find((x) => x.id == editTestId);
-                                                                                        title = t?.title || '';
-                                                                                }}
-                                                                        >
-                                                                                <option value="">New Test...</option>
-                                                                                {#each $tests as t (t.id)}
-                                                                                        <option value={t.id}>{t.title}</option>
-                                                                                {/each}
-                                                                        </select>
-                                                                </div>
-
-                                                                <div class="form-group">
-                                                                        <label for="title-input">Test Title</label>
-                                                                        <input
-                                                                                id="title-input"
-                                                                                type="text"
-                                                                                placeholder="Enter test title..."
-                                                                                bind:value={title}
-                                                                                class="form-input"
-                                                                        />
-                                                                </div>
-
-                                                                <div class="form-group">
-                                                                        <label for="paste-input">Paste Questions (CSV format)</label>
-                                                                        <textarea
-                                                                                id="paste-input"
-                                                                                rows="6"
-                                                                                bind:value={pasteText}
-                                                                                class="form-input"
-                                                                        ></textarea>
-                                                                </div>
-                                                                <button onclick={parsePasted} class="btn btn-secondary">Preview</button>
-                                                                {#if parsedQuestions.length}
-                                                                        <div class="preview-list">
-                                                                                <p>{parsedQuestions.length} questions parsed.</p>
-                                                                                {#each parsedQuestions as q, i}
-                                                                                        <div class="preview-item">
-                                                                                                <div class="question-text">{q.question}</div>
-                                                                                                <button onclick={() => removeQuestion(i)} class="btn btn-warning btn-sm">Remove</button>
-                                                                                        </div>
-                                                                                {/each}
-                                                                        </div>
-                                                                {/if}
-                                                                <button onclick={saveParsed} class="btn btn-primary">Save Test</button>
-                                                                {#if saveMsg}
-                                                                        <div class="status-message {saveMsg === 'Saved' ? 'success' : 'error'}">{saveMsg}</div>
-                                                                {/if}
-                                                        </div>
-                                                </section>
-=======
 						<!-- Upload Section -->
 						<section class="card upload-card">
 							<div class="card-header">
@@ -440,6 +307,41 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 										Download Template
 									</button>
 								</div>
+
+								<div class="mode-selector">
+									<div class="mode-toggle">
+										<label class="toggle-option">
+											<input type="radio" bind:group={updateMode} value={false} />
+											<span>🆕 Create New Test</span>
+										</label>
+										<label class="toggle-option">
+											<input type="radio" bind:group={updateMode} value={true} />
+											<span>🔄 Update Existing Test</span>
+										</label>
+									</div>
+								</div>
+
+								{#if updateMode}
+									<div class="form-group">
+										<label for="test-select">Select Test to Update</label>
+										<select
+											id="test-select"
+											bind:value={selectedTestId}
+											class="form-select"
+											onchange={() => {
+												const test = $tests.find((t) => t.id == selectedTestId);
+												if (test) {
+													title = test.title;
+												}
+											}}
+										>
+											<option value="">Choose a test...</option>
+											{#each $tests as test (test.id)}
+												<option value={test.id}>{test.title}</option>
+											{/each}
+										</select>
+									</div>
+								{/if}
 
 								<div class="upload-method-selector">
 									<label class="method-option">
@@ -496,15 +398,24 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 										</div>
 									</div>
 								{/if}
-								<button onclick={handleUpload} class="btn btn-primary"> Upload Test </button>
+								<button
+									onclick={handleUpload}
+									class="btn btn-primary"
+									disabled={updateMode && !selectedTestId}
+								>
+									{updateMode ? '🔄 Update Test' : '📤 Upload Test'}
+								</button>
 								{#if uploadMsg}
-									<div class="status-message {uploadMsg === 'Uploaded' ? 'success' : 'error'}">
+									<div
+										class="status-message {uploadMsg === 'Uploaded' || uploadMsg === 'Updated'
+											? 'success'
+											: 'error'}"
+									>
 										{uploadMsg}
 									</div>
 								{/if}
 							</div>
 						</section>
->>>>>>> 96402c6 (CSV)
 
 						<!-- Pending Students -->
 						<section class="card pending-card">
@@ -963,8 +874,6 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 		box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 	}
 
-<<<<<<< HEAD
-=======
 	.form-textarea {
 		width: 100%;
 		padding: 0.75rem 1rem;
@@ -1016,6 +925,38 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 		margin: 0;
 	}
 
+	.mode-selector {
+		margin-bottom: 1.5rem;
+	}
+
+	.mode-toggle {
+		display: flex;
+		gap: 1rem;
+		padding: 1rem;
+		background: rgba(59, 130, 246, 0.05);
+		border-radius: 12px;
+		border: 1px solid rgba(59, 130, 246, 0.2);
+	}
+
+	.toggle-option {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 1rem;
+		border-radius: 8px;
+		cursor: pointer;
+		transition: background-color 0.2s ease;
+		font-weight: 500;
+	}
+
+	.toggle-option:hover {
+		background: rgba(59, 130, 246, 0.1);
+	}
+
+	.toggle-option input[type='radio'] {
+		margin: 0;
+	}
+
 	.file-input-wrapper {
 		position: relative;
 		overflow: hidden;
@@ -1044,8 +985,6 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 		border-color: #667eea;
 		background: rgba(102, 126, 234, 0.1);
 	}
-
->>>>>>> 96402c6 (CSV)
 	/* Template Section */
 	.template-section {
 		display: flex;

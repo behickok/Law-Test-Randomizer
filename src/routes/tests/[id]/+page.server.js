@@ -2,7 +2,10 @@ import { query } from '$lib/api';
 
 export async function load({ params, fetch }) {
 	try {
-		const tRes = await query(fetch, `select id, title from tests where id = ${params.id}`);
+		const tRes = await query(
+			fetch,
+			`select id, title, teacher_id from tests where id = ${params.id}`
+		);
 		const tData = Array.isArray(tRes) ? tRes : (tRes?.data ?? []);
 		const test = tData[0];
 

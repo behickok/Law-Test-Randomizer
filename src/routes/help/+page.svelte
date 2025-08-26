@@ -68,12 +68,6 @@
 				</div>
 				<div class="card-content">
 					<div class="feature-list">
-<<<<<<< HEAD
-                                                <div class="feature-item">
-                                                        <h4>📝 Paste Tests</h4>
-                                                        <p>Paste CSV rows containing your law test questions. Use the provided template to ensure proper formatting, preview the questions, and remove any you don't need before saving.</p>
-                                                </div>
-=======
 						<div class="feature-item">
 							<h4>📤 Upload Tests</h4>
 							<p>
@@ -82,7 +76,6 @@
 								randomizes question order for each student.
 							</p>
 						</div>
->>>>>>> 96402c6 (CSV)
 						<div class="feature-item">
 							<h4>📋 Manage Tests</h4>
 							<p>
@@ -152,18 +145,14 @@
 				<div class="instruction-tabs">
 					<div class="tab-content">
 						<div class="instruction-section">
-                                                        <h3>📁 CSV Format for Pasting</h3>
-                                                        <p>When pasting questions, your CSV rows should follow this format:</p>
+							<h3>📁 CSV Format for Pasting</h3>
+							<p>When pasting questions, your CSV rows should follow this format:</p>
 							<div class="template-info-box">
 								<h4>💡 Quick Start with Template</h4>
-<<<<<<< HEAD
-                                                                <p>The easiest way to get started is to download our CSV template from the "Edit Test Questions" section. It includes:</p>
-=======
 								<p>
 									The easiest way to get started is to download our CSV template from the "Upload
 									New Test" section. It includes:
 								</p>
->>>>>>> 96402c6 (CSV)
 								<ul>
 									<li>Correct header format</li>
 									<li>5 sample law questions</li>
@@ -284,15 +273,6 @@
 						</div>
 					</details>
 
-<<<<<<< HEAD
-                                        <details class="faq-item">
-                                                <summary class="faq-question">How do I add a test?</summary>
-                                                <div class="faq-answer">
-                                                        <p>As a teacher, go to your dashboard and open the "Edit Test Questions" section. Choose an existing test or create a new one, paste your CSV rows, preview the questions and click "Save Test".</p>
-                                                </div>
-                                        </details>
-					
-=======
 					<details class="faq-item">
 						<summary class="faq-question">How do I upload a test?</summary>
 						<div class="faq-answer">
@@ -304,8 +284,6 @@
 							</p>
 						</div>
 					</details>
-
->>>>>>> 96402c6 (CSV)
 					<details class="faq-item">
 						<summary class="faq-question">Why can't my student see the test I uploaded?</summary>
 						<div class="faq-answer">
