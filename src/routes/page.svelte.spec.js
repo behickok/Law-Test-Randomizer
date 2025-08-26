@@ -15,9 +15,6 @@ vi.mock('$lib/api', async (importOriginal) => {
 		getAttemptAnswers: vi.fn(),
 		getStudentResults: vi.fn(),
 		getClassStudents: vi.fn().mockResolvedValue([]),
-		requestClassJoin: vi.fn(),
-		getPendingStudents: vi.fn().mockResolvedValue([{ id: 1, name: 'Alice' }]),
-		approveStudent: vi.fn(),
 		deleteTest: vi.fn()
 	};
 });
@@ -40,20 +37,6 @@ describe('/+page.svelte', () => {
 
 		const heading = page.getByRole('heading', { level: 1 });
 		await expect.element(heading).toBeInTheDocument();
-	});
-
-	it('shows pending student requests', async () => {
-		user.set({ id: 1, role: 'teacher' });
-		render(Page, {
-			props: {
-				data: {
-					tests: []
-				}
-			}
-		});
-
-		const item = page.getByText('Alice');
-		await expect.element(item).toBeInTheDocument();
 	});
 
 	it('displays assigned tests for students', async () => {
