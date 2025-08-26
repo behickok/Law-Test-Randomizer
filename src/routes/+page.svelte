@@ -998,7 +998,7 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 
 	.dashboard-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 2rem;
 	}
 
@@ -1095,8 +1095,8 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 			border-color 0.3s ease,
 			box-shadow 0.3s ease;
 		background: rgba(248, 250, 252, 0.8);
-		resize: vertical;
-		min-height: 120px;
+		resize: none;
+		height: 400px;
 	}
 
 	.form-textarea:focus {
@@ -1472,6 +1472,9 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 		border: 1px solid rgba(0, 0, 0, 0.1);
 		border-radius: 12px;
 		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+		height: 400px;
 	}
 
 	.preview-header {
@@ -1503,9 +1506,9 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 	}
 
 	.preview-content {
-		max-height: 400px;
 		overflow-y: auto;
 		padding: 0.5rem;
+		flex-grow: 1;
 	}
 
 	.preview-empty {
