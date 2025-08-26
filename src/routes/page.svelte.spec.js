@@ -5,7 +5,7 @@ import { user } from '$lib/user';
 import { getStudentResults } from '$lib/api';
 
 vi.mock('$lib/api', () => ({
-	uploadTestSpreadsheet: vi.fn(),
+        uploadTestText: vi.fn(),
 	setTestActive: vi.fn(),
 	assignTest: vi.fn(),
 	getTeacherResults: vi.fn(),

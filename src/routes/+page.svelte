@@ -1,17 +1,17 @@
 <script>
 	import { user } from '$lib/user';
-	import {
-		uploadTestSpreadsheet,
-		setTestActive,
-		assignTest,
-		getTeacherResults,
-		getAttemptAnswers,
-		getStudentResults,
-		getClassStudents,
-		requestClassJoin,
-		getPendingStudents,
-		approveStudent
-	} from '$lib/api';
+        import {
+                uploadTestText,
+                setTestActive,
+                assignTest,
+                getTeacherResults,
+                getAttemptAnswers,
+                getStudentResults,
+                getClassStudents,
+                requestClassJoin,
+                getPendingStudents,
+                approveStudent
+        } from '$lib/api';
 	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 
@@ -19,23 +19,56 @@
 	const tests = writable(data.tests ?? []);
 	let error = data.error ?? '';
 
-	let file;
-	let title = '';
-	let uploadMsg = '';
+        let pasteText = '';
+        let parsedQuestions = [];
+        let editTestId = '';
+        let title = '';
+        let saveMsg = '';
 
-	async function handleUpload() {
-		if (!$user || $user.role !== 'teacher') {
-			uploadMsg = 'You must be logged in as a teacher to upload tests.';
-			return;
-		}
-		const autoTitle = title.trim() || file?.name?.replace(/\.[^/.]+$/, '');
-		try {
-			await uploadTestSpreadsheet(fetch, { file, title: autoTitle, teacherId: $user.id });
-			uploadMsg = 'Uploaded';
-		} catch {
-			uploadMsg = 'Upload failed';
-		}
-	}
+        function parsePasted() {
+                parsedQuestions = pasteText
+                        .trim()
+                        .split(/\r?\n/)
+                        .map((line) => line.split(',').map((c) => c.trim()))
+                        .filter((cols) => cols.length >= 2 && cols[0] && cols[1])
+                        .map(([q, correct, ...wrong]) => ({ question: q, correct, wrong }));
+        }
+
+        function removeQuestion(i) {
+                parsedQuestions.splice(i, 1);
+        }
+
+        async function saveParsed() {
+                if (!$user || $user.role !== 'teacher') {
+                        saveMsg = 'You must be logged in as a teacher to save tests.';
+                        return;
+                }
+                if (!parsedQuestions.length) {
+                        saveMsg = 'No questions to save';
+                        return;
+                }
+                const text = parsedQuestions
+                        .map((q) => [q.question, q.correct, ...q.wrong].join(','))
+                        .join('\n');
+                try {
+                        const res = await uploadTestText(fetch, {
+                                text,
+                                title,
+                                teacherId: $user.id,
+                                testId: editTestId || undefined
+                        });
+                        saveMsg = 'Saved';
+                        const id = res.test_id;
+                        if (!editTestId) {
+                                tests.update((ts) => [...ts, { id, title, is_active: false }]);
+                                editTestId = id;
+                        } else {
+                                tests.update((ts) => ts.map((t) => (t.id === editTestId ? { ...t, title } : t)));
+                        }
+                } catch (e) {
+                        saveMsg = e.message || 'Save failed';
+                }
+        }
 
 	function downloadTemplate() {
 		// Create sample CSV content with proper format
@@ -252,64 +285,82 @@
 			{#if $user.role === 'teacher'}
 				<div class="dashboard teacher-dashboard">
 					<div class="dashboard-grid">
-						<!-- Upload Section -->
-						<section class="card upload-card">
-							<div class="card-header">
-								<h2 class="card-title">
-									<span class="section-icon">📤</span>
-									Upload New Test
-								</h2>
-							</div>
-							<div class="card-content">
-								<div class="template-section">
-									<div class="template-info">
-										<h4>📋 Need a starting point?</h4>
-										<p>Download our CSV template with sample law questions to get started quickly.</p>
-									</div>
-									<button onclick={downloadTemplate} class="btn btn-outline btn-sm template-btn">
-										<span class="btn-icon">📥</span>
-										Download Template
-									</button>
-								</div>
+                                                <!-- Test Editor Section -->
+                                                <section class="card upload-card">
+                                                        <div class="card-header">
+                                                                <h2 class="card-title">
+                                                                        <span class="section-icon">📝</span>
+                                                                        Edit Test Questions
+                                                                </h2>
+                                                        </div>
+                                                        <div class="card-content">
+                                                                <div class="template-section">
+                                                                        <div class="template-info">
+                                                                                <h4>📋 Need a starting point?</h4>
+                                                                                <p>Download our CSV template with sample law questions to get started quickly.</p>
+                                                                        </div>
+                                                                        <button onclick={downloadTemplate} class="btn btn-outline btn-sm template-btn">
+                                                                                <span class="btn-icon">📥</span>
+                                                                                Download Template
+                                                                        </button>
+                                                                </div>
 
-								<div class="form-group">
-									<label for="title-input">Test Title</label>
-									<input
-										id="title-input"
-										type="text"
-										placeholder="Enter test title..."
-										bind:value={title}
-										class="form-input"
-									/>
-								</div>
-								<div class="form-group">
-									<label for="file-input">CSV File</label>
-									<div class="file-input-wrapper">
-										<input
-											id="file-input"
-											type="file"
-											accept=".csv"
-											onchange={(e) => {
-												file = e.target.files[0];
-												if (!title) {
-													title = file?.name?.replace(/\.[^/.]+$/, '');
-												}
-											}}
-											class="file-input"
-										/>
-										<span class="file-input-label">
-											{file ? file.name : 'Choose CSV file...'}
-										</span>
-									</div>
-								</div>
-								<button onclick={handleUpload} class="btn btn-primary"> Upload Test </button>
-								{#if uploadMsg}
-									<div class="status-message {uploadMsg === 'Uploaded' ? 'success' : 'error'}">
-										{uploadMsg}
-									</div>
-								{/if}
-							</div>
-						</section>
+                                                                <div class="form-group">
+                                                                        <label for="edit-test-select">Select Test</label>
+                                                                        <select
+                                                                                id="edit-test-select"
+                                                                                bind:value={editTestId}
+                                                                                class="form-select"
+                                                                                on:change={() => {
+                                                                                        const t = $tests.find((x) => x.id == editTestId);
+                                                                                        title = t?.title || '';
+                                                                                }}
+                                                                        >
+                                                                                <option value="">New Test...</option>
+                                                                                {#each $tests as t (t.id)}
+                                                                                        <option value={t.id}>{t.title}</option>
+                                                                                {/each}
+                                                                        </select>
+                                                                </div>
+
+                                                                <div class="form-group">
+                                                                        <label for="title-input">Test Title</label>
+                                                                        <input
+                                                                                id="title-input"
+                                                                                type="text"
+                                                                                placeholder="Enter test title..."
+                                                                                bind:value={title}
+                                                                                class="form-input"
+                                                                        />
+                                                                </div>
+
+                                                                <div class="form-group">
+                                                                        <label for="paste-input">Paste Questions (CSV format)</label>
+                                                                        <textarea
+                                                                                id="paste-input"
+                                                                                rows="6"
+                                                                                bind:value={pasteText}
+                                                                                class="form-input"
+                                                                        ></textarea>
+                                                                </div>
+                                                                <button onclick={parsePasted} class="btn btn-secondary">Preview</button>
+                                                                {#if parsedQuestions.length}
+                                                                        <div class="preview-list">
+                                                                                <p>{parsedQuestions.length} questions parsed.</p>
+                                                                                {#each parsedQuestions as q, i}
+                                                                                        <div class="preview-item">
+                                                                                                <div class="question-text">{q.question}</div>
+                                                                                                <button onclick={() => removeQuestion(i)} class="btn btn-warning btn-sm">Remove</button>
+                                                                                        </div>
+                                                                                {/each}
+                                                                        </div>
+                                                                {/if}
+                                                                <button onclick={saveParsed} class="btn btn-primary">Save Test</button>
+                                                                {#if saveMsg}
+                                                                        <div class="status-message {saveMsg === 'Saved' ? 'success' : 'error'}">{saveMsg}</div>
+                                                                {/if}
+                                                        </div>
+                                                </section>
 
 						<!-- Pending Students -->
 						<section class="card pending-card">
@@ -766,35 +817,6 @@
 		outline: none;
 		border-color: #667eea;
 		box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-	}
-
-	.file-input-wrapper {
-		position: relative;
-		overflow: hidden;
-		display: inline-block;
-		width: 100%;
-	}
-
-	.file-input {
-		position: absolute;
-		left: -9999px;
-	}
-
-	.file-input-label {
-		display: block;
-		padding: 0.75rem 1rem;
-		border: 2px dashed rgba(102, 126, 234, 0.3);
-		border-radius: 12px;
-		text-align: center;
-		cursor: pointer;
-		transition: all 0.3s ease;
-		background: rgba(102, 126, 234, 0.05);
-		color: #667eea;
-	}
-
-	.file-input-label:hover {
-		border-color: #667eea;
-		background: rgba(102, 126, 234, 0.1);
 	}
 
 	/* Template Section */
