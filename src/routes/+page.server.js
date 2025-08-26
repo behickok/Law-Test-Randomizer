@@ -1,8 +1,10 @@
 import { fail } from '@sveltejs/kit';
 import { uploadSQL } from '$lib/api';
 
+
 export async function load() {
 	return { tests: [] };
+
 }
 
 export const actions = {
