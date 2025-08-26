@@ -117,7 +117,27 @@ export async function getTeacherResults(fetch, teacherId) {
 
 export async function getAttemptAnswers(fetch, attemptId) {
 	const cleanAttemptId = validateNumeric(attemptId);
-	const sql = `SELECT q.question_text, c.choice_text, aa.is_correct FROM attempt_answers aa JOIN questions q ON q.id = aa.question_id JOIN choices c ON c.id = aa.choice_id WHERE aa.attempt_id = ${cleanAttemptId}`;
+	const sql = `SELECT aa.id, q.question_text, q.points, c.choice_text, aa.answer_text, aa.is_correct, aa.points_awarded
+                FROM attempt_answers aa
+                JOIN questions q ON q.id = aa.question_id
+                LEFT JOIN choices c ON c.id = aa.choice_id
+                WHERE aa.attempt_id = ${cleanAttemptId}`;
+	return query(fetch, sql);
+}
+
+export async function gradeAttemptAnswer(fetch, { answerId, isCorrect, pointsAwarded }) {
+	const cleanAnswerId = validateNumeric(answerId);
+	const isCorr =
+		isCorrect === null || isCorrect === undefined
+			? 'NULL'
+			: validateBoolean(isCorrect)
+				? 'TRUE'
+				: 'FALSE';
+	const points =
+		pointsAwarded === null || pointsAwarded === undefined ? 'NULL' : validateNumeric(pointsAwarded);
+
+	const sql = `UPDATE attempt_answers SET is_correct = ${isCorr}, points_awarded = ${points} WHERE id = ${cleanAnswerId};
+                UPDATE test_attempts SET score = (SELECT COALESCE(SUM(points_awarded),0) FROM attempt_answers WHERE attempt_id = test_attempts.id) WHERE id = (SELECT attempt_id FROM attempt_answers WHERE id = ${cleanAnswerId});`;
 	return query(fetch, sql);
 }
 
@@ -174,13 +194,14 @@ export async function joinClassWithInviteCode(fetch, { studentId, inviteCode }) 
 	return query(fetch, sql);
 }
 
-export async function updateQuestion(fetch, { questionId, text, teacherId }) {
+export async function updateQuestion(fetch, { questionId, text, teacherId, points }) {
 	const cleanQuestionId = validateNumeric(questionId);
 	const cleanText = validateString(text);
 	const cleanTeacherId = validateNumeric(teacherId);
+	const cleanPoints = validateNumeric(points);
 	const sql = `UPDATE questions SET question_text = '${escapeSql(
 		cleanText
-	)}' WHERE id = ${cleanQuestionId} AND EXISTS (SELECT 1 FROM tests t WHERE t.id = questions.test_id AND t.teacher_id = ${cleanTeacherId})`;
+	)}', points = ${cleanPoints} WHERE id = ${cleanQuestionId} AND EXISTS (SELECT 1 FROM tests t WHERE t.id = questions.test_id AND t.teacher_id = ${cleanTeacherId})`;
 	return query(fetch, sql);
 }
 
@@ -195,11 +216,10 @@ export async function updateChoice(fetch, { choiceId, text, isCorrect, teacherId
 	return query(fetch, sql);
 }
 
-export async function submitAttempt(fetch, { testId, studentId, studentName, answers, score }) {
+export async function submitAttempt(fetch, { testId, studentId, studentName, answers }) {
 	const cleanTestId = validateNumeric(testId);
 	const cleanStudentId = validateNumeric(studentId);
 	const cleanStudentName = validateString(studentName);
-	const cleanScore = validateNumeric(score);
 
 	const attemptRes = await query(
 		fetch,
@@ -222,25 +242,37 @@ export async function submitAttempt(fetch, { testId, studentId, studentName, ans
 		await query(fetch, `DELETE FROM attempt_answers WHERE attempt_id = ${id}`);
 	}
 
-	await query(
-		fetch,
-		`UPDATE test_attempts SET score = ${cleanScore}, completed_at = CURRENT_TIMESTAMP WHERE id = ${id}`
-	);
+	let autoScore = 0;
+	let hasUngraded = false;
 
+	let values = '';
 	if (Array.isArray(answers) && answers.length > 0) {
-		const values = answers
+		values = answers
 			.map((a) => {
 				const qId = validateNumeric(a.questionId);
+				if (a.answerText !== undefined) {
+					hasUngraded = true;
+					const txt = escapeSql(validateString(a.answerText));
+					return `(${id}, ${qId}, NULL, NULL, '${txt}', NULL)`;
+				}
 				const cId = validateNumeric(a.choiceId);
 				const isCorr = validateBoolean(!!a.isCorrect);
-				return `(${id}, ${qId}, ${cId}, ${isCorr ? 'TRUE' : 'FALSE'})`;
+				const pts = validateNumeric(a.points ?? 0);
+				if (isCorr) autoScore += pts;
+				return `(${id}, ${qId}, ${cId}, ${isCorr ? 'TRUE' : 'FALSE'}, NULL, ${isCorr ? pts : 0})`;
 			})
 			.join(', ');
 		await query(
 			fetch,
-			`INSERT INTO attempt_answers (attempt_id, question_id, choice_id, is_correct) VALUES ${values}`
+			`INSERT INTO attempt_answers (attempt_id, question_id, choice_id, is_correct, answer_text, points_awarded) VALUES ${values}`
 		);
 	}
+
+	const scoreValue = hasUngraded ? 'NULL' : autoScore;
+	await query(
+		fetch,
+		`UPDATE test_attempts SET score = ${scoreValue}, completed_at = CURRENT_TIMESTAMP WHERE id = ${id}`
+	);
 
 	return id;
 }
@@ -350,11 +382,11 @@ export async function getTestQuestions(fetch, { testId, teacherId }) {
 	}
 
 	// Get questions with their choices
-	const sql = `SELECT q.id as db_id, q.question_id, q.question_text, c.choice_text, c.is_correct
-		FROM questions q 
-		JOIN choices c ON q.id = c.question_id 
-		WHERE q.test_id = ${cleanTestId} 
-		ORDER BY q.id, c.id`;
+	const sql = `SELECT q.id as db_id, q.question_id, q.question_text, q.points, c.choice_text, c.is_correct
+                FROM questions q
+                LEFT JOIN choices c ON q.id = c.question_id
+                WHERE q.test_id = ${cleanTestId}
+                ORDER BY q.id, c.id`;
 
 	const rows = await query(fetch, sql);
 	const questionsMap = new Map();
@@ -366,13 +398,16 @@ export async function getTestQuestions(fetch, { testId, teacherId }) {
 			questionsMap.set(qId, {
 				questionId: qId,
 				questionText: row.question_text,
+				points: row.points,
 				choices: []
 			});
 		}
-		questionsMap.get(qId).choices.push({
-			text: row.choice_text,
-			isCorrect: row.is_correct
-		});
+		if (row.choice_text) {
+			questionsMap.get(qId).choices.push({
+				text: row.choice_text,
+				isCorrect: row.is_correct
+			});
+		}
 	}
 
 	return Array.from(questionsMap.values());

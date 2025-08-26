@@ -8,6 +8,7 @@
 	let questions = $state(data.questions ?? []);
 	let submitted = $state(false);
 	let score = $state(0);
+	let totalPoints = $state(questions.reduce((s, q) => s + (q.points ?? 1), 0));
 	let error = $state(data.error ?? '');
 
 	let isTeacherOwner = $state(false);
@@ -31,7 +32,12 @@
 	async function saveQuestion(q) {
 		if (!isTeacherOwner) return;
 		try {
-			await updateQuestion(fetch, { questionId: q.id, text: q.text, teacherId: $user.id });
+			await updateQuestion(fetch, {
+				questionId: q.id,
+				text: q.text,
+				teacherId: $user.id,
+				points: q.points
+			});
 			for (const c of q.choices) {
 				const isCorrect = q.correct == c.id;
 				await updateChoice(fetch, {
@@ -49,21 +55,33 @@
 
 	async function submit() {
 		const answers = [];
-		score = 0;
+		let autoScore = 0;
+		let hasLong = false;
+		totalPoints = questions.reduce((s, q) => s + (q.points ?? 1), 0);
 		for (const q of questions) {
+			if (!q.choices.length) {
+				hasLong = true;
+				answers.push({ questionId: q.id, answerText: q.response });
+				continue;
+			}
 			const choice = q.choices.find((c) => c.id == q.selected);
 			const correct = !!choice?.is_correct;
-			if (correct) score++;
-			answers.push({ questionId: q.id, choiceId: q.selected, isCorrect: correct });
+			if (correct) autoScore += q.points;
+			answers.push({
+				questionId: q.id,
+				choiceId: q.selected,
+				isCorrect: correct,
+				points: q.points
+			});
 		}
+		score = hasLong ? null : autoScore;
 		submitted = true;
 		try {
 			await submitAttempt(fetch, {
 				testId: test.id,
 				studentId: $user.id,
 				studentName: $user.name,
-				answers,
-				score
+				answers
 			});
 		} catch {
 			// ignore save error for now
@@ -85,6 +103,7 @@
 				{#each questions as q (q.id)}
 					<div class="question">
 						<input bind:value={q.text} />
+						<input type="number" min="0" bind:value={q.points} class="points-input" />
 						{#each q.choices as c, choiceIndex (c.id)}
 							<div class="choice">
 								<input type="radio" name={`correct-${q.id}`} value={c.id} bind:group={q.correct} />
@@ -108,26 +127,34 @@
 							<p>
 								{i + 1}. {q.text}
 							</p>
-							{#each q.choices as c, choiceIndex (c.id)}
-								<label>
-									<input
-										type="radio"
-										name={`q${q.id}`}
-										value={c.id}
-										onchange={() => (q.selected = c.id)}
-									/>
-									<span class="choice-label">{String.fromCharCode(97 + choiceIndex)}.</span>
-									{c.text}
-								</label>
-							{/each}
+							{#if q.choices.length}
+								{#each q.choices as c, choiceIndex (c.id)}
+									<label>
+										<input
+											type="radio"
+											name={`q${q.id}`}
+											value={c.id}
+											onchange={() => (q.selected = c.id)}
+										/>
+										<span class="choice-label">{String.fromCharCode(97 + choiceIndex)}.</span>
+										{c.text}
+									</label>
+								{/each}
+							{:else}
+								<textarea bind:value={q.response} placeholder="Your answer here..."></textarea>
+							{/if}
 						</div>
 					{/each}
 					<button type="button" onclick={submit}>Submit</button>
 				{:else}
 					<div class="score-display">
 						<p>🎉 Test Complete!</p>
-						<p>Score: {score} / {questions.length}</p>
-						<p class="percentage">{Math.round((score / questions.length) * 100)}%</p>
+						{#if score === null}
+							<p>Score pending teacher review.</p>
+						{:else}
+							<p>Score: {score} / {totalPoints}</p>
+							<p class="percentage">{Math.round((score / totalPoints) * 100)}%</p>
+						{/if}
 					</div>
 				{/if}
 			{:else}
@@ -354,6 +381,11 @@
 		margin-right: 0.5rem;
 		min-width: 1.5rem;
 		display: inline-block;
+	}
+
+	.points-input {
+		width: 4rem;
+		margin-left: 0.5rem;
 	}
 
 	/* Submit button centering */
