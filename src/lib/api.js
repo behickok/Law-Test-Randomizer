@@ -107,7 +107,11 @@ export async function setTestActive(fetch, { testId, teacherId, isActive }) {
 
 export async function getTeacherResults(fetch, teacherId) {
 	const cleanTeacherId = validateNumeric(teacherId);
-	const sql = `SELECT ta.id, ta.student_name, ta.score, ta.completed_at, t.title FROM test_attempts ta JOIN tests t ON t.id = ta.test_id WHERE t.teacher_id = ${cleanTeacherId}`;
+	const sql = `SELECT ta.id, ta.student_name, ta.score, ta.completed_at, t.title
+                 FROM test_attempts ta
+                 JOIN tests t ON t.id = ta.test_id
+                 WHERE t.teacher_id = ${cleanTeacherId}
+                 ORDER BY ta.completed_at DESC, ta.student_name`;
 	return query(fetch, sql);
 }
 
@@ -119,7 +123,13 @@ export async function getAttemptAnswers(fetch, attemptId) {
 
 export async function getStudentResults(fetch, studentId) {
 	const cleanStudentId = validateNumeric(studentId);
-	const sql = `SELECT t.id AS test_id, t.title, ta.score, ta.completed_at FROM test_attempts ta JOIN tests t ON t.id = ta.test_id WHERE ta.student_id = ${cleanStudentId}`;
+	const sql = `
+        SELECT t.id AS test_id, t.title, ta.score, ta.completed_at
+        FROM test_attempts ta
+        JOIN tests t ON t.id = ta.test_id
+        WHERE ta.student_id = ${cleanStudentId}
+        AND (t.is_active = TRUE OR ta.completed_at IS NOT NULL)
+    `;
 	return query(fetch, sql);
 }
 

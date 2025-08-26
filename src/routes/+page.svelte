@@ -779,9 +779,11 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 												<summary
 													class="result-summary"
 													onclick={(e) => {
-														const details = e.target.parentElement;
-														if (!details.open) {
-															loadAttemptAnswers(r.id);
+														if (r.completed_at) {
+															const details = e.target.parentElement;
+															if (!details.open) {
+																loadAttemptAnswers(r.id);
+															}
 														}
 													}}
 												>
@@ -789,28 +791,42 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 														<span class="student-name">{r.student_name}</span>
 														<span class="test-title">{r.title}</span>
 													</div>
-													<span class="score-badge">
-														Score: {r.score}
-													</span>
+													{#if r.completed_at}
+														<span class="score-badge">
+															Score: {r.score}
+														</span>
+													{:else}
+														<span class="status-badge pending">
+															Pending
+														</span>
+													{/if}
 												</summary>
 												<div class="result-content">
-													{#if $attemptAnswers[r.id]?.length}
-														<div class="answers-list">
-															{#each $attemptAnswers[r.id] as a (a.question_text)}
-																<div class="answer-item {a.is_correct ? 'correct' : 'incorrect'}">
-																	<div class="question-text">{a.question_text}</div>
-																	<div class="choice-text">
-																		{a.choice_text}
-																		<span class="result-icon">
-																			{a.is_correct ? '✅' : '❌'}
-																		</span>
+													{#if r.completed_at}
+														{#if $attemptAnswers[r.id]?.length}
+															<div class="answers-list">
+																{#each $attemptAnswers[r.id] as a (a.question_text)}
+																	<div
+																		class="answer-item {a.is_correct ? 'correct' : 'incorrect'}"
+																	>
+																		<div class="question-text">{a.question_text}</div>
+																		<div class="choice-text">
+																			{a.choice_text}
+																			<span class="result-icon">
+																				{a.is_correct ? '✅' : '❌'}
+																			</span>
+																		</div>
 																	</div>
-																</div>
-															{/each}
-														</div>
+																{/each}
+															</div>
+														{:else}
+															<div class="empty-state">
+																<p>Loading answers...</p>
+															</div>
+														{/if}
 													{:else}
 														<div class="empty-state">
-															<p>No answers available</p>
+															<p>Test has not been taken yet.</p>
 														</div>
 													{/if}
 												</div>
@@ -1611,6 +1627,12 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 	.status-badge.changed {
 		background: rgba(245, 158, 11, 0.1);
 		color: #d97706;
+	}
+
+	.status-badge.pending {
+		background-color: #f3f4f6;
+		color: #4b5563;
+		border: 1px solid #d1d5db;
 	}
 
 	.status-badge.unchanged {
