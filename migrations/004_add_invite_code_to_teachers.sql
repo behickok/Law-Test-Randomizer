@@ -1,0 +1,1 @@
+ALTER TABLE teachers ADD COLUMN invite_code TEXT UNIQUE;

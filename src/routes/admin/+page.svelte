@@ -1,10 +1,11 @@
 <script>
 	import { user } from '$lib/user';
-	import { addTeacher, addStudent, query } from '$lib/api';
+	import { addTeacher, addStudent, query, getTeacher } from '$lib/api';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { writable } from 'svelte/store';
 
+	let teacherInviteCode = '';
 	let teacherName = '';
 	let teacherPin = '';
 	let teacherMsg = '';
@@ -65,9 +66,14 @@
 		queryOutput.set('');
 	}
 
-	onMount(() => {
+	onMount(async () => {
 		if (!$user || $user.role !== 'teacher') {
 			goto('/');
+		} else {
+			const teacher = await getTeacher(fetch, $user.id);
+			if (teacher) {
+				teacherInviteCode = teacher.invite_code;
+			}
 		}
 	});
 </script>
@@ -94,6 +100,36 @@
 	<main class="admin-content">
 		{#if $user && $user.role === 'teacher'}
 			<div class="admin-grid">
+				<!-- Invite Link Section -->
+				<section class="admin-card invite-card">
+					<div class="card-header">
+						<h2 class="card-title">
+							<span class="section-icon">📧</span>
+							Your Invite Link
+						</h2>
+					</div>
+					<div class="card-content">
+						<p>Share this link with your students to have them join your class.</p>
+						<div class="form-group">
+							<label for="invite-link">Invite Link</label>
+							<input
+								id="invite-link"
+								type="text"
+								readonly
+								value="{typeof window !== 'undefined' ? `${window.location.origin}/join/${teacherInviteCode}` : ''}"
+								class="form-input"
+							/>
+						</div>
+						<button
+							on:click={() => navigator.clipboard.writeText(`${window.location.origin}/join/${teacherInviteCode}`)}
+							class="btn btn-primary"
+						>
+							<span class="btn-icon">📋</span>
+							Copy Link
+						</button>
+					</div>
+				</section>
+
 				<!-- Add Teacher Section -->
 				<section class="admin-card teacher-card">
 					<div class="card-header">

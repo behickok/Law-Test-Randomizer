@@ -136,9 +136,10 @@ export async function getStudentResults(fetch, studentId) {
 export async function addTeacher(fetch, { name, pin }) {
 	const cleanName = validateString(name);
 	const cleanPin = validateNumeric(pin);
-	const sql = `INSERT INTO teachers (name, pin) VALUES ('${escapeSql(
+	const inviteCode = crypto.randomUUID();
+	const sql = `INSERT INTO teachers (name, pin, invite_code) VALUES ('${escapeSql(
 		cleanName
-	)}', '${escapeSql(cleanPin)}')`;
+	)}', '${escapeSql(cleanPin)}', '${inviteCode}')`;
 	return query(fetch, sql);
 }
 
@@ -166,23 +167,10 @@ export async function getClassStudents(fetch, teacherId) {
 	return query(fetch, sql);
 }
 
-export async function requestClassJoin(fetch, { studentId, teacherPin }) {
+export async function joinClassWithInviteCode(fetch, { studentId, inviteCode }) {
 	const cleanStudentId = validateNumeric(studentId);
-	const cleanTeacherPin = validateNumeric(teacherPin);
-	const sql = `INSERT INTO classes (teacher_id, student_id, status) SELECT id, ${cleanStudentId}, 'pending' FROM teachers WHERE pin = '${escapeSql(cleanTeacherPin)}' ON CONFLICT (teacher_id, student_id) DO UPDATE SET status = 'pending'`;
-	return query(fetch, sql);
-}
-
-export async function getPendingStudents(fetch, teacherId) {
-	const cleanTeacherId = validateNumeric(teacherId);
-	const sql = `SELECT s.id, s.name FROM classes c JOIN students s ON s.id = c.student_id WHERE c.teacher_id = ${cleanTeacherId} AND c.status = 'pending'`;
-	return query(fetch, sql);
-}
-
-export async function approveStudent(fetch, { teacherId, studentId }) {
-	const cleanTeacherId = validateNumeric(teacherId);
-	const cleanStudentId = validateNumeric(studentId);
-	const sql = `UPDATE classes SET status = 'active' WHERE teacher_id = ${cleanTeacherId} AND student_id = ${cleanStudentId}`;
+	const cleanInviteCode = validateString(inviteCode);
+	const sql = `INSERT INTO classes (teacher_id, student_id, status) SELECT id, ${cleanStudentId}, 'active' FROM teachers WHERE invite_code = '${escapeSql(cleanInviteCode)}' ON CONFLICT (teacher_id, student_id) DO NOTHING`;
 	return query(fetch, sql);
 }
 
@@ -273,7 +261,10 @@ export async function signupTeacher(fetch, { name, pin }) {
 		throw new Error('PIN already exists. Please choose a different PIN.');
 	}
 
-	const sql = `INSERT INTO teachers (name, pin) VALUES ('${escapeSql(cleanName)}', '${escapeSql(cleanPin)}') RETURNING id, name, 'teacher' as role`;
+	const inviteCode = crypto.randomUUID();
+	const sql = `INSERT INTO teachers (name, pin, invite_code) VALUES ('${escapeSql(
+		cleanName
+	)}', '${escapeSql(cleanPin)}', '${inviteCode}') RETURNING id, name, 'teacher' as role`;
 	return query(fetch, sql);
 }
 
@@ -330,6 +321,13 @@ export async function getTestsForTeacher(fetch, teacherId) {
 	const cleanTeacherId = validateNumeric(teacherId);
 	const sql = `SELECT id, title, description, is_active FROM tests WHERE teacher_id = ${cleanTeacherId}`;
 	return query(fetch, sql);
+}
+
+export async function getTeacher(fetch, teacherId) {
+	const cleanTeacherId = validateNumeric(teacherId);
+	const sql = `SELECT id, name, pin, invite_code FROM teachers WHERE id = ${cleanTeacherId}`;
+	const result = await query(fetch, sql);
+	return result[0];
 }
 
 export async function getActiveTests(fetch) {

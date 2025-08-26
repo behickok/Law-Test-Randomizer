@@ -8,9 +8,6 @@
 		getAttemptAnswers,
 		getStudentResults,
 		getClassStudents,
-		requestClassJoin,
-		getPendingStudents,
-		approveStudent,
 		deleteTest,
 		getTestQuestions,
 		getTestsForTeacher,
@@ -266,7 +263,6 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 	const students = writable([]);
 	let selectedStudentId = $state('');
 	let assignMsg = $state('');
-	const pendingStudents = writable([]);
 
 	async function loadStudents() {
 		if (!$user || $user.role !== 'teacher') {
@@ -277,18 +273,6 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 			students.set(Array.isArray(res) ? res : (res?.data ?? []));
 		} catch {
 			students.set([]);
-		}
-	}
-
-	async function loadPendingStudents() {
-		if (!$user || $user.role !== 'teacher') {
-			return;
-		}
-		try {
-			const res = await getPendingStudents(fetch, $user.id);
-			pendingStudents.set(Array.isArray(res) ? res : (res?.data ?? []));
-		} catch {
-			pendingStudents.set([]);
 		}
 	}
 
@@ -313,7 +297,6 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 
 	onMount(() => {
 		loadStudents();
-		loadPendingStudents();
 		loadTests();
 		if ($user?.role === 'teacher') {
 			loadTeacherResults();
@@ -348,7 +331,6 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 			loadTests();
 			if ($user.role === 'teacher') {
 				loadStudents();
-				loadPendingStudents();
 				loadTeacherResults();
 			} else if ($user.role === 'student') {
 				loadStudentResults();
@@ -422,34 +404,6 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 		}
 	}
 
-	let teacherPin = $state('');
-	let joinMsg = $state('');
-
-	async function handleJoin() {
-		if (!$user || $user.role !== 'student') {
-			joinMsg = 'You must be logged in as a student to join a class.';
-			return;
-		}
-		try {
-			await requestClassJoin(fetch, { studentId: $user.id, teacherPin });
-			joinMsg = 'Request sent';
-		} catch (e) {
-			joinMsg = e.message;
-		}
-	}
-
-	async function handleApprove(id) {
-		if (!$user || $user.role !== 'teacher') {
-			return;
-		}
-		try {
-			await approveStudent(fetch, { teacherId: $user.id, studentId: id });
-			pendingStudents.update((ps) => ps.filter((s) => s.id !== id));
-			await loadStudents();
-		} catch {
-			/* empty */
-		}
-	}
 </script>
 
 <div class="app-container">
@@ -638,37 +592,6 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 							</div>
 						</section>
 
-						<!-- Pending Students -->
-						<section class="card pending-card">
-							<div class="card-header">
-								<h2 class="card-title">
-									<span class="section-icon">⏳</span>
-									Pending Requests
-									{#if $pendingStudents.length}
-										<span class="badge">{$pendingStudents.length}</span>
-									{/if}
-								</h2>
-							</div>
-							<div class="card-content">
-								{#if $pendingStudents.length}
-									<div class="student-requests">
-										{#each $pendingStudents as s (s.id)}
-											<div class="request-item">
-												<span class="student-name">{s.name}</span>
-												<button onclick={() => handleApprove(s.id)} class="btn btn-success btn-sm">
-													Accept
-												</button>
-											</div>
-										{/each}
-									</div>
-								{:else}
-									<div class="empty-state">
-										<span class="empty-icon">✨</span>
-										<p>No pending requests</p>
-									</div>
-								{/if}
-							</div>
-						</section>
 						<!-- Tests Management -->
 						<section class="card tests-card">
 							<div class="card-header">
@@ -850,34 +773,6 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 			{#if $user.role === 'student'}
 				<div class="dashboard student-dashboard">
 					<div class="dashboard-grid">
-						<!-- Join Class -->
-						<section class="card join-card">
-							<div class="card-header">
-								<h2 class="card-title">
-									<span class="section-icon">🏫</span>
-									Join Teacher's Class
-								</h2>
-							</div>
-							<div class="card-content">
-								<div class="form-group">
-									<label for="pin-input">Teacher PIN</label>
-									<input
-										id="pin-input"
-										type="text"
-										placeholder="Enter teacher's PIN..."
-										bind:value={teacherPin}
-										class="form-input"
-									/>
-								</div>
-								<button onclick={handleJoin} class="btn btn-primary"> Join Class </button>
-								{#if joinMsg}
-									<div class="status-message {joinMsg === 'Request sent' ? 'success' : 'error'}">
-										{joinMsg}
-									</div>
-								{/if}
-							</div>
-						</section>
-
 						<!-- My Tests -->
 						<section class="card student-tests-card">
 							<div class="card-header">
