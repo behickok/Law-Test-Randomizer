@@ -101,7 +101,9 @@ Q002	What is the primary source of law in most legal systems?	Constitution	Statu
 Q003	Which amendment to the US Constitution protects freedom of speech?	First	Second	Fourth	Fifth	a
 Q004	In contract law, what is consideration?	A written document	Something of value exchanged	A court hearing	Legal advice	b
 Q005	What does 'pro bono' mean in legal terms?	For the public good (free legal work)	Professional bonus	Proven guilty	Private business	a
-Q006	Which court has the highest authority in the US legal system?	District Court	Court of Appeals	Supreme Court	State Court	c`;
+Q006	Which court has the highest authority in the US legal system?	District Court	Court of Appeals	Supreme Court	State Court	c
+Q007	Explain the difference between civil and criminal law, including examples of each.
+Q008	Discuss the concept of precedent in common law systems and how it affects legal decision-making.`;
 
 		// Create a blob with the CSV content
 		const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -132,17 +134,49 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 
 		for (const line of lines) {
 			const cols = line.split('\t');
-			if (cols.length < 7) {
-				continue; // Skip malformed lines
+			if (cols.length < 2) {
+				continue; // Skip malformed lines - need at least Question ID and Question Text
 			}
 
 			const questionId = cols[0].trim();
 			const questionText = cols[1].trim();
+
+			// Check if this is a long response question (only Question ID and Question Text)
+			if (cols.length === 2 || (cols.length > 2 && cols.slice(2).every((col) => !col.trim()))) {
+				// Long response question - no choices
+				questions.push({
+					questionId,
+					questionText,
+					choices: [],
+					isLongResponse: true,
+					status: 'new'
+				});
+				continue;
+			}
+
+			// Multiple choice question - need at least 7 columns
+			if (cols.length < 7) {
+				continue; // Skip malformed multiple choice lines
+			}
+
 			const answer1 = cols[2].trim();
 			const answer2 = cols[3].trim();
 			const answer3 = cols[4].trim();
 			const answer4 = cols[5].trim();
 			const correctAnswer = cols[6].trim().toLowerCase();
+
+			// Check if any of the required fields are empty for multiple choice
+			if (!answer1 && !answer2 && !answer3 && !answer4) {
+				// No choices provided, treat as long response
+				questions.push({
+					questionId,
+					questionText,
+					choices: [],
+					isLongResponse: true,
+					status: 'new'
+				});
+				continue;
+			}
 
 			const correctIndex =
 				correctAnswer === 'a'
@@ -164,6 +198,7 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 					{ text: answer3, isCorrect: correctIndex === 2 },
 					{ text: answer4, isCorrect: correctIndex === 3 }
 				],
+				isLongResponse: false,
 				status: 'new' // Will be updated when comparing with existing
 			});
 		}
@@ -525,7 +560,11 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 										<div class="data-input-section">
 											<textarea
 												id="test-data"
-												placeholder="Paste your test data here... Each line should have: Question ID, Question, Answer 1, Answer 2, Answer 3, Answer 4, ANSWER (a/b/c/d), separated by tabs."
+												placeholder="Paste your test data here... 
+
+For multiple choice: Question ID, Question, Answer 1, Answer 2, Answer 3, Answer 4, ANSWER (a/b/c/d), separated by tabs.
+
+For long response: Question ID, Question (just these two columns for open-ended questions)"
 												bind:value={testData}
 												class="form-textarea"
 												rows="12"
@@ -546,10 +585,17 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 													</div>
 												{:else}
 													{#each previewQuestions as question, index (question.questionId)}
-														<div class="preview-question {question.status}">
+														<div
+															class="preview-question {question.status} {question.isLongResponse
+																? 'long-response'
+																: ''}"
+														>
 															<div class="question-header">
 																<span class="question-number">{index + 1}.</span>
 																<span class="question-id">{question.questionId}</span>
+																{#if question.isLongResponse}
+																	<span class="question-type-badge">📝 Long Response</span>
+																{/if}
 																<span class="status-badge {question.status}">
 																	{question.status === 'added'
 																		? '✅ New'
@@ -559,18 +605,26 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 																</span>
 															</div>
 															<div class="question-text">{question.questionText}</div>
-															<div class="choices-preview">
-																{#each question.choices as choice, choiceIndex (choiceIndex)}
-																	<div class="choice-preview {choice.isCorrect ? 'correct' : ''}">
-																		<span class="choice-label"
-																			>{String.fromCharCode(97 + choiceIndex)}.</span
-																		>
-																		{choice.text}
-																		{#if choice.isCorrect}<span class="correct-indicator">✓</span
-																			>{/if}
-																	</div>
-																{/each}
-															</div>
+															{#if question.isLongResponse}
+																<div class="long-response-indicator">
+																	<span class="long-response-text"
+																		>📝 Students will provide a written response</span
+																	>
+																</div>
+															{:else}
+																<div class="choices-preview">
+																	{#each question.choices as choice, choiceIndex (choiceIndex)}
+																		<div class="choice-preview {choice.isCorrect ? 'correct' : ''}">
+																			<span class="choice-label"
+																				>{String.fromCharCode(97 + choiceIndex)}.</span
+																			>
+																			{choice.text}
+																			{#if choice.isCorrect}<span class="correct-indicator">✓</span
+																				>{/if}
+																		</div>
+																	{/each}
+																</div>
+															{/if}
 														</div>
 													{/each}
 												{/if}
@@ -1150,13 +1204,6 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 		gap: 0.5rem;
 	}
 
-	.template-info p {
-		margin: 0;
-		color: #6b7280;
-		line-height: 1.5;
-		font-size: 0.9rem;
-	}
-
 	.template-btn {
 		flex-shrink: 0;
 		margin-left: 1rem;
@@ -1629,6 +1676,36 @@ Q006	Which court has the highest authority in the US legal system?	District Cour
 		color: #059669;
 		font-weight: 700;
 		margin-left: auto;
+	}
+
+	/* Long response question styles */
+	.preview-question.long-response {
+		border-left: 4px solid #8b5cf6;
+	}
+
+	.question-type-badge {
+		background: rgba(139, 92, 246, 0.1);
+		color: #7c3aed;
+		font-size: 0.75rem;
+		font-weight: 600;
+		padding: 0.25rem 0.5rem;
+		border-radius: 4px;
+		margin-right: 0.5rem;
+	}
+
+	.long-response-indicator {
+		background: rgba(139, 92, 246, 0.05);
+		border: 1px solid rgba(139, 92, 246, 0.2);
+		border-radius: 6px;
+		padding: 0.75rem;
+		margin-top: 0.5rem;
+	}
+
+	.long-response-text {
+		color: #7c3aed;
+		font-size: 0.9rem;
+		font-weight: 500;
+		font-style: italic;
 	}
 
 	/* Responsive design for preview */

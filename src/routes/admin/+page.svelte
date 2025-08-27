@@ -116,12 +116,17 @@
 								id="invite-link"
 								type="text"
 								readonly
-								value="{typeof window !== 'undefined' ? `${window.location.origin}/join/${teacherInviteCode}` : ''}"
+								value={typeof window !== 'undefined'
+									? `${window.location.origin}/join/${teacherInviteCode}`
+									: ''}
 								class="form-input"
 							/>
 						</div>
 						<button
-							on:click={() => navigator.clipboard.writeText(`${window.location.origin}/join/${teacherInviteCode}`)}
+							on:click={() =>
+								navigator.clipboard.writeText(
+									`${window.location.origin}/join/${teacherInviteCode}`
+								)}
 							class="btn btn-primary"
 						>
 							<span class="btn-icon">📋</span>

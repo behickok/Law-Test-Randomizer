@@ -84,27 +84,53 @@ export async function POST({ request }) {
 		}
 
 		for (const line of lines) {
-			// Expect: QuestionID \t Question \t A \t B \t C \t D \t ANSWER (a/b/c/d)
 			const cols = line.split('\t');
-			if (cols.length < 7) {
-				// Skip malformed lines quietly
+			if (cols.length < 2) {
+				// Skip malformed lines - need at least Question ID and Question Text
 				continue;
 			}
 
-			// Extract question ID and other data
+			// Extract question ID and text
 			const question_id = escapeSql(cols[0].trim());
 			const question_text = escapeSql(cols[1].trim());
+
+			// Check if this is a long response question (only Question ID and Question Text, or empty choice columns)
+			const isLongResponse =
+				cols.length === 2 ||
+				(cols.length > 2 && cols.slice(2).every((col) => !col.trim())) ||
+				(cols.length >= 6 &&
+					!cols[2].trim() &&
+					!cols[3].trim() &&
+					!cols[4].trim() &&
+					!cols[5].trim());
+
+			// Insert new question with question_id and default points
+			const qRow = await run(
+				`INSERT INTO questions (test_id, question_text, question_id, points) VALUES (${final_test_id}, '${question_text}', '${question_id}', 1) RETURNING id`
+			);
+			const question_pk_id = qRow[0].id;
+
+			if (isLongResponse) {
+				// Long response question - no choices to insert
+				continue;
+			}
+
+			// Multiple choice question - need at least 7 columns
+			if (cols.length < 7) {
+				continue;
+			}
+
 			const answer1 = escapeSql(cols[2].trim());
 			const answer2 = escapeSql(cols[3].trim());
 			const answer3 = escapeSql(cols[4].trim());
 			const answer4 = escapeSql(cols[5].trim());
 			const correctAnswer = cols[6].trim().toLowerCase();
 
-			// Insert new question with question_id
-			const qRow = await run(
-				`INSERT INTO questions (test_id, question_text, question_id) VALUES (${final_test_id}, '${question_text}', '${question_id}') RETURNING id`
-			);
-			const question_pk_id = qRow[0].id;
+			// Check if any of the required fields are empty for multiple choice
+			if (!answer1 && !answer2 && !answer3 && !answer4) {
+				// No choices provided, skip choice insertion (already handled as long response above)
+				continue;
+			}
 
 			// Compute correct index
 			const correctIndex =
