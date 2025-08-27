@@ -94,16 +94,24 @@
 	}
 
 	function downloadTemplate() {
-		// Create sample content with proper format including Question ID
-		const csvContent = `Question ID	Question	Answer 1	Answer 2	Answer 3	Answer 4	ANSWER
-Q001	When must an appellate court have subject-matter jurisdiction?	When the notice of appeal is filed	When oral argument occurs	When a decision is issued	All of the above	d
-Q002	What is the primary source of law in most legal systems?	Constitution	Statutes	Case Law	Regulations	a
-Q003	Which amendment to the US Constitution protects freedom of speech?	First	Second	Fourth	Fifth	a
-Q004	In contract law, what is consideration?	A written document	Something of value exchanged	A court hearing	Legal advice	b
-Q005	What does 'pro bono' mean in legal terms?	For the public good (free legal work)	Professional bonus	Proven guilty	Private business	a
-Q006	Which court has the highest authority in the US legal system?	District Court	Court of Appeals	Supreme Court	State Court	c
-Q007	Explain the difference between civil and criminal law, including examples of each.
-Q008	Discuss the concept of precedent in common law systems and how it affects legal decision-making.`;
+		// Create sample content with proper CSV format including sections
+		const csvContent = `[SECTION:Constitutional Law:3]
+1,"When must an appellate court have subject-matter jurisdiction?","When the notice of appeal is filed","When oral argument occurs","When a decision is issued","All of the above",d
+2,"What is the primary source of law in most legal systems?",Constitution,Statutes,"Case Law",Regulations,a
+3,"Which amendment to the US Constitution protects freedom of speech?",First,Second,Fourth,Fifth,a
+4,"The Fourth Amendment protects against what type of searches?","All searches","Unreasonable searches","Police searches","Federal searches",b
+5,"What is the supremacy clause?","Makes federal law supreme","Gives states power","Limits Congress","Creates courts",a
+
+[SECTION:Contract Law:2]
+6,"In contract law, what is consideration?","A written document","Something of value exchanged","A court hearing","Legal advice",b
+7,"What makes a contract legally binding?",Writing,Signatures,"Offer and acceptance",Witnesses,c
+8,"What does 'pro bono' mean in legal terms?","For the public good (free legal work)","Professional bonus","Proven guilty","Private business",a
+9,"Which court has the highest authority in the US legal system?","District Court","Court of Appeals","Supreme Court","State Court",c
+
+[SECTION:Essay Questions:1]
+10,"Explain the difference between civil and criminal law, including examples of each."
+11,"Discuss the concept of precedent in common law systems and how it affects legal decision-making."
+12,"Analyze the relationship between federal and state jurisdiction in the US legal system."`;
 
 		// Create a blob with the CSV content
 		const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -121,6 +129,37 @@ Q008	Discuss the concept of precedent in common law systems and how it affects l
 		document.body.removeChild(link);
 	}
 
+	// Simple CSV parser that handles quoted strings
+	function parseCSVLine(line) {
+		const result = [];
+		let current = '';
+		let inQuotes = false;
+		let i = 0;
+
+		while (i < line.length) {
+			const char = line[i];
+
+			if (char === '"' && (i === 0 || line[i - 1] === ',' || inQuotes)) {
+				if (inQuotes && line[i + 1] === '"') {
+					// Escaped quote
+					current += '"';
+					i += 2;
+					continue;
+				}
+				inQuotes = !inQuotes;
+			} else if (char === ',' && !inQuotes) {
+				result.push(current.trim());
+				current = '';
+			} else {
+				current += char;
+			}
+			i++;
+		}
+
+		result.push(current.trim());
+		return result;
+	}
+
 	function parseTestData(data) {
 		if (!data.trim()) {
 			return [];
@@ -130,10 +169,35 @@ Q008	Discuss the concept of precedent in common law systems and how it affects l
 			.split(/\r?\n/)
 			.map((l) => l.trim())
 			.filter(Boolean);
-		const questions = [];
+
+		const sections = [];
+		let currentSection = null;
+		let sectionOrder = 1;
 
 		for (const line of lines) {
-			const cols = line.split('\t');
+			const cols = parseCSVLine(line);
+
+			// Check if this is a section definition line
+			// Format: [SECTION:SectionName:TotalQuestions]
+			if (cols.length === 1 && cols[0].startsWith('[SECTION:') && cols[0].endsWith(']')) {
+				const sectionDef = cols[0].slice(9, -1); // Remove [SECTION: and ]
+				const sectionParts = sectionDef.split(':');
+				if (sectionParts.length >= 2) {
+					const sectionName = sectionParts[0].trim();
+					const totalQuestions = parseInt(sectionParts[1]) || 1;
+
+					currentSection = {
+						name: sectionName,
+						order: sectionOrder++,
+						totalQuestions: totalQuestions,
+						questions: [],
+						status: 'new'
+					};
+					sections.push(currentSection);
+				}
+				continue;
+			}
+
 			if (cols.length < 2) {
 				continue; // Skip malformed lines - need at least Question ID and Question Text
 			}
@@ -142,68 +206,85 @@ Q008	Discuss the concept of precedent in common law systems and how it affects l
 			const questionText = cols[1].trim();
 
 			// Check if this is a long response question (only Question ID and Question Text)
-			if (cols.length === 2 || (cols.length > 2 && cols.slice(2).every((col) => !col.trim()))) {
-				// Long response question - no choices
-				questions.push({
-					questionId,
-					questionText,
-					choices: [],
-					isLongResponse: true,
-					status: 'new'
-				});
-				continue;
+			let isLongResponse =
+				cols.length === 2 || (cols.length > 2 && cols.slice(2).every((col) => !col.trim()));
+			let choices = [];
+
+			if (!isLongResponse) {
+				// Multiple choice question - need at least 7 columns
+				if (cols.length >= 7) {
+					const answer1 = cols[2].trim();
+					const answer2 = cols[3].trim();
+					const answer3 = cols[4].trim();
+					const answer4 = cols[5].trim();
+					const correctAnswer = cols[6].trim().toLowerCase();
+
+					// Check if any of the required fields are empty for multiple choice
+					if (!answer1 && !answer2 && !answer3 && !answer4) {
+						isLongResponse = true;
+					} else {
+						const correctIndex =
+							correctAnswer === 'a'
+								? 0
+								: correctAnswer === 'b'
+									? 1
+									: correctAnswer === 'c'
+										? 2
+										: correctAnswer === 'd'
+											? 3
+											: -1;
+
+						choices = [
+							{ text: answer1, isCorrect: correctIndex === 0 },
+							{ text: answer2, isCorrect: correctIndex === 1 },
+							{ text: answer3, isCorrect: correctIndex === 2 },
+							{ text: answer4, isCorrect: correctIndex === 3 }
+						];
+					}
+				} else {
+					isLongResponse = true;
+				}
 			}
 
-			// Multiple choice question - need at least 7 columns
-			if (cols.length < 7) {
-				continue; // Skip malformed multiple choice lines
-			}
-
-			const answer1 = cols[2].trim();
-			const answer2 = cols[3].trim();
-			const answer3 = cols[4].trim();
-			const answer4 = cols[5].trim();
-			const correctAnswer = cols[6].trim().toLowerCase();
-
-			// Check if any of the required fields are empty for multiple choice
-			if (!answer1 && !answer2 && !answer3 && !answer4) {
-				// No choices provided, treat as long response
-				questions.push({
-					questionId,
-					questionText,
-					choices: [],
-					isLongResponse: true,
-					status: 'new'
-				});
-				continue;
-			}
-
-			const correctIndex =
-				correctAnswer === 'a'
-					? 0
-					: correctAnswer === 'b'
-						? 1
-						: correctAnswer === 'c'
-							? 2
-							: correctAnswer === 'd'
-								? 3
-								: -1;
-
-			questions.push({
+			const question = {
 				questionId,
 				questionText,
-				choices: [
-					{ text: answer1, isCorrect: correctIndex === 0 },
-					{ text: answer2, isCorrect: correctIndex === 1 },
-					{ text: answer3, isCorrect: correctIndex === 2 },
-					{ text: answer4, isCorrect: correctIndex === 3 }
-				],
-				isLongResponse: false,
-				status: 'new' // Will be updated when comparing with existing
-			});
+				choices,
+				isLongResponse,
+				status: 'new'
+			};
+
+			// Add question to current section or create default section
+			if (!currentSection) {
+				currentSection = {
+					name: 'Default Section',
+					order: sectionOrder++,
+					totalQuestions: 999, // Default to include all questions
+					questions: [],
+					status: 'new'
+				};
+				sections.push(currentSection);
+			}
+
+			currentSection.questions.push(question);
 		}
 
-		return questions;
+		// Flatten sections into questions for backward compatibility with preview
+		// But also store the section structure
+		const allQuestions = [];
+		sections.forEach((section) => {
+			section.questions.forEach((question) => {
+				question.sectionName = section.name;
+				question.sectionOrder = section.order;
+				question.sectionTotalQuestions = section.totalQuestions;
+				allQuestions.push(question);
+			});
+		});
+
+		// Store sections for preview enhancement
+		allQuestions._sections = sections;
+
+		return allQuestions;
 	}
 
 	async function loadExistingQuestions() {
@@ -560,11 +641,7 @@ Q008	Discuss the concept of precedent in common law systems and how it affects l
 										<div class="data-input-section">
 											<textarea
 												id="test-data"
-												placeholder="Paste your test data here... 
-
-For multiple choice: Question ID, Question, Answer 1, Answer 2, Answer 3, Answer 4, ANSWER (a/b/c/d), separated by tabs.
-
-For long response: Question ID, Question (just these two columns for open-ended questions)"
+												placeholder="Paste your test data here. Use CSV format with commas to separate columns. Download template for examples."
 												bind:value={testData}
 												class="form-textarea"
 												rows="12"
@@ -583,7 +660,68 @@ For long response: Question ID, Question (just these two columns for open-ended 
 														<span class="empty-icon">📝</span>
 														<p>Paste your test data to see a preview</p>
 													</div>
+												{:else if previewQuestions._sections && previewQuestions._sections.length > 1}
+													<!-- Section-based preview -->
+													{#each previewQuestions._sections as section (section.name)}
+														<div class="section-preview">
+															<div class="section-header">
+																<span class="section-icon">📂</span>
+																<span class="section-name">{section.name}</span>
+																<span class="section-info">
+																	{section.totalQuestions} of {section.questions.length} questions will
+																	be selected
+																</span>
+															</div>
+															{#each section.questions as question, index (question.questionId)}
+																<div
+																	class="preview-question {question.status} {question.isLongResponse
+																		? 'long-response'
+																		: ''} in-section"
+																>
+																	<div class="question-header">
+																		<span class="question-number">{index + 1}.</span>
+																		<span class="question-id">{question.questionId}</span>
+																		{#if question.isLongResponse}
+																			<span class="question-type-badge">📝 Long Response</span>
+																		{/if}
+																		<span class="status-badge {question.status}">
+																			{question.status === 'added'
+																				? '✅ New'
+																				: question.status === 'changed'
+																					? '⚠️ Changed'
+																					: '✓ Unchanged'}
+																		</span>
+																	</div>
+																	<div class="question-text">{question.questionText}</div>
+																	{#if question.isLongResponse}
+																		<div class="long-response-indicator">
+																			<span class="long-response-text"
+																				>📝 Students will provide a written response</span
+																			>
+																		</div>
+																	{:else}
+																		<div class="choices-preview">
+																			{#each question.choices as choice, choiceIndex (choiceIndex)}
+																				<div
+																					class="choice-preview {choice.isCorrect ? 'correct' : ''}"
+																				>
+																					<span class="choice-label"
+																						>{String.fromCharCode(97 + choiceIndex)}.</span
+																					>
+																					{choice.text}
+																					{#if choice.isCorrect}<span class="correct-indicator"
+																							>✓</span
+																						>{/if}
+																				</div>
+																			{/each}
+																		</div>
+																	{/if}
+																</div>
+															{/each}
+														</div>
+													{/each}
 												{:else}
+													<!-- Regular question list preview -->
 													{#each previewQuestions as question, index (question.questionId)}
 														<div
 															class="preview-question {question.status} {question.isLongResponse
@@ -1706,6 +1844,56 @@ For long response: Question ID, Question (just these two columns for open-ended 
 		font-size: 0.9rem;
 		font-weight: 500;
 		font-style: italic;
+	}
+
+	/* Section preview styles */
+	.section-preview {
+		margin-bottom: 1.5rem;
+		border: 1px solid rgba(59, 130, 246, 0.2);
+		border-radius: 8px;
+		background: rgba(59, 130, 246, 0.02);
+	}
+
+	.section-header {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 1rem;
+		background: rgba(59, 130, 246, 0.05);
+		border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+		border-radius: 8px 8px 0 0;
+	}
+
+	.section-icon {
+		font-size: 1.2rem;
+		color: #3b82f6;
+	}
+
+	.section-name {
+		font-weight: 600;
+		color: #1f2937;
+		font-size: 1rem;
+	}
+
+	.section-info {
+		margin-left: auto;
+		font-size: 0.875rem;
+		color: #6b7280;
+		background: rgba(59, 130, 246, 0.1);
+		padding: 0.25rem 0.75rem;
+		border-radius: 12px;
+		font-weight: 500;
+	}
+
+	.preview-question.in-section {
+		margin: 0.75rem;
+		margin-bottom: 1rem;
+		border-radius: 6px;
+		border-left: 3px solid #e5e7eb;
+	}
+
+	.preview-question.in-section.long-response {
+		border-left-color: #8b5cf6;
 	}
 
 	/* Responsive design for preview */

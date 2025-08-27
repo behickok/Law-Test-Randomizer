@@ -71,7 +71,7 @@ export async function uploadTestData(fetch, { data, title, teacherId, testId }) 
 		form.append('test_id', validateNumeric(testId));
 	}
 
-	const res = await fetch(`${BASE_URL}/tests/upload`, {
+	const res = await fetch(`/api/tests/upload`, {
 		method: 'POST',
 		body: form
 	});
@@ -333,7 +333,7 @@ export async function deleteTest(fetch, { testId, teacherId }) {
 		throw new Error('Test not found or access denied');
 	}
 
-	// Delete in correct order: attempt_answers, choices, questions, test_attempts, then test
+	// Delete in correct order: attempt_answers, choices, questions, sections, test_attempts, then test
 	await query(
 		fetch,
 		`DELETE FROM attempt_answers WHERE question_id IN (SELECT id FROM questions WHERE test_id = ${cleanTestId})`
@@ -343,6 +343,7 @@ export async function deleteTest(fetch, { testId, teacherId }) {
 		`DELETE FROM choices WHERE question_id IN (SELECT id FROM questions WHERE test_id = ${cleanTestId})`
 	);
 	await query(fetch, `DELETE FROM questions WHERE test_id = ${cleanTestId}`);
+	await query(fetch, `DELETE FROM sections WHERE test_id = ${cleanTestId}`);
 	await query(fetch, `DELETE FROM test_attempts WHERE test_id = ${cleanTestId}`);
 	await query(fetch, `DELETE FROM tests WHERE id = ${cleanTestId}`);
 
@@ -381,12 +382,15 @@ export async function getTestQuestions(fetch, { testId, teacherId }) {
 		throw new Error('Test not found or access denied');
 	}
 
-	// Get questions with their choices
-	const sql = `SELECT q.id as db_id, q.question_id, q.question_text, q.points, c.choice_text, c.is_correct
+	// Get questions with their choices and section information
+	const sql = `SELECT q.id as db_id, q.question_id, q.question_text, q.points, q.section_id,
+                        s.section_name, s.section_order, s.total_questions,
+                        c.choice_text, c.is_correct
                 FROM questions q
+                LEFT JOIN sections s ON q.section_id = s.id
                 LEFT JOIN choices c ON q.id = c.question_id
                 WHERE q.test_id = ${cleanTestId}
-                ORDER BY q.id, c.id`;
+                ORDER BY s.section_order, q.id, c.id`;
 
 	const rows = await query(fetch, sql);
 	const questionsMap = new Map();
@@ -399,6 +403,9 @@ export async function getTestQuestions(fetch, { testId, teacherId }) {
 				questionId: qId,
 				questionText: row.question_text,
 				points: row.points,
+				sectionName: row.section_name || 'Default Section',
+				sectionOrder: row.section_order || 1,
+				sectionTotalQuestions: row.total_questions || 999,
 				choices: []
 			});
 		}

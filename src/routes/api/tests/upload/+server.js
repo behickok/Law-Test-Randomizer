@@ -7,6 +7,37 @@ function escapeSql(str) {
 	return str.replace(/'/g, "''");
 }
 
+// Simple CSV parser that handles quoted strings
+function parseCSVLine(line) {
+	const result = [];
+	let current = '';
+	let inQuotes = false;
+	let i = 0;
+
+	while (i < line.length) {
+		const char = line[i];
+
+		if (char === '"' && (i === 0 || line[i - 1] === ',' || inQuotes)) {
+			if (inQuotes && line[i + 1] === '"') {
+				// Escaped quote
+				current += '"';
+				i += 2;
+				continue;
+			}
+			inQuotes = !inQuotes;
+		} else if (char === ',' && !inQuotes) {
+			result.push(current.trim());
+			current = '';
+		} else {
+			current += char;
+		}
+		i++;
+	}
+
+	result.push(current.trim());
+	return result;
+}
+
 async function run(sql) {
 	const res = await fetch(`${BASE_URL}/query`, {
 		method: 'POST',
@@ -31,7 +62,14 @@ export async function POST({ request }) {
 	let teacher_id = formData.get('teacher_id') || request.headers.get('x-teacher-id') || undefined;
 
 	if (!data || !title || !teacher_id) {
-		return new Response('Missing data, title or teacher_id', { status: 400 });
+		const missingFields = [];
+		if (!data) missingFields.push('data');
+		if (!title) missingFields.push('title');
+		if (!teacher_id) missingFields.push('teacher_id');
+		return new Response(
+			`Missing required fields: ${missingFields.join(', ')}. Received teacher_id: ${teacher_id}`,
+			{ status: 400 }
+		);
 	}
 	if (!/^\d+$/.test(teacher_id)) {
 		return new Response('Invalid teacher_id format', { status: 400 });
@@ -68,11 +106,12 @@ export async function POST({ request }) {
 			// Update test title
 			await run(`UPDATE tests SET title = '${escapeSql(title)}' WHERE id = ${test_id}`);
 
-			// Delete existing questions and choices for this test
+			// Delete existing data for this test (in correct order due to foreign key constraints)
 			await run(
 				`DELETE FROM choices WHERE question_id IN (SELECT id FROM questions WHERE test_id = ${test_id})`
 			);
 			await run(`DELETE FROM questions WHERE test_id = ${test_id}`);
+			await run(`DELETE FROM sections WHERE test_id = ${test_id}`);
 
 			final_test_id = test_id;
 		} else {
@@ -83,8 +122,35 @@ export async function POST({ request }) {
 			final_test_id = testRow[0].id;
 		}
 
+		// Parse sections and questions
+		const sections = new Map(); // section_name -> { order, total_questions, questions[] }
+		let currentSection = null;
+		let sectionOrder = 1;
+
 		for (const line of lines) {
-			const cols = line.split('\t');
+			const cols = parseCSVLine(line);
+
+			// Check if this is a section definition line
+			// Format: [SECTION:SectionName:TotalQuestions]
+			if (cols.length === 1 && cols[0].startsWith('[SECTION:') && cols[0].endsWith(']')) {
+				const sectionDef = cols[0].slice(9, -1); // Remove [SECTION: and ]
+				const sectionParts = sectionDef.split(':');
+				if (sectionParts.length >= 2) {
+					const sectionName = sectionParts[0].trim();
+					const totalQuestions = parseInt(sectionParts[1]) || 1;
+
+					currentSection = sectionName;
+					if (!sections.has(sectionName)) {
+						sections.set(sectionName, {
+							order: sectionOrder++,
+							total_questions: totalQuestions,
+							questions: []
+						});
+					}
+				}
+				continue;
+			}
+
 			if (cols.length < 2) {
 				// Skip malformed lines - need at least Question ID and Question Text
 				continue;
@@ -94,7 +160,7 @@ export async function POST({ request }) {
 			const question_id = escapeSql(cols[0].trim());
 			const question_text = escapeSql(cols[1].trim());
 
-			// Check if this is a long response question (only Question ID and Question Text, or empty choice columns)
+			// Check if this is a long response question
 			const isLongResponse =
 				cols.length === 2 ||
 				(cols.length > 2 && cols.slice(2).every((col) => !col.trim())) ||
@@ -104,54 +170,89 @@ export async function POST({ request }) {
 					!cols[4].trim() &&
 					!cols[5].trim());
 
-			// Insert new question with question_id and default points
-			const qRow = await run(
-				`INSERT INTO questions (test_id, question_text, question_id, points) VALUES (${final_test_id}, '${question_text}', '${question_id}', 1) RETURNING id`
+			const questionData = {
+				question_id,
+				question_text,
+				isLongResponse,
+				choices: []
+			};
+
+			if (!isLongResponse && cols.length >= 7) {
+				const answer1 = escapeSql(cols[2].trim());
+				const answer2 = escapeSql(cols[3].trim());
+				const answer3 = escapeSql(cols[4].trim());
+				const answer4 = escapeSql(cols[5].trim());
+				const correctAnswer = cols[6].trim().toLowerCase();
+
+				if (answer1 || answer2 || answer3 || answer4) {
+					const correctIndex =
+						correctAnswer === 'a'
+							? 0
+							: correctAnswer === 'b'
+								? 1
+								: correctAnswer === 'c'
+									? 2
+									: correctAnswer === 'd'
+										? 3
+										: -1;
+
+					questionData.choices = [
+						{ text: answer1, isCorrect: correctIndex === 0 },
+						{ text: answer2, isCorrect: correctIndex === 1 },
+						{ text: answer3, isCorrect: correctIndex === 2 },
+						{ text: answer4, isCorrect: correctIndex === 3 }
+					];
+					questionData.isLongResponse = false;
+				}
+			}
+
+			// Add question to current section or default section
+			if (!currentSection) {
+				currentSection = 'Default Section';
+				if (!sections.has(currentSection)) {
+					sections.set(currentSection, {
+						order: sectionOrder++,
+						total_questions: 999, // Default to include all questions
+						questions: []
+					});
+				}
+			}
+
+			sections.get(currentSection).questions.push(questionData);
+		}
+
+		// Insert sections and questions
+		for (const [sectionName, sectionData] of sections) {
+			// Insert section
+			const sectionRow = await run(
+				`INSERT INTO sections (test_id, section_name, section_order, total_questions) 
+				 VALUES (${final_test_id}, '${escapeSql(sectionName)}', ${sectionData.order}, ${sectionData.total_questions}) 
+				 RETURNING id`
 			);
-			const question_pk_id = qRow[0].id;
+			const sectionId = sectionRow[0].id;
 
-			if (isLongResponse) {
-				// Long response question - no choices to insert
-				continue;
-			}
-
-			// Multiple choice question - need at least 7 columns
-			if (cols.length < 7) {
-				continue;
-			}
-
-			const answer1 = escapeSql(cols[2].trim());
-			const answer2 = escapeSql(cols[3].trim());
-			const answer3 = escapeSql(cols[4].trim());
-			const answer4 = escapeSql(cols[5].trim());
-			const correctAnswer = cols[6].trim().toLowerCase();
-
-			// Check if any of the required fields are empty for multiple choice
-			if (!answer1 && !answer2 && !answer3 && !answer4) {
-				// No choices provided, skip choice insertion (already handled as long response above)
-				continue;
-			}
-
-			// Compute correct index
-			const correctIndex =
-				correctAnswer === 'a'
-					? 0
-					: correctAnswer === 'b'
-						? 1
-						: correctAnswer === 'c'
-							? 2
-							: correctAnswer === 'd'
-								? 3
-								: -1;
-
-			const allChoices = [answer1, answer2, answer3, answer4];
-
-			// Insert 4 choices with is_correct flags
-			for (let i = 0; i < allChoices.length; i++) {
-				const isCorrect = i === correctIndex ? 'TRUE' : 'FALSE';
-				await run(
-					`INSERT INTO choices (question_id, choice_text, is_correct) VALUES (${question_pk_id}, '${allChoices[i]}', ${isCorrect})`
+			// Insert questions for this section
+			for (const questionData of sectionData.questions) {
+				const qRow = await run(
+					`INSERT INTO questions (test_id, question_text, question_id, points, section_id) 
+					 VALUES (${final_test_id}, '${questionData.question_text}', '${questionData.question_id}', 1, ${sectionId}) 
+					 RETURNING id`
 				);
+				const question_pk_id = qRow[0].id;
+
+				// Insert choices if not long response
+				if (!questionData.isLongResponse && questionData.choices.length > 0) {
+					for (let i = 0; i < questionData.choices.length; i++) {
+						const choice = questionData.choices[i];
+						if (choice.text) {
+							const isCorrect = choice.isCorrect ? 'TRUE' : 'FALSE';
+							await run(
+								`INSERT INTO choices (question_id, choice_text, is_correct) 
+								 VALUES (${question_pk_id}, '${choice.text}', ${isCorrect})`
+							);
+						}
+					}
+				}
 			}
 		}
 
