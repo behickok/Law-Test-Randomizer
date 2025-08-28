@@ -423,15 +423,18 @@
 		}
 	});
 
-	// Reactive preview update when test data changes
-	$effect(() => {
-		const parsed = parseTestData(testData);
-		if (updateMode && existingQuestions.length > 0) {
-			previewQuestions = compareQuestions(parsed, existingQuestions);
-		} else {
-			previewQuestions = parsed.map((q) => ({ ...q, status: 'added' }));
-		}
-	});
+       function updatePreview() {
+               const parsed = parseTestData(testData);
+               if (updateMode && existingQuestions.length > 0) {
+                       previewQuestions = compareQuestions(parsed, existingQuestions);
+               } else {
+                       previewQuestions = parsed.map((q) => ({ ...q, status: 'added' }));
+               }
+               previewQuestions._sections = parsed._sections;
+       }
+
+       // Reactive preview update when test data changes
+       $effect(updatePreview);
 
 	// Load existing questions when update mode or selected test changes
 	$effect(() => {
@@ -642,10 +645,11 @@
 											<textarea
 												id="test-data"
 												placeholder="Paste your test data here. Use CSV format with commas to separate columns. Download template for examples."
-												bind:value={testData}
-												class="form-textarea"
-												rows="12"
-											></textarea>
+                                                                                                bind:value={testData}
+                                                                                                on:input={updatePreview}
+                                                                                                class="form-textarea"
+                                                                                                rows="12"
+                                                                                        ></textarea>
 										</div>
 										<div class="preview-section">
 											<div class="preview-header">
