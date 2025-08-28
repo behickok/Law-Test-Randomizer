@@ -7,8 +7,11 @@ function escapeSql(str) {
 	return str.replace(/'/g, "''");
 }
 
-// Simple CSV parser that handles quoted strings
-function parseCSVLine(line) {
+// This function is designed to be more robust for Excel copy-paste.
+// It prioritizes tabs as delimiters, as that's common for Excel.
+// It falls back to commas for CSV compatibility.
+function parseLine(line) {
+	const delimiter = line.includes('\t') ? '\t' : ',';
 	const result = [];
 	let current = '';
 	let inQuotes = false;
@@ -17,7 +20,8 @@ function parseCSVLine(line) {
 	while (i < line.length) {
 		const char = line[i];
 
-		if (char === '"' && (i === 0 || line[i - 1] === ',' || inQuotes)) {
+		// The original quote handling logic is kept, but adapted for the detected delimiter.
+		if (char === '"' && (i === 0 || line[i - 1] === delimiter || inQuotes)) {
 			if (inQuotes && line[i + 1] === '"') {
 				// Escaped quote
 				current += '"';
@@ -25,7 +29,7 @@ function parseCSVLine(line) {
 				continue;
 			}
 			inQuotes = !inQuotes;
-		} else if (char === ',' && !inQuotes) {
+		} else if (char === delimiter && !inQuotes) {
 			result.push(current.trim());
 			current = '';
 		} else {
@@ -128,7 +132,7 @@ export async function POST({ request }) {
 		let sectionOrder = 1;
 
 		for (const line of lines) {
-			const cols = parseCSVLine(line);
+			const cols = parseLine(line);
 
 			// Check if this is a section definition line
 			// Format: [SECTION:SectionName:TotalQuestions]
