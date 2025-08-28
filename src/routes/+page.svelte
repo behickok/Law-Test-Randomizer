@@ -30,6 +30,7 @@
 	let existingQuestions = $state([]); // Existing questions when updating
 	let isUploading = $state(false); // Loading state
 	let uploadProgress = $state(0); // Progress percentage
+	let showTemplateModal = $state(false); // Modal visibility state
 
 	async function handleUpload() {
 		if (!$user || $user.role !== 'teacher') {
@@ -93,9 +94,16 @@
 		}
 	}
 
-	function downloadTemplate() {
-		// Create sample content with proper CSV format including sections
-		const csvContent = `[SECTION:Constitutional Law:3]
+	function showTemplate() {
+		showTemplateModal = true;
+	}
+
+	function hideTemplateModal() {
+		showTemplateModal = false;
+	}
+
+	function getTemplateContent() {
+		return `[SECTION:Constitutional Law:3]
 1,"When must an appellate court have subject-matter jurisdiction?","When the notice of appeal is filed","When oral argument occurs","When a decision is issued","All of the above",d
 2,"What is the primary source of law in most legal systems?",Constitution,Statutes,"Case Law",Regulations,a
 3,"Which amendment to the US Constitution protects freedom of speech?",First,Second,Fourth,Fifth,a
@@ -112,7 +120,15 @@
 10,"Explain the difference between civil and criminal law, including examples of each."
 11,"Discuss the concept of precedent in common law systems and how it affects legal decision-making."
 12,"Analyze the relationship between federal and state jurisdiction in the US legal system."`;
+	}
 
+	function copyTemplateToTextarea() {
+		testData = getTemplateContent();
+		hideTemplateModal();
+	}
+
+	function downloadTemplate() {
+		const csvContent = getTemplateContent();
 		// Create a blob with the CSV content
 		const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
 
@@ -586,10 +602,16 @@
 									<div class="template-info">
 										<h4>📋 Need a starting point?</h4>
 									</div>
-									<button onclick={downloadTemplate} class="btn btn-outline btn-sm template-btn">
-										<span class="btn-icon">📥</span>
-										Download Template
-									</button>
+									<div class="template-actions">
+										<button onclick={showTemplate} class="btn btn-primary btn-sm template-btn">
+											<span class="btn-icon">👁️</span>
+											View Template
+										</button>
+										<button onclick={downloadTemplate} class="btn btn-outline btn-sm template-btn">
+											<span class="btn-icon">📥</span>
+											Download Template
+										</button>
+									</div>
 								</div>
 
 								<div class="mode-selector">
@@ -646,7 +668,7 @@
 												id="test-data"
 												placeholder="Paste your test data here. Use CSV format with commas to separate columns. Download template for examples."
                                                                                                 bind:value={testData}
-                                                                                                on:input={updatePreview}
+                                                                                                oninput={updatePreview}
                                                                                                 class="form-textarea"
                                                                                                 rows="12"
                                                                                         ></textarea>
@@ -1079,6 +1101,41 @@
 	</main>
 </div>
 
+<!-- Template Modal -->
+{#if showTemplateModal}
+	<div class="modal-overlay" role="dialog" aria-modal="true" onclick={hideTemplateModal} onkeydown={(e) => e.key === 'Escape' && hideTemplateModal()}>
+		<div class="modal-content" role="document" onclick={(e) => e.stopPropagation()}>
+			<div class="modal-header">
+				<h3 class="modal-title">
+					<span class="modal-icon">📋</span>
+					Law Test Template
+				</h3>
+				<button onclick={hideTemplateModal} class="modal-close">
+					<span class="close-icon">✕</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<div class="template-preview">
+					<pre class="template-content">{getTemplateContent()}</pre>
+				</div>
+				<div class="modal-actions">
+					<button onclick={copyTemplateToTextarea} class="btn btn-primary">
+						<span class="btn-icon">📝</span>
+						Use This Template
+					</button>
+					<button onclick={downloadTemplate} class="btn btn-outline">
+						<span class="btn-icon">📥</span>
+						Download Template
+					</button>
+					<button onclick={hideTemplateModal} class="btn btn-secondary">
+						Close
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <style>
 	* {
 		box-sizing: border-box;
@@ -1346,9 +1403,15 @@
 		gap: 0.5rem;
 	}
 
-	.template-btn {
+	.template-actions {
+		display: flex;
+		gap: 0.5rem;
 		flex-shrink: 0;
 		margin-left: 1rem;
+	}
+
+	.template-btn {
+		flex-shrink: 0;
 	}
 
 	.btn {
@@ -2303,6 +2366,192 @@
 	.test-item:hover .action-indicator {
 		transform: translateX(4px);
 		transition: transform 0.3s ease;
+	}
+
+	/* Modal Styles */
+	.modal-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background: rgba(0, 0, 0, 0.5);
+		backdrop-filter: blur(4px);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: 1000;
+		animation: fadeIn 0.3s ease-out;
+	}
+
+	.modal-content {
+		background: white;
+		border-radius: 16px;
+		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+		max-width: 80vw;
+		max-height: 80vh;
+		width: 800px;
+		display: flex;
+		flex-direction: column;
+		animation: modalSlideIn 0.3s ease-out;
+	}
+
+	.modal-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 1.5rem 2rem;
+		border-bottom: 1px solid #e5e7eb;
+		background: #f9fafb;
+		border-radius: 16px 16px 0 0;
+	}
+
+	.modal-title {
+		font-size: 1.5rem;
+		font-weight: 700;
+		margin: 0;
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		color: #111827;
+	}
+
+	.modal-icon {
+		font-size: 1.75rem;
+	}
+
+	.modal-close {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0.5rem;
+		border-radius: 8px;
+		transition: background 0.2s ease;
+		color: #6b7280;
+		font-size: 1.25rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.5rem;
+		height: 2.5rem;
+	}
+
+	.modal-close:hover {
+		background: rgba(0, 0, 0, 0.1);
+		color: #374151;
+	}
+
+	.close-icon {
+		font-size: 1.5rem;
+		font-weight: bold;
+	}
+
+	.modal-body {
+		padding: 2rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+		flex-grow: 1;
+		overflow: hidden;
+	}
+
+	.template-preview {
+		flex-grow: 1;
+		border: 1px solid #e5e7eb;
+		border-radius: 12px;
+		overflow: hidden;
+		background: #f8fafc;
+	}
+
+	.template-content {
+		margin: 0;
+		padding: 1.5rem;
+		font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+		font-size: 0.9rem;
+		line-height: 1.6;
+		background: #1e293b;
+		color: #e2e8f0;
+		overflow-x: auto;
+		overflow-y: auto;
+		max-height: 400px;
+		white-space: pre-wrap;
+		word-break: break-word;
+	}
+
+	.modal-actions {
+		display: flex;
+		gap: 1rem;
+		justify-content: flex-end;
+		padding-top: 1rem;
+		border-top: 1px solid #e5e7eb;
+		flex-shrink: 0;
+	}
+
+	.btn-secondary {
+		background: #f3f4f6;
+		color: #374151;
+		border: 2px solid #d1d5db;
+	}
+
+	.btn-secondary:hover {
+		background: #e5e7eb;
+		border-color: #9ca3af;
+		transform: translateY(-1px);
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+	}
+
+	@keyframes fadeIn {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+
+	@keyframes modalSlideIn {
+		from {
+			opacity: 0;
+			transform: translateY(-30px) scale(0.95);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0) scale(1);
+		}
+	}
+
+	/* Modal responsive design */
+	@media (max-width: 768px) {
+		.modal-content {
+			max-width: 95vw;
+			max-height: 90vh;
+			margin: 1rem;
+		}
+
+		.modal-header {
+			padding: 1rem 1.5rem;
+		}
+
+		.modal-body {
+			padding: 1.5rem;
+		}
+
+		.modal-actions {
+			flex-direction: column;
+			gap: 0.75rem;
+		}
+
+		.template-actions {
+			flex-direction: column;
+			gap: 0.5rem;
+			margin-left: 0;
+			margin-top: 1rem;
+		}
+
+		.template-section {
+			flex-direction: column;
+			gap: 1rem;
+		}
 	}
 
 	/* Smooth transitions for dynamic content */
