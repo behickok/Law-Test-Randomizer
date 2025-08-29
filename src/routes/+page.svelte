@@ -26,7 +26,7 @@
 	let uploadMsg = $state('');
 	let selectedTestId = $state(''); // For updating existing tests
 	let updateMode = $state(false); // Toggle between create and update
-	let preview = $state({ questions: [], sections: [] }); // Parsed questions for preview
+	let preview = $state({ questions: [], sections: [], errors: [] }); // Parsed questions for preview
 	let existingQuestions = $state([]); // Existing questions when updating
 	let isUploading = $state(false); // Loading state
 	let uploadProgress = $state(0); // Progress percentage
@@ -145,8 +145,11 @@
 		document.body.removeChild(link);
 	}
 
-	// Simple CSV parser that handles quoted strings
-	function parseCSVLine(line) {
+	// This function is designed to be more robust for Excel copy-paste.
+	// It prioritizes tabs as delimiters, as that's common for Excel.
+	// It falls back to commas for CSV compatibility.
+	function parseLine(line) {
+		const delimiter = line.includes('\t') ? '\t' : ',';
 		const result = [];
 		let current = '';
 		let inQuotes = false;
@@ -155,7 +158,8 @@
 		while (i < line.length) {
 			const char = line[i];
 
-			if (char === '"' && (i === 0 || line[i - 1] === ',' || inQuotes)) {
+			// The original quote handling logic is kept, but adapted for the detected delimiter.
+			if (char === '"' && (i === 0 || line[i - 1] === delimiter || inQuotes)) {
 				if (inQuotes && line[i + 1] === '"') {
 					// Escaped quote
 					current += '"';
@@ -163,7 +167,7 @@
 					continue;
 				}
 				inQuotes = !inQuotes;
-			} else if (char === ',' && !inQuotes) {
+			} else if (char === delimiter && !inQuotes) {
 				result.push(current.trim());
 				current = '';
 			} else {
@@ -178,7 +182,7 @@
 
 	function parseTestData(data) {
 		if (!data.trim()) {
-			return { questions: [], sections: [] };
+			return { questions: [], sections: [], errors: [] };
 		}
 
 		const lines = data
@@ -187,11 +191,14 @@
 			.filter(Boolean);
 
 		const sections = [];
+		const errors = [];
 		let currentSection = null;
 		let sectionOrder = 1;
+		let lineNum = 0;
 
 		for (const line of lines) {
-			const cols = parseCSVLine(line);
+			lineNum++;
+			const cols = parseLine(line);
 
 			// Check if this is a section definition line
 			// Format: [SECTION:SectionName:TotalQuestions]
@@ -215,6 +222,7 @@
 			}
 
 			if (cols.length < 2) {
+				errors.push(`Line ${lineNum}: Malformed line, skipping. Found ${cols.length} columns, expected at least 2.`);
 				continue; // Skip malformed lines - need at least Question ID and Question Text
 			}
 
@@ -297,7 +305,7 @@
 			});
 		});
 
-		return { questions: allQuestions, sections };
+		return { questions: allQuestions, sections, errors };
 	}
 
 	async function loadExistingQuestions() {
@@ -444,7 +452,7 @@
 		} else {
 			questions = parsed.questions.map((q) => ({ ...q, status: 'added' }));
 		}
-		preview = { questions: questions, sections: parsed.sections };
+		preview = { questions: questions, sections: parsed.sections, errors: parsed.errors };
        }
 
        // Reactive preview update when test data changes
@@ -669,6 +677,16 @@
                                                                                                 class="form-textarea"
                                                                                                 rows="12"
                                                                                         ></textarea>
+											{#if preview.errors && preview.errors.length > 0}
+												<div class="parser-errors">
+													<h4>⚠️ Parsing Errors</h4>
+													<ul>
+														{#each preview.errors as error}
+															<li>{error}</li>
+														{/each}
+													</ul>
+												</div>
+											{/if}
 										</div>
 										<div class="preview-section">
 											<div class="preview-header">
@@ -1704,6 +1722,30 @@
 	.data-input-section {
 		display: flex;
 		flex-direction: column;
+	}
+
+	.parser-errors {
+		margin-top: 1rem;
+		padding: 1rem;
+		background: #fffbe6;
+		border: 1px solid #fef3c7;
+		border-radius: 8px;
+		color: #b45309;
+	}
+
+	.parser-errors h4 {
+		margin-top: 0;
+		margin-bottom: 0.5rem;
+		font-weight: 600;
+	}
+
+	.parser-errors ul {
+		margin: 0;
+		padding-left: 1.5rem;
+	}
+
+	.parser-errors li {
+		margin-bottom: 0.25rem;
 	}
 
 	.preview-section {
