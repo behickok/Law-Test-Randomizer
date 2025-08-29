@@ -26,7 +26,7 @@
 	let uploadMsg = $state('');
 	let selectedTestId = $state(''); // For updating existing tests
 	let updateMode = $state(false); // Toggle between create and update
-	let previewQuestions = $state([]); // Parsed questions for preview
+	let preview = $state({ questions: [], sections: [] }); // Parsed questions for preview
 	let existingQuestions = $state([]); // Existing questions when updating
 	let isUploading = $state(false); // Loading state
 	let uploadProgress = $state(0); // Progress percentage
@@ -49,7 +49,7 @@
 
 		try {
 			// Simulate progress based on number of questions for user feedback
-			const questionCount = previewQuestions.length;
+			const questionCount = preview.questions.length;
 			const progressIncrement = questionCount > 0 ? 90 / questionCount : 90;
 			let currentProgress = 0;
 
@@ -178,7 +178,7 @@
 
 	function parseTestData(data) {
 		if (!data.trim()) {
-			return [];
+			return { questions: [], sections: [] };
 		}
 
 		const lines = data
@@ -297,10 +297,7 @@
 			});
 		});
 
-		// Store sections for preview enhancement
-		allQuestions._sections = sections;
-
-		return allQuestions;
+		return { questions: allQuestions, sections };
 	}
 
 	async function loadExistingQuestions() {
@@ -440,13 +437,14 @@
 	});
 
        function updatePreview() {
-               const parsed = parseTestData(testData);
-               if (updateMode && existingQuestions.length > 0) {
-                       previewQuestions = compareQuestions(parsed, existingQuestions);
-               } else {
-                       previewQuestions = parsed.map((q) => ({ ...q, status: 'added' }));
-               }
-               previewQuestions._sections = parsed._sections;
+		const parsed = parseTestData(testData);
+		let questions;
+		if (updateMode && existingQuestions.length > 0) {
+			questions = compareQuestions(parsed.questions, existingQuestions);
+		} else {
+			questions = parsed.questions.map((q) => ({ ...q, status: 'added' }));
+		}
+		preview = { questions: questions, sections: parsed.sections };
        }
 
        // Reactive preview update when test data changes
@@ -668,7 +666,6 @@
 												id="test-data"
 												placeholder="Paste your test data here. Use CSV format with commas to separate columns. Download template for examples."
                                                                                                 bind:value={testData}
-                                                                                                oninput={updatePreview}
                                                                                                 class="form-textarea"
                                                                                                 rows="12"
                                                                                         ></textarea>
@@ -676,19 +673,19 @@
 										<div class="preview-section">
 											<div class="preview-header">
 												<h4>📋 Preview</h4>
-												{#if previewQuestions.length > 0}
-													<span class="question-count">{previewQuestions.length} questions</span>
+												{#if preview.questions.length > 0}
+													<span class="question-count">{preview.questions.length} questions</span>
 												{/if}
 											</div>
 											<div class="preview-content">
-												{#if previewQuestions.length === 0}
+												{#if preview.questions.length === 0}
 													<div class="preview-empty">
 														<span class="empty-icon">📝</span>
 														<p>Paste your test data to see a preview</p>
 													</div>
-												{:else if previewQuestions._sections && previewQuestions._sections.length > 1}
+												{:else if preview.sections && preview.sections.length > 1}
 													<!-- Section-based preview -->
-													{#each previewQuestions._sections as section (section.name)}
+													{#each preview.sections as section (section.name)}
 														<div class="section-preview">
 															<div class="section-header">
 																<span class="section-icon">📂</span>
@@ -748,7 +745,7 @@
 													{/each}
 												{:else}
 													<!-- Regular question list preview -->
-													{#each previewQuestions as question, index (question.questionId)}
+													{#each preview.questions as question, index (question.questionId)}
 														<div
 															class="preview-question {question.status} {question.isLongResponse
 																? 'long-response'
