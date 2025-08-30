@@ -1,0 +1,9 @@
+question_text,choice_a,choice_b,choice_c,choice_d,correct_choice
+"Which of the following diagrams shows the correct legal process? {{legal_diagram}}","Process A","Process B","Process C","Process D",b
+"Based on the image below, what type of court is shown? {{courthouse_image}}","District Court","Appeals Court","Supreme Court","Municipal Court",c  
+"Look at this contract excerpt {{contract_image}} - what type of agreement is this?","Employment Contract","Lease Agreement","Purchase Agreement","Service Contract",a
+"The document shown here {{evidence_photo}} would be classified as what type of evidence?","Physical Evidence","Documentary Evidence","Testimonial Evidence","Circumstantial Evidence",b
+
+[SECTION:Constitutional Law:2]
+"The diagram {{constitution_diagram}} illustrates which principle?","Separation of Powers","Checks and Balances","Federalism","Due Process",b
+"This historical document {{historical_doc}} represents which amendment?","1st Amendment","4th Amendment","14th Amendment","19th Amendment",d

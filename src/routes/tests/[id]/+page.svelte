@@ -106,7 +106,16 @@
 				<h2>Manage Questions</h2>
 				{#each questions as q (q.id)}
 					<div class="question">
-						<input bind:value={q.text} />
+						<div class="question-input-section">
+							<label>Question Text (use {{ image_name }} for images):</label>
+							<textarea bind:value={q.text} rows="3" class="question-textarea"></textarea>
+							{#if q.processed_question_text && q.processed_question_text !== q.text}
+								<div class="question-preview">
+									<label>Preview:</label>
+									<div class="preview-content">{@html q.processed_question_text}</div>
+								</div>
+							{/if}
+						</div>
 						<input type="number" min="0" bind:value={q.points} class="points-input" />
 						{#each q.choices as c, choiceIndex (c.id)}
 							<div class="choice">
@@ -128,9 +137,9 @@
 					</div>
 					{#each questions as q, i (q.id)}
 						<div class="question">
-							<p>
-								{i + 1}. {q.text}
-							</p>
+							<div class="question-text">
+								{i + 1}. {@html q.processed_question_text || q.text}
+							</div>
 							{#if q.choices.length}
 								{#each q.choices as c, choiceIndex (c.id)}
 									<label>
@@ -360,6 +369,80 @@
 		margin-top: 1rem;
 		font-size: 0.9rem;
 		line-height: 1.4;
+	}
+
+	/* Question input and preview styles */
+	.question-input-section {
+		margin-bottom: 1rem;
+	}
+
+	.question-input-section label {
+		display: block;
+		font-weight: 600;
+		margin-bottom: 0.5rem;
+		color: #374151;
+		font-size: 0.875rem;
+	}
+
+	.question-textarea {
+		width: 100%;
+		padding: 0.75rem;
+		border: 2px solid #e5e7eb;
+		border-radius: 6px;
+		font-size: 1rem;
+		font-family: inherit;
+		resize: vertical;
+		transition: border-color 0.2s ease;
+	}
+
+	.question-textarea:focus {
+		outline: none;
+		border-color: #3b82f6;
+		box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+	}
+
+	.question-preview {
+		margin-top: 1rem;
+		padding: 1rem;
+		background: #f9fafb;
+		border: 1px solid #e5e7eb;
+		border-radius: 6px;
+	}
+
+	.question-preview label {
+		font-size: 0.75rem;
+		color: #6b7280;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		margin-bottom: 0.5rem;
+	}
+
+	.preview-content {
+		background: white;
+		padding: 0.75rem;
+		border-radius: 4px;
+		border: 1px solid #e5e7eb;
+	}
+
+	.question-text {
+		font-size: 1.1rem;
+		line-height: 1.6;
+		color: #374151;
+		margin-bottom: 1rem;
+	}
+
+	/* Image styles in questions */
+	.question-text :global(.question-image) {
+		max-width: 100%;
+		max-height: 300px;
+		border-radius: 6px;
+		margin: 0.75rem 0;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+		display: block;
+	}
+
+	.preview-content :global(.question-image) {
+		max-height: 200px;
 	}
 
 	/* Teacher interface styles */

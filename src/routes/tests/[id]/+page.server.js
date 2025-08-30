@@ -50,7 +50,7 @@ export async function load({ params, fetch }) {
 				console.warn('Skipping row with null/undefined question_id:', r);
 				continue;
 			}
-			
+
 			if (!questionsMap.has(r.question_id)) {
 				questionsMap.set(r.question_id, {
 					id: r.question_id,

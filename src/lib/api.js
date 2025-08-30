@@ -53,7 +53,10 @@ export async function uploadSQL(fetch, file) {
 	return res.json();
 }
 
-export async function uploadTestData(fetch, { data, title, teacherId, testId }) {
+export async function uploadTestData(
+	fetch,
+	{ data, title, teacherId, testId, appendMode = false }
+) {
 	if (!data || !data.trim()) {
 		throw new Error('Test data is required');
 	}
@@ -69,6 +72,11 @@ export async function uploadTestData(fetch, { data, title, teacherId, testId }) 
 	// Add test_id if updating existing test
 	if (testId) {
 		form.append('test_id', validateNumeric(testId));
+	}
+
+	// Add append_mode flag
+	if (appendMode) {
+		form.append('append_mode', 'true');
 	}
 
 	const res = await fetch(`/api/tests/upload`, {
@@ -258,7 +266,7 @@ export async function submitAttempt(fetch, { testId, studentId, studentName, ans
 
 		// Insert answers if provided
 		if (Array.isArray(answers) && answers.length > 0) {
-			const validAnswers = answers.filter(a => {
+			const validAnswers = answers.filter((a) => {
 				// Skip answers with invalid question IDs
 				if (a.questionId == null || a.questionId === undefined || a.questionId === '') {
 					console.warn('Skipping answer with invalid question ID:', a);
@@ -287,9 +295,9 @@ export async function submitAttempt(fetch, { testId, studentId, studentName, ans
 							return null;
 						}
 					})
-					.filter(v => v !== null)
+					.filter((v) => v !== null)
 					.join(', ');
-				
+
 				if (values) {
 					await query(
 						fetch,
@@ -418,6 +426,186 @@ export async function getAllTestsWithTeachers(fetch) {
 	return query(fetch, sql);
 }
 
+export async function getAllStudents(fetch) {
+	const sql = `SELECT id, name, pin FROM students ORDER BY name`;
+	return query(fetch, sql);
+}
+
+export async function getStudentClassAssignments(fetch, studentId) {
+	const cleanStudentId = validateNumeric(studentId);
+	const sql = `SELECT c.teacher_id, t.name as teacher_name, c.status 
+	             FROM classes c 
+	             JOIN teachers t ON c.teacher_id = t.id 
+	             WHERE c.student_id = ${cleanStudentId}`;
+	return query(fetch, sql);
+}
+
+export async function assignStudentToClass(fetch, { studentId, teacherId }) {
+	const cleanStudentId = validateNumeric(studentId);
+	const cleanTeacherId = validateNumeric(teacherId);
+
+	const sql = `INSERT INTO classes (teacher_id, student_id, status) 
+	             VALUES (${cleanTeacherId}, ${cleanStudentId}, 'active') 
+	             ON CONFLICT (teacher_id, student_id) 
+	             DO UPDATE SET status = 'active'`;
+	return query(fetch, sql);
+}
+
+export async function removeStudentFromClass(fetch, { studentId, teacherId }) {
+	const cleanStudentId = validateNumeric(studentId);
+	const cleanTeacherId = validateNumeric(teacherId);
+
+	const sql = `UPDATE classes SET status = 'inactive' 
+	             WHERE teacher_id = ${cleanTeacherId} AND student_id = ${cleanStudentId}`;
+	return query(fetch, sql);
+}
+
+export async function getClassAssignmentOverview(fetch) {
+	const sql = `SELECT s.id as student_id, s.name as student_name, s.pin as student_pin,
+	                    t.id as teacher_id, t.name as teacher_name, c.status
+	             FROM students s
+	             LEFT JOIN classes c ON s.id = c.student_id AND c.status = 'active'
+	             LEFT JOIN teachers t ON c.teacher_id = t.id
+	             ORDER BY s.name, t.name`;
+	return query(fetch, sql);
+}
+
+// Image management functions
+export async function uploadImage(fetch, { name, description, mimeType, base64Data, teacherId }) {
+	const cleanName = validateString(name);
+	const cleanDescription = validateString(description || '');
+	const cleanMimeType = validateString(mimeType);
+	const cleanBase64Data = validateString(base64Data);
+	const cleanTeacherId = validateNumeric(teacherId);
+
+	// Calculate approximate file size from base64 data
+	const fileSize = Math.round((cleanBase64Data.length * 3) / 4);
+
+	const sql = `INSERT INTO images (name, description, mime_type, base64_data, uploaded_by, file_size) 
+	             VALUES ('${escapeSql(cleanName)}', '${escapeSql(cleanDescription)}', '${escapeSql(cleanMimeType)}', '${escapeSql(cleanBase64Data)}', ${cleanTeacherId}, ${fileSize}) 
+	             ON CONFLICT (name, uploaded_by) 
+	             DO UPDATE SET description = EXCLUDED.description, mime_type = EXCLUDED.mime_type, base64_data = EXCLUDED.base64_data, file_size = EXCLUDED.file_size
+	             RETURNING id, name`;
+	return query(fetch, sql);
+}
+
+export async function getTeacherImages(fetch, teacherId) {
+	const cleanTeacherId = validateNumeric(teacherId);
+	const sql = `SELECT id, name, description, mime_type, file_size, created_at
+	             FROM images 
+	             WHERE uploaded_by = ${cleanTeacherId}
+	             ORDER BY created_at DESC`;
+	return query(fetch, sql);
+}
+
+export async function getImageById(fetch, imageId) {
+	const cleanImageId = validateNumeric(imageId);
+	const sql = `SELECT id, name, description, mime_type, base64_data, file_size, created_at
+	             FROM images 
+	             WHERE id = ${cleanImageId}`;
+	const result = await query(fetch, sql);
+	return result[0];
+}
+
+export async function updateImage(fetch, { imageId, name, description, teacherId }) {
+	const cleanImageId = validateNumeric(imageId);
+	const cleanName = validateString(name);
+	const cleanDescription = validateString(description || '');
+	const cleanTeacherId = validateNumeric(teacherId);
+
+	const sql = `UPDATE images 
+	             SET name = '${escapeSql(cleanName)}', description = '${escapeSql(cleanDescription)}'
+	             WHERE id = ${cleanImageId} AND uploaded_by = ${cleanTeacherId}
+	             RETURNING id, name, description`;
+	return query(fetch, sql);
+}
+
+export async function deleteImage(fetch, { imageId, teacherId }) {
+	const cleanImageId = validateNumeric(imageId);
+	const cleanTeacherId = validateNumeric(teacherId);
+
+	// Check if image is being used in any questions first
+	const usageCheck = await query(
+		fetch,
+		`SELECT id, question_text FROM questions WHERE image_references LIKE '%"${cleanImageId}"%'`
+	);
+
+	if (usageCheck.length > 0) {
+		throw new Error(`Cannot delete image: it is being used in ${usageCheck.length} question(s)`);
+	}
+
+	const sql = `DELETE FROM images WHERE id = ${cleanImageId} AND uploaded_by = ${cleanTeacherId}`;
+	return query(fetch, sql);
+}
+
+// Template processing functions
+export function parseQuestionTemplate(questionText, imageMap = {}) {
+	// Replace template variables like {{image_name}} with actual image references
+	return questionText.replace(/\{\{([^}]+)\}\}/g, (match, imageName) => {
+		const cleanImageName = imageName.trim();
+		if (imageMap[cleanImageName]) {
+			return `<img src="${imageMap[cleanImageName].base64_data}" alt="${imageMap[cleanImageName].description || cleanImageName}" class="question-image" data-image-id="${imageMap[cleanImageName].id}" />`;
+		}
+		return match; // Keep original template if image not found
+	});
+}
+
+export async function processQuestionWithImages(fetch, { questionText, teacherId }) {
+	const cleanTeacherId = validateNumeric(teacherId);
+
+	// Validate question text
+	if (!questionText || typeof questionText !== 'string') {
+		return {
+			processedText: questionText || '',
+			imageReferences: []
+		};
+	}
+
+	// Extract template variables from question text
+	const templateMatches = [...questionText.matchAll(/\{\{([^}]+)\}\}/g)];
+
+	if (templateMatches.length === 0) {
+		return {
+			processedText: questionText,
+			imageReferences: []
+		};
+	}
+
+	// Get all images for this teacher
+	const teacherImages = await getTeacherImages(fetch, cleanTeacherId);
+	const imageMap = {};
+
+	// Create lookup map by image name
+	for (const image of teacherImages) {
+		imageMap[image.name] = image;
+	}
+
+	// Get full image data for referenced images
+	const referencedImages = [];
+	const usedImageIds = [];
+
+	for (const match of templateMatches) {
+		const imageName = match[1].trim();
+		if (imageMap[imageName]) {
+			const fullImage = await getImageById(fetch, imageMap[imageName].id);
+			if (fullImage) {
+				imageMap[imageName] = fullImage;
+				referencedImages.push(fullImage);
+				usedImageIds.push(fullImage.id);
+			}
+		}
+	}
+
+	// Process the template
+	const processedText = parseQuestionTemplate(questionText, imageMap);
+
+	return {
+		processedText,
+		imageReferences: usedImageIds,
+		referencedImages
+	};
+}
+
 export async function getActiveTests(fetch) {
 	const sql = `SELECT id, title, description, is_active FROM tests WHERE is_active = TRUE`;
 	return query(fetch, sql);
@@ -461,7 +649,7 @@ export async function copyTestToTeacher(fetch, { testId, fromTeacherId, toTeache
 			`SELECT section_name, section_order, total_questions FROM sections WHERE test_id = ${cleanTestId} ORDER BY section_order`
 		);
 		const sections = Array.isArray(sectionsRes) ? sectionsRes : (sectionsRes?.data ?? []);
-		
+
 		const sectionMapping = new Map();
 		for (const section of sections) {
 			const newSectionRes = await query(
@@ -470,7 +658,9 @@ export async function copyTestToTeacher(fetch, { testId, fromTeacherId, toTeache
 				 VALUES (${newTestId}, '${escapeSql(section.section_name)}', ${section.section_order}, ${section.total_questions}) 
 				 RETURNING id`
 			);
-			const newSectionId = Array.isArray(newSectionRes) ? newSectionRes[0]?.id : newSectionRes?.data?.[0]?.id;
+			const newSectionId = Array.isArray(newSectionRes)
+				? newSectionRes[0]?.id
+				: newSectionRes?.data?.[0]?.id;
 			sectionMapping.set(section.section_name, newSectionId);
 		}
 
@@ -494,14 +684,16 @@ export async function copyTestToTeacher(fetch, { testId, fromTeacherId, toTeache
 				 VALUES (${newTestId}, '${escapeSql(question.question_text)}', ${question.points || 1}, ${newSectionId || 'NULL'}) 
 				 RETURNING id`
 			);
-			const newQuestionId = Array.isArray(newQuestionRes) ? newQuestionRes[0]?.id : newQuestionRes?.data?.[0]?.id;
+			const newQuestionId = Array.isArray(newQuestionRes)
+				? newQuestionRes[0]?.id
+				: newQuestionRes?.data?.[0]?.id;
 			questionMapping.set(question.id, newQuestionId);
 		}
 
 		// Copy choices
 		const choicesRes = await query(
 			fetch,
-			`SELECT choice_text, is_correct, question_id FROM choices WHERE question_id IN (${questions.map(q => q.id).join(', ')}) ORDER BY question_id, id`
+			`SELECT choice_text, is_correct, question_id FROM choices WHERE question_id IN (${questions.map((q) => q.id).join(', ')}) ORDER BY question_id, id`
 		);
 		const choices = Array.isArray(choicesRes) ? choicesRes : (choicesRes?.data ?? []);
 
@@ -516,10 +708,10 @@ export async function copyTestToTeacher(fetch, { testId, fromTeacherId, toTeache
 			}
 		}
 
-		return { 
-			success: true, 
-			newTestId, 
-			message: `Test "${sourceTest.title}" successfully copied as "${cleanNewTitle}"` 
+		return {
+			success: true,
+			newTestId,
+			message: `Test "${sourceTest.title}" successfully copied as "${cleanNewTitle}"`
 		};
 	} catch (error) {
 		console.error('Error copying test:', error);

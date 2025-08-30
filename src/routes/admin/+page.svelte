@@ -1,6 +1,18 @@
 <script>
 	import { user } from '$lib/user';
-	import { addTeacher, addStudent, query, getTeacher, getAllTeachers, getAllTestsWithTeachers, copyTestToTeacher } from '$lib/api';
+	import {
+		addTeacher,
+		addStudent,
+		query,
+		getTeacher,
+		getAllTeachers,
+		getAllTestsWithTeachers,
+		copyTestToTeacher,
+		getAllStudents,
+		getClassAssignmentOverview,
+		assignStudentToClass,
+		removeStudentFromClass
+	} from '$lib/api';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { writable } from 'svelte/store';
@@ -92,12 +104,12 @@
 			copyMsg = 'You must be logged in as a teacher to copy tests.';
 			return;
 		}
-		
+
 		if (!selectedTestId || !selectedFromTeacherId || !selectedToTeacherId || !newTestTitle.trim()) {
 			copyMsg = 'Please fill in all fields.';
 			return;
 		}
-		
+
 		if (selectedFromTeacherId === selectedToTeacherId) {
 			copyMsg = 'Cannot copy test to the same teacher.';
 			return;
@@ -115,7 +127,7 @@
 			});
 
 			copyMsg = result.message || 'Test copied successfully!';
-			
+
 			// Reset form
 			selectedTestId = '';
 			selectedFromTeacherId = '';
@@ -129,7 +141,103 @@
 	}
 
 	// Get tests for selected teacher
-	$: availableTests = $allTests.filter(test => test.teacher_id == selectedFromTeacherId);
+	$: availableTests = $allTests.filter((test) => test.teacher_id == selectedFromTeacherId);
+
+	// Class assignment variables
+	const allStudents = writable([]);
+	const classAssignments = writable([]);
+	let selectedStudentId = '';
+	let selectedAssignTeacherId = '';
+	let assignMsg = '';
+	let isAssigning = false;
+
+	async function loadStudentsAndAssignments() {
+		try {
+			const studentsRes = await getAllStudents(fetch);
+			const assignmentsRes = await getClassAssignmentOverview(fetch);
+			allStudents.set(Array.isArray(studentsRes) ? studentsRes : (studentsRes?.data ?? []));
+			classAssignments.set(
+				Array.isArray(assignmentsRes) ? assignmentsRes : (assignmentsRes?.data ?? [])
+			);
+		} catch (err) {
+			console.error('Error loading students and assignments:', err);
+		}
+	}
+
+	async function handleAssignStudent() {
+		if (!$user || $user.role !== 'teacher') {
+			assignMsg = 'You must be logged in as a teacher to assign students.';
+			return;
+		}
+
+		if (!selectedStudentId || !selectedAssignTeacherId) {
+			assignMsg = 'Please select both a student and a teacher.';
+			return;
+		}
+
+		isAssigning = true;
+		assignMsg = '';
+
+		try {
+			await assignStudentToClass(fetch, {
+				studentId: selectedStudentId,
+				teacherId: selectedAssignTeacherId
+			});
+
+			assignMsg = 'Student assigned to class successfully!';
+
+			// Reset form and reload data
+			selectedStudentId = '';
+			selectedAssignTeacherId = '';
+			await loadStudentsAndAssignments();
+		} catch (err) {
+			assignMsg = err.message || 'Failed to assign student';
+		} finally {
+			isAssigning = false;
+		}
+	}
+
+	async function handleRemoveStudent(studentId, teacherId, studentName, teacherName) {
+		if (!confirm(`Remove ${studentName} from ${teacherName}'s class?`)) {
+			return;
+		}
+
+		try {
+			await removeStudentFromClass(fetch, {
+				studentId: studentId,
+				teacherId: teacherId
+			});
+
+			assignMsg = `${studentName} removed from ${teacherName}'s class.`;
+			await loadStudentsAndAssignments();
+		} catch (err) {
+			assignMsg = err.message || 'Failed to remove student';
+		}
+	}
+
+	// Get students grouped by their assignments
+	$: studentGroups = $classAssignments.reduce((groups, assignment) => {
+		const key = assignment.student_id;
+		if (!groups[key]) {
+			groups[key] = {
+				student: {
+					id: assignment.student_id,
+					name: assignment.student_name,
+					pin: assignment.student_pin
+				},
+				teachers: []
+			};
+		}
+
+		if (assignment.teacher_id) {
+			groups[key].teachers.push({
+				id: assignment.teacher_id,
+				name: assignment.teacher_name
+			});
+		}
+
+		return groups;
+	}, {});
 
 	onMount(async () => {
 		if (!$user || $user.role !== 'teacher') {
@@ -140,6 +248,7 @@
 				teacherInviteCode = teacher.invite_code;
 			}
 			await loadTeachersAndTests();
+			await loadStudentsAndAssignments();
 		}
 	});
 </script>
@@ -328,7 +437,7 @@
 									bind:value={selectedTestId}
 									class="form-input"
 									on:change={() => {
-										const selectedTest = availableTests.find(t => t.id == selectedTestId);
+										const selectedTest = availableTests.find((t) => t.id == selectedTestId);
 										if (selectedTest) {
 											newTestTitle = `${selectedTest.title} (Copy)`;
 										}
@@ -337,7 +446,8 @@
 									<option value="">Choose test...</option>
 									{#each availableTests as test (test.id)}
 										<option value={test.id}>
-											{test.title} {test.is_active ? '(Active)' : '(Inactive)'}
+											{test.title}
+											{test.is_active ? '(Active)' : '(Inactive)'}
 										</option>
 									{/each}
 								</select>
@@ -354,11 +464,7 @@
 						{#if selectedTestId}
 							<div class="form-group">
 								<label for="to-teacher-select">Select Destination Teacher</label>
-								<select
-									id="to-teacher-select"
-									bind:value={selectedToTeacherId}
-									class="form-input"
-								>
+								<select id="to-teacher-select" bind:value={selectedToTeacherId} class="form-input">
 									<option value="">Choose destination teacher...</option>
 									{#each $teachers as teacher (teacher.id)}
 										{#if teacher.id != selectedFromTeacherId}
@@ -383,7 +489,11 @@
 						<button
 							on:click={handleCopyTest}
 							class="btn btn-accent"
-							disabled={!selectedTestId || !selectedFromTeacherId || !selectedToTeacherId || !newTestTitle.trim() || isCopying}
+							disabled={!selectedTestId ||
+								!selectedFromTeacherId ||
+								!selectedToTeacherId ||
+								!newTestTitle.trim() ||
+								isCopying}
 						>
 							{#if isCopying}
 								<span class="btn-spinner">⏳</span>
@@ -395,7 +505,12 @@
 						</button>
 
 						{#if copyMsg}
-							<div class="status-message {copyMsg.includes('successfully') || copyMsg.includes('Success') ? 'success' : 'error'}">
+							<div
+								class="status-message {copyMsg.includes('successfully') ||
+								copyMsg.includes('Success')
+									? 'success'
+									: 'error'}"
+							>
 								<span class="status-icon">
 									{copyMsg.includes('successfully') || copyMsg.includes('Success') ? '✅' : '❌'}
 								</span>
@@ -405,6 +520,131 @@
 					</div>
 				</section>
 			</div>
+
+			<!-- Student Class Assignment Section -->
+			<section class="admin-card assignment-card full-width">
+				<div class="card-header">
+					<h2 class="card-title">
+						<span class="section-icon">👥</span>
+						Student Class Assignments
+					</h2>
+				</div>
+				<div class="card-content">
+					<!-- Assignment Form -->
+					<div class="assignment-form">
+						<h3 class="section-subtitle">
+							<span class="subtitle-icon">➕</span>
+							Assign Student to Class
+						</h3>
+						<div class="form-row">
+							<div class="form-group">
+								<label for="student-select">Select Student</label>
+								<select id="student-select" bind:value={selectedStudentId} class="form-input">
+									<option value="">Choose student...</option>
+									{#each $allStudents as student (student.id)}
+										<option value={student.id}>{student.name}</option>
+									{/each}
+								</select>
+							</div>
+							<div class="form-group">
+								<label for="assign-teacher-select">Assign to Teacher</label>
+								<select
+									id="assign-teacher-select"
+									bind:value={selectedAssignTeacherId}
+									class="form-input"
+								>
+									<option value="">Choose teacher...</option>
+									{#each $teachers as teacher (teacher.id)}
+										<option value={teacher.id}>{teacher.name}</option>
+									{/each}
+								</select>
+							</div>
+							<div class="form-group">
+								<button
+									on:click={handleAssignStudent}
+									class="btn btn-primary"
+									disabled={!selectedStudentId || !selectedAssignTeacherId || isAssigning}
+								>
+									{#if isAssigning}
+										<span class="btn-spinner">⏳</span>
+										Assigning...
+									{:else}
+										<span class="btn-icon">➕</span>
+										Assign to Class
+									{/if}
+								</button>
+							</div>
+						</div>
+						{#if assignMsg}
+							<div
+								class="status-message {assignMsg.includes('successfully') ||
+								assignMsg.includes('removed')
+									? 'success'
+									: 'error'}"
+							>
+								<span class="status-icon">
+									{assignMsg.includes('successfully') || assignMsg.includes('removed')
+										? '✅'
+										: '❌'}
+								</span>
+								{assignMsg}
+							</div>
+						{/if}
+					</div>
+
+					<!-- Current Assignments Overview -->
+					<div class="assignments-overview">
+						<h3 class="section-subtitle">
+							<span class="subtitle-icon">📋</span>
+							Current Class Assignments
+						</h3>
+						{#if Object.keys(studentGroups).length > 0}
+							<div class="assignments-grid">
+								{#each Object.values(studentGroups) as group (group.student.id)}
+									<div class="student-card">
+										<div class="student-info">
+											<div class="student-name">{group.student.name}</div>
+											<div class="student-pin">PIN: {group.student.pin}</div>
+										</div>
+										<div class="teacher-assignments">
+											{#if group.teachers.length > 0}
+												{#each group.teachers as teacher (teacher.id)}
+													<div class="teacher-assignment">
+														<span class="teacher-name">{teacher.name}</span>
+														<button
+															class="remove-btn"
+															on:click={() =>
+																handleRemoveStudent(
+																	group.student.id,
+																	teacher.id,
+																	group.student.name,
+																	teacher.name
+																)}
+															title="Remove from class"
+														>
+															<span class="remove-icon">✕</span>
+														</button>
+													</div>
+												{/each}
+											{:else}
+												<div class="no-assignments">
+													<span class="no-assign-icon">⚠️</span>
+													Not assigned to any class
+												</div>
+											{/if}
+										</div>
+									</div>
+								{/each}
+							</div>
+						{:else}
+							<div class="empty-state">
+								<span class="empty-icon">📝</span>
+								No students found. Add students first to manage class assignments.
+							</div>
+						{/if}
+					</div>
+				</div>
+			</section>
 
 			<!-- Query Panel Section -->
 			<section class="admin-card query-card">
@@ -1033,6 +1273,10 @@
 		background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(124, 58, 237, 0.05));
 	}
 
+	.assignment-card .card-header {
+		background: linear-gradient(135deg, rgba(236, 72, 153, 0.05), rgba(219, 39, 119, 0.05));
+	}
+
 	.teacher-card:hover {
 		box-shadow: 0 20px 60px rgba(59, 130, 246, 0.15);
 	}
@@ -1047,6 +1291,10 @@
 
 	.copy-test-card:hover {
 		box-shadow: 0 20px 60px rgba(139, 92, 246, 0.15);
+	}
+
+	.assignment-card:hover {
+		box-shadow: 0 20px 60px rgba(236, 72, 153, 0.15);
 	}
 
 	.no-tests-message {
@@ -1064,6 +1312,171 @@
 
 	.info-icon {
 		font-size: 1.2rem;
+	}
+
+	/* Student assignment styles */
+	.full-width {
+		grid-column: 1 / -1;
+	}
+
+	.section-subtitle {
+		font-size: 1.25rem;
+		font-weight: 600;
+		margin-bottom: 1.5rem;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		color: #374151;
+		border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+		padding-bottom: 0.75rem;
+	}
+
+	.subtitle-icon {
+		font-size: 1.25rem;
+	}
+
+	.assignment-form {
+		margin-bottom: 3rem;
+		padding-bottom: 2rem;
+		border-bottom: 1px solid #e5e7eb;
+	}
+
+	.form-row {
+		display: grid;
+		grid-template-columns: 1fr 1fr auto;
+		gap: 1.5rem;
+		align-items: end;
+	}
+
+	.assignments-overview {
+		margin-top: 2rem;
+	}
+
+	.assignments-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: 1.5rem;
+		margin-top: 1.5rem;
+	}
+
+	.student-card {
+		background: rgba(255, 255, 255, 0.8);
+		border: 2px solid rgba(236, 72, 153, 0.1);
+		border-radius: 12px;
+		padding: 1.5rem;
+		transition: all 0.3s ease;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+	}
+
+	.student-card:hover {
+		border-color: rgba(236, 72, 153, 0.3);
+		box-shadow: 0 8px 25px rgba(236, 72, 153, 0.1);
+		transform: translateY(-2px);
+	}
+
+	.student-info {
+		margin-bottom: 1rem;
+		padding-bottom: 1rem;
+		border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+	}
+
+	.student-name {
+		font-size: 1.1rem;
+		font-weight: 600;
+		color: #1f2937;
+		margin-bottom: 0.25rem;
+	}
+
+	.student-pin {
+		font-size: 0.875rem;
+		color: #6b7280;
+		font-family: 'JetBrains Mono', monospace;
+		background: rgba(0, 0, 0, 0.05);
+		padding: 0.25rem 0.5rem;
+		border-radius: 4px;
+		display: inline-block;
+	}
+
+	.teacher-assignments {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.teacher-assignment {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		background: rgba(34, 197, 94, 0.08);
+		border: 1px solid rgba(34, 197, 94, 0.2);
+		border-radius: 6px;
+		padding: 0.5rem 0.75rem;
+	}
+
+	.teacher-name {
+		font-weight: 500;
+		color: #059669;
+	}
+
+	.remove-btn {
+		background: rgba(239, 68, 68, 0.1);
+		border: 1px solid rgba(239, 68, 68, 0.3);
+		border-radius: 4px;
+		padding: 0.25rem;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 24px;
+		height: 24px;
+	}
+
+	.remove-btn:hover {
+		background: rgba(239, 68, 68, 0.2);
+		transform: scale(1.1);
+	}
+
+	.remove-icon {
+		color: #dc2626;
+		font-size: 0.875rem;
+		font-weight: bold;
+	}
+
+	.no-assignments {
+		background: rgba(245, 158, 11, 0.1);
+		border: 1px solid rgba(245, 158, 11, 0.3);
+		border-radius: 6px;
+		padding: 0.75rem;
+		color: #d97706;
+		font-weight: 500;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.875rem;
+	}
+
+	.no-assign-icon {
+		font-size: 1rem;
+	}
+
+	.empty-state {
+		text-align: center;
+		padding: 3rem 2rem;
+		background: rgba(0, 0, 0, 0.02);
+		border-radius: 12px;
+		border: 2px dashed rgba(0, 0, 0, 0.1);
+		color: #6b7280;
+		font-size: 1.1rem;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1rem;
+	}
+
+	.empty-icon {
+		font-size: 3rem;
+		opacity: 0.5;
 	}
 
 	/* Animations */
@@ -1171,6 +1584,24 @@
 
 		.results-output {
 			font-size: 0.8rem;
+		}
+
+		/* Assignment section mobile styles */
+		.form-row {
+			grid-template-columns: 1fr;
+			gap: 1rem;
+		}
+
+		.assignments-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.student-card {
+			padding: 1rem;
+		}
+
+		.section-subtitle {
+			font-size: 1.1rem;
 		}
 	}
 

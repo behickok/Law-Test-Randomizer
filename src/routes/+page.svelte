@@ -12,10 +12,13 @@
 		getTestQuestions,
 		getTestsForTeacher,
 		getActiveTests,
-		gradeAttemptAnswer
+		gradeAttemptAnswer,
+		getTeacherImages,
+		processQuestionWithImages
 	} from '$lib/api';
 	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
+	import ImageManager from '$lib/components/ImageManager.svelte';
 
 	let { data } = $props();
 	const tests = writable(data.tests ?? []);
@@ -26,10 +29,17 @@
 	let uploadMsg = $state('');
 	let selectedTestId = $state(''); // For updating existing tests
 	let updateMode = $state(false); // Toggle between create and update
+	let appendMode = $state(false); // For adding questions to existing test instead of replacing
 	let preview = $state({ questions: [], sections: [], errors: [] }); // Parsed questions for preview
 	let existingQuestions = $state([]); // Existing questions when updating
 	let isUploading = $state(false); // Loading state
 	let uploadProgress = $state(0); // Progress percentage
+
+	// Image management state
+	let showImageManager = $state(false);
+	let teacherImages = $state([]);
+	let imageManagerMode = $state('manage'); // 'manage' or 'select'
+	let selectedImages = $state([]);
 	let showTemplateModal = $state(false); // Modal visibility state
 
 	async function handleUpload() {
@@ -68,7 +78,8 @@
 				data: testData,
 				title: title.trim(),
 				teacherId: $user.id,
-				testId
+				testId,
+				appendMode
 			});
 
 			// Complete progress
@@ -222,7 +233,9 @@
 			}
 
 			if (cols.length < 2) {
-				errors.push(`Line ${lineNum}: Malformed line, skipping. Found ${cols.length} columns, expected at least 2.`);
+				errors.push(
+					`Line ${lineNum}: Malformed line, skipping. Found ${cols.length} columns, expected at least 2.`
+				);
 				continue; // Skip malformed lines - need at least Question ID and Question Text
 			}
 
@@ -433,9 +446,43 @@
 		}
 	}
 
+	// Image management functions
+	async function loadTeacherImages() {
+		if (!$user || $user.role !== 'teacher') {
+			teacherImages = [];
+			return;
+		}
+		try {
+			const res = await getTeacherImages(fetch, $user.id);
+			teacherImages = Array.isArray(res) ? res : (res?.data ?? []);
+		} catch (err) {
+			console.error('Error loading images:', err);
+			teacherImages = [];
+		}
+	}
+
+	function showImageManagerModal() {
+		imageManagerMode = 'manage';
+		showImageManager = true;
+	}
+
+	function hideImageManager() {
+		showImageManager = false;
+		selectedImages = [];
+	}
+
+	function handleImagesUploaded() {
+		loadTeacherImages();
+	}
+
+	function handleImageDeleted() {
+		loadTeacherImages();
+	}
+
 	onMount(() => {
 		loadStudents();
 		loadTests();
+		loadTeacherImages();
 		if ($user?.role === 'teacher') {
 			loadTeacherResults();
 		}
@@ -444,7 +491,7 @@
 		}
 	});
 
-       function updatePreview() {
+	async function updatePreview() {
 		const parsed = parseTestData(testData);
 		let questions;
 		if (updateMode && existingQuestions.length > 0) {
@@ -452,11 +499,30 @@
 		} else {
 			questions = parsed.questions.map((q) => ({ ...q, status: 'added' }));
 		}
-		preview = { questions: questions, sections: parsed.sections, errors: parsed.errors };
-       }
 
-       // Reactive preview update when test data changes
-       $effect(updatePreview);
+		// Process images in questions if user is a teacher
+		if ($user && $user.role === 'teacher') {
+			for (const question of questions) {
+				try {
+					const processedResult = await processQuestionWithImages(fetch, {
+						questionText: question.text,
+						teacherId: $user.id
+					});
+					question.processed_text = processedResult.processedText;
+					question.image_references = processedResult.imageReferences;
+				} catch (error) {
+					console.error('Error processing images for question:', error);
+					question.processed_text = question.text; // Fallback to original text
+					question.image_references = [];
+				}
+			}
+		}
+
+		preview = { questions: questions, sections: parsed.sections, errors: parsed.errors };
+	}
+
+	// Reactive preview update when test data changes
+	$effect(updatePreview);
 
 	// Load existing questions when update mode or selected test changes
 	$effect(() => {
@@ -607,6 +673,7 @@
 								<div class="template-section">
 									<div class="template-info">
 										<h4>📋 Need a starting point?</h4>
+										<p>Use &#123;&#123;image_name&#125;&#125; in your CSV to include images</p>
 									</div>
 									<div class="template-actions">
 										<button onclick={showTemplate} class="btn btn-primary btn-sm template-btn">
@@ -616,6 +683,13 @@
 										<button onclick={downloadTemplate} class="btn btn-outline btn-sm template-btn">
 											<span class="btn-icon">📥</span>
 											Download Template
+										</button>
+										<button
+											onclick={showImageManagerModal}
+											class="btn btn-secondary btn-sm template-btn"
+										>
+											<span class="btn-icon">🖼️</span>
+											Manage Images ({teacherImages.length})
 										</button>
 									</div>
 								</div>
@@ -653,6 +727,30 @@
 											{/each}
 										</select>
 									</div>
+
+									{#if selectedTestId}
+										<div class="form-group">
+											<div class="update-mode-options">
+												<label class="checkbox-label">
+													<input type="checkbox" bind:checked={appendMode} />
+													<span class="checkbox-text">
+														📝 Add questions only (don't replace existing questions)
+													</span>
+												</label>
+												<div class="mode-explanation">
+													{#if appendMode}
+														<span class="explanation-text success"
+															>✅ New questions will be added to the existing test</span
+														>
+													{:else}
+														<span class="explanation-text warning"
+															>⚠️ All existing questions will be replaced</span
+														>
+													{/if}
+												</div>
+											</div>
+										</div>
+									{/if}
 								{/if}
 
 								<div class="form-group">
@@ -673,10 +771,10 @@
 											<textarea
 												id="test-data"
 												placeholder="Paste your test data here. Use CSV format with commas to separate columns. Download template for examples."
-                                                                                                bind:value={testData}
-                                                                                                class="form-textarea"
-                                                                                                rows="12"
-                                                                                        ></textarea>
+												bind:value={testData}
+												class="form-textarea"
+												rows="12"
+											></textarea>
 											{#if preview.errors && preview.errors.length > 0}
 												<div class="parser-errors">
 													<h4>⚠️ Parsing Errors</h4>
@@ -713,7 +811,7 @@
 																	be selected
 																</span>
 															</div>
-															{#each section.questions as question, index (question.questionId)}
+															{#each section.questions as question, index (`${section.name}-${question.questionId}-${index}`)}
 																<div
 																	class="preview-question {question.status} {question.isLongResponse
 																		? 'long-response'
@@ -733,7 +831,9 @@
 																					: '✓ Unchanged'}
 																		</span>
 																	</div>
-																	<div class="question-text">{question.questionText}</div>
+																	<div class="question-text">
+																		{@html question.processed_text || question.questionText}
+																	</div>
 																	{#if question.isLongResponse}
 																		<div class="long-response-indicator">
 																			<span class="long-response-text"
@@ -763,7 +863,7 @@
 													{/each}
 												{:else}
 													<!-- Regular question list preview -->
-													{#each preview.questions as question, index (question.questionId)}
+													{#each preview.questions as question, index (`question-${question.questionId}-${index}`)}
 														<div
 															class="preview-question {question.status} {question.isLongResponse
 																? 'long-response'
@@ -783,7 +883,9 @@
 																			: '✓ Unchanged'}
 																</span>
 															</div>
-															<div class="question-text">{question.questionText}</div>
+															<div class="question-text">
+																{@html question.processed_text || question.questionText}
+															</div>
 															{#if question.isLongResponse}
 																<div class="long-response-indicator">
 																	<span class="long-response-text"
@@ -997,10 +1099,15 @@
 																		<div class="answer-comparison">
 																			<div class="student-answer-section">
 																				<span class="answer-label">Student Answer:</span>
-																				<span class="answer-text {a.is_correct ? 'correct' : 'incorrect'}">
+																				<span
+																					class="answer-text {a.is_correct
+																						? 'correct'
+																						: 'incorrect'}"
+																				>
 																					{a.student_answer}
 																				</span>
-																				<span class="result-icon">{a.is_correct ? '✅' : '❌'}</span>
+																				<span class="result-icon">{a.is_correct ? '✅' : '❌'}</span
+																				>
 																			</div>
 																			{#if !a.is_correct && a.correct_answer}
 																				<div class="correct-answer-section">
@@ -1014,7 +1121,8 @@
 																			<div class="grading-controls">
 																				<button
 																					class="override-btn"
-																					onclick={() => toggleCorrect(r.id, a)}>
+																					onclick={() => toggleCorrect(r.id, a)}
+																				>
 																					{a.is_correct ? 'Mark Incorrect' : 'Mark Correct'}
 																				</button>
 																			</div>
@@ -1139,7 +1247,13 @@
 
 <!-- Template Modal -->
 {#if showTemplateModal}
-	<div class="modal-overlay" role="dialog" aria-modal="true" onclick={hideTemplateModal} onkeydown={(e) => e.key === 'Escape' && hideTemplateModal()}>
+	<div
+		class="modal-overlay"
+		role="dialog"
+		aria-modal="true"
+		onclick={hideTemplateModal}
+		onkeydown={(e) => e.key === 'Escape' && hideTemplateModal()}
+	>
 		<div class="modal-content" role="document" onclick={(e) => e.stopPropagation()}>
 			<div class="modal-header">
 				<h3 class="modal-title">
@@ -1163,10 +1277,32 @@
 						<span class="btn-icon">📥</span>
 						Download Template
 					</button>
-					<button onclick={hideTemplateModal} class="btn btn-secondary">
-						Close
-					</button>
+					<button onclick={hideTemplateModal} class="btn btn-secondary"> Close </button>
 				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Image Manager Modal -->
+{#if showImageManager}
+	<div class="modal-overlay" onclick={hideImageManager}>
+		<div class="modal image-manager-modal" onclick={(e) => e.stopPropagation()}>
+			<div class="modal-header">
+				<h2>Image Manager</h2>
+				<button class="modal-close" onclick={hideImageManager}>
+					<span class="close-icon">&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<ImageManager
+					images={teacherImages}
+					{selectedImages}
+					mode={imageManagerMode}
+					on:imagesUploaded={handleImagesUploaded}
+					on:imageDeleted={handleImageDeleted}
+					on:selectionChanged={(e) => (selectedImages = e.detail)}
+				/>
 			</div>
 		</div>
 	</div>
@@ -2737,5 +2873,89 @@
 	.student-requests,
 	.student-tests {
 		animation: fadeInUp 0.4s ease-out;
+	}
+
+	/* Image Manager Modal Styles */
+	.image-manager-modal {
+		max-width: 95vw;
+		max-height: 95vh;
+		width: 1200px;
+		height: 800px;
+	}
+
+	.image-manager-modal .modal-body {
+		padding: 0;
+		overflow: hidden;
+	}
+
+	/* Question images display styles */
+	:global(.question-image) {
+		max-width: 100%;
+		max-height: 400px;
+		border-radius: 8px;
+		margin: 1rem 0;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+		display: block;
+	}
+
+	@media (max-width: 768px) {
+		.image-manager-modal {
+			max-width: 98vw;
+			max-height: 98vh;
+			width: auto;
+			height: auto;
+		}
+
+		:global(.question-image) {
+			max-height: 250px;
+		}
+	}
+
+	/* Update mode options */
+	.update-mode-options {
+		background: #f8fafc;
+		border: 1px solid #e2e8f0;
+		border-radius: 8px;
+		padding: 1rem;
+	}
+
+	.checkbox-label {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		cursor: pointer;
+		font-size: 0.95rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.checkbox-label input[type='checkbox'] {
+		width: 1.125rem;
+		height: 1.125rem;
+		accent-color: #3b82f6;
+		cursor: pointer;
+	}
+
+	.checkbox-text {
+		font-weight: 500;
+		color: #374151;
+	}
+
+	.mode-explanation {
+		margin-top: 0.5rem;
+		padding-top: 0.5rem;
+		border-top: 1px solid #e2e8f0;
+	}
+
+	.explanation-text {
+		font-size: 0.875rem;
+		font-weight: 500;
+	}
+
+	.explanation-text.success {
+		color: #059669;
+	}
+
+	.explanation-text.warning {
+		color: #d97706;
 	}
 </style>

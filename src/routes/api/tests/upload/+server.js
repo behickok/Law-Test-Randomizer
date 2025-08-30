@@ -61,6 +61,7 @@ export async function POST({ request }) {
 	const formData = await request.formData();
 	const data = formData.get('data');
 	const test_id = formData.get('test_id');
+	const append_mode = formData.get('append_mode') === 'true'; // New parameter for adding questions
 
 	let title = formData.get('title') || undefined;
 	let teacher_id = formData.get('teacher_id') || request.headers.get('x-teacher-id') || undefined;
@@ -107,15 +108,19 @@ export async function POST({ request }) {
 				return new Response('Test not found or access denied', { status: 403 });
 			}
 
-			// Update test title
-			await run(`UPDATE tests SET title = '${escapeSql(title)}' WHERE id = ${test_id}`);
+			// Update test title (only if not in append mode)
+			if (!append_mode) {
+				await run(`UPDATE tests SET title = '${escapeSql(title)}' WHERE id = ${test_id}`);
+			}
 
-			// Delete existing data for this test (in correct order due to foreign key constraints)
-			await run(
-				`DELETE FROM choices WHERE question_id IN (SELECT id FROM questions WHERE test_id = ${test_id})`
-			);
-			await run(`DELETE FROM questions WHERE test_id = ${test_id}`);
-			await run(`DELETE FROM sections WHERE test_id = ${test_id}`);
+			if (!append_mode) {
+				// Full replacement mode - delete existing data (in correct order due to foreign key constraints)
+				await run(
+					`DELETE FROM choices WHERE question_id IN (SELECT id FROM questions WHERE test_id = ${test_id})`
+				);
+				await run(`DELETE FROM questions WHERE test_id = ${test_id}`);
+				await run(`DELETE FROM sections WHERE test_id = ${test_id}`);
+			}
 
 			final_test_id = test_id;
 		} else {
@@ -227,22 +232,78 @@ export async function POST({ request }) {
 
 		// Insert sections and questions
 		for (const [sectionName, sectionData] of sections) {
-			// Insert section
-			const sectionRow = await run(
-				`INSERT INTO sections (test_id, section_name, section_order, total_questions) 
-				 VALUES (${final_test_id}, '${escapeSql(sectionName)}', ${sectionData.order}, ${sectionData.total_questions}) 
-				 RETURNING id`
-			);
-			const sectionId = sectionRow[0].id;
+			let sectionId;
+
+			if (append_mode) {
+				// In append mode, find existing section or create if it doesn't exist
+				const existingSections = await run(
+					`SELECT id FROM sections WHERE test_id = ${final_test_id} AND section_name = '${escapeSql(sectionName)}'`
+				);
+
+				if (existingSections.length > 0) {
+					sectionId = existingSections[0].id;
+				} else {
+					// Get the maximum order for new sections
+					const maxOrderResult = await run(
+						`SELECT COALESCE(MAX(section_order), 0) as max_order FROM sections WHERE test_id = ${final_test_id}`
+					);
+					const nextOrder = (maxOrderResult[0]?.max_order || 0) + 1;
+
+					const sectionRow = await run(
+						`INSERT INTO sections (test_id, section_name, section_order, total_questions) 
+						 VALUES (${final_test_id}, '${escapeSql(sectionName)}', ${nextOrder}, ${sectionData.total_questions}) 
+						 RETURNING id`
+					);
+					sectionId = sectionRow[0].id;
+				}
+			} else {
+				// Full replacement mode - insert new section
+				const sectionRow = await run(
+					`INSERT INTO sections (test_id, section_name, section_order, total_questions) 
+					 VALUES (${final_test_id}, '${escapeSql(sectionName)}', ${sectionData.order}, ${sectionData.total_questions}) 
+					 RETURNING id`
+				);
+				sectionId = sectionRow[0].id;
+			}
 
 			// Insert questions for this section
 			for (const questionData of sectionData.questions) {
-				const qRow = await run(
-					`INSERT INTO questions (test_id, question_text, question_id, points, section_id) 
-					 VALUES (${final_test_id}, '${questionData.question_text}', '${questionData.question_id}', 1, ${sectionId}) 
-					 RETURNING id`
-				);
-				const question_pk_id = qRow[0].id;
+				let question_pk_id;
+
+				if (append_mode) {
+					// In append mode, check if question with this question_id already exists
+					const existingQuestions = await run(
+						`SELECT id FROM questions WHERE test_id = ${final_test_id} AND question_id = '${questionData.question_id}'`
+					);
+
+					if (existingQuestions.length > 0) {
+						// Update existing question
+						question_pk_id = existingQuestions[0].id;
+						await run(
+							`UPDATE questions SET question_text = '${questionData.question_text}', section_id = ${sectionId} 
+							 WHERE id = ${question_pk_id}`
+						);
+
+						// Delete existing choices for this question
+						await run(`DELETE FROM choices WHERE question_id = ${question_pk_id}`);
+					} else {
+						// Insert new question
+						const qRow = await run(
+							`INSERT INTO questions (test_id, question_text, question_id, points, section_id) 
+							 VALUES (${final_test_id}, '${questionData.question_text}', '${questionData.question_id}', 1, ${sectionId}) 
+							 RETURNING id`
+						);
+						question_pk_id = qRow[0].id;
+					}
+				} else {
+					// Full replacement mode - insert new question
+					const qRow = await run(
+						`INSERT INTO questions (test_id, question_text, question_id, points, section_id) 
+						 VALUES (${final_test_id}, '${questionData.question_text}', '${questionData.question_id}', 1, ${sectionId}) 
+						 RETURNING id`
+					);
+					question_pk_id = qRow[0].id;
+				}
 
 				// Insert choices if not long response
 				if (!questionData.isLongResponse && questionData.choices.length > 0) {
