@@ -958,72 +958,93 @@
 												<summary
 													class="result-summary"
 													onclick={(e) => {
-														if (r.completed_at) {
-															const details = e.target.parentElement;
-															if (!details.open) {
-																loadAttemptAnswers(r.id);
-															}
+														const details = e.target.parentElement;
+														if (!details.open) {
+															loadAttemptAnswers(r.id);
 														}
 													}}
 												>
 													<div class="result-info">
 														<span class="student-name">{r.student_name}</span>
 														<span class="test-title">{r.title}</span>
+														<span class="attempt-date">
+															{#if r.completed_at}
+																Completed: {new Date(r.completed_at).toLocaleDateString()}
+															{:else if r.started_at}
+																Started: {new Date(r.started_at).toLocaleDateString()}
+															{/if}
+														</span>
 													</div>
 													{#if r.score !== null}
 														<span class="score-badge">
 															Score: {r.score}
 														</span>
+													{:else if r.completed_at}
+														<span class="status-badge pending"> Pending Review </span>
 													{:else}
-														<span class="status-badge pending"> Pending </span>
+														<span class="status-badge incomplete"> In Progress </span>
 													{/if}
 												</summary>
 												<div class="result-content">
-													{#if r.completed_at}
-														{#if $attemptAnswers[r.id]?.length}
-															<div class="answers-list">
-																{#each $attemptAnswers[r.id] as a (a.id)}
-																	<div class="answer-item">
-																		<div class="question-text">
-																			{a.question_text} ({a.points} pts)
-																		</div>
-																		{#if a.choice_text}
-																			<div class="choice-text">
-																				{a.choice_text}
-																				<span class="result-icon">{a.is_correct ? '✅' : '❌'}</span
-																				>
-																				<button
-																					class="override-btn"
-																					onclick={() => toggleCorrect(r.id, a)}>Override</button
-																				>
-																			</div>
-																		{:else}
-																			<div class="choice-text">
-																				<div class="response-text">{a.answer_text}</div>
-																				<input
-																					type="number"
-																					min="0"
-																					max={a.points}
-																					bind:value={a.points_awarded}
-																					class="grade-input"
-																				/>
-																				<button
-																					class="override-btn"
-																					onclick={() => saveFreeResponse(r.id, a)}>Save</button
-																				>
-																			</div>
-																		{/if}
+													{#if $attemptAnswers[r.id]?.length}
+														<div class="answers-list">
+															{#each $attemptAnswers[r.id] as a (a.id)}
+																<div class="answer-item">
+																	<div class="question-text">
+																		{a.question_text} ({a.points} pts)
 																	</div>
-																{/each}
-															</div>
-														{:else}
-															<div class="empty-state">
-																<p>Loading answers...</p>
-															</div>
-														{/if}
+																	{#if a.student_answer}
+																		<div class="answer-comparison">
+																			<div class="student-answer-section">
+																				<span class="answer-label">Student Answer:</span>
+																				<span class="answer-text {a.is_correct ? 'correct' : 'incorrect'}">
+																					{a.student_answer}
+																				</span>
+																				<span class="result-icon">{a.is_correct ? '✅' : '❌'}</span>
+																			</div>
+																			{#if !a.is_correct && a.correct_answer}
+																				<div class="correct-answer-section">
+																					<span class="answer-label">Correct Answer:</span>
+																					<span class="answer-text correct">
+																						{a.correct_answer}
+																					</span>
+																					<span class="correct-icon">✓</span>
+																				</div>
+																			{/if}
+																			<div class="grading-controls">
+																				<button
+																					class="override-btn"
+																					onclick={() => toggleCorrect(r.id, a)}>
+																					{a.is_correct ? 'Mark Incorrect' : 'Mark Correct'}
+																				</button>
+																			</div>
+																		</div>
+																	{:else}
+																		<div class="choice-text">
+																			<div class="response-text">{a.answer_text}</div>
+																			<input
+																				type="number"
+																				min="0"
+																				max={a.points}
+																				bind:value={a.points_awarded}
+																				class="grade-input"
+																			/>
+																			<button
+																				class="override-btn"
+																				onclick={() => saveFreeResponse(r.id, a)}>Save</button
+																			>
+																		</div>
+																	{/if}
+																</div>
+															{/each}
+														</div>
+													{:else if r.completed_at || r.started_at}
+														<div class="empty-state">
+															<p>Loading answers...</p>
+														</div>
 													{:else}
 														<div class="empty-state">
-															<p>Test has not been taken yet.</p>
+															<p>Test has not been started yet.</p>
 														</div>
 													{/if}
 												</div>
@@ -1875,6 +1896,12 @@
 		border: 1px solid #d1d5db;
 	}
 
+	.status-badge.incomplete {
+		background: rgba(59, 130, 246, 0.1);
+		color: #2563eb;
+		border: 1px solid rgba(59, 130, 246, 0.3);
+	}
+
 	.status-badge.unchanged {
 		background: rgba(107, 114, 128, 0.1);
 		color: #6b7280;
@@ -2108,6 +2135,12 @@
 		color: #6b7280;
 	}
 
+	.attempt-date {
+		font-size: 0.8rem;
+		color: #9ca3af;
+		font-style: italic;
+	}
+
 	.score-badge {
 		background: linear-gradient(135deg, #667eea, #764ba2);
 		color: white;
@@ -2174,6 +2207,91 @@
 	.override-btn {
 		margin-left: 0.5rem;
 		padding: 0.25rem 0.5rem;
+	}
+
+	/* Answer comparison styles */
+	.answer-comparison {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		padding: 0.75rem;
+		background: rgba(0, 0, 0, 0.02);
+		border-radius: 8px;
+	}
+
+	.student-answer-section,
+	.correct-answer-section {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem;
+		border-radius: 6px;
+		flex-wrap: wrap;
+	}
+
+	.student-answer-section {
+		background: rgba(0, 0, 0, 0.03);
+	}
+
+	.correct-answer-section {
+		background: rgba(34, 197, 94, 0.08);
+		border: 1px solid rgba(34, 197, 94, 0.2);
+	}
+
+	.answer-label {
+		font-weight: 600;
+		font-size: 0.875rem;
+		color: #4b5563;
+		min-width: fit-content;
+	}
+
+	.answer-text {
+		font-weight: 500;
+		padding: 0.25rem 0.5rem;
+		border-radius: 4px;
+		flex-grow: 1;
+	}
+
+	.answer-text.correct {
+		background: rgba(34, 197, 94, 0.1);
+		color: #059669;
+		border: 1px solid rgba(34, 197, 94, 0.2);
+	}
+
+	.answer-text.incorrect {
+		background: rgba(239, 68, 68, 0.1);
+		color: #dc2626;
+		border: 1px solid rgba(239, 68, 68, 0.2);
+	}
+
+	.correct-icon {
+		color: #059669;
+		font-weight: 700;
+		font-size: 1.1rem;
+	}
+
+	.grading-controls {
+		display: flex;
+		justify-content: flex-end;
+		padding-top: 0.5rem;
+		border-top: 1px solid rgba(0, 0, 0, 0.1);
+	}
+
+	.grading-controls .override-btn {
+		margin-left: 0;
+		padding: 0.5rem 1rem;
+		font-size: 0.875rem;
+		border-radius: 6px;
+		background: rgba(59, 130, 246, 0.1);
+		border: 1px solid rgba(59, 130, 246, 0.3);
+		color: #2563eb;
+		transition: all 0.2s ease;
+	}
+
+	.grading-controls .override-btn:hover {
+		background: rgba(59, 130, 246, 0.2);
+		transform: translateY(-1px);
+		box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
 	}
 
 	.student-tests {
@@ -2376,6 +2494,26 @@
 
 		.welcome-content h2 {
 			font-size: 1.75rem;
+		}
+
+		/* Answer comparison mobile styles */
+		.student-answer-section,
+		.correct-answer-section {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 0.25rem;
+		}
+
+		.answer-label {
+			font-size: 0.8rem;
+		}
+
+		.grading-controls {
+			flex-direction: column;
+		}
+
+		.grading-controls .override-btn {
+			width: 100%;
 		}
 	}
 

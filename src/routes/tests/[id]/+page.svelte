@@ -10,6 +10,7 @@
 	let score = $state(0);
 	let totalPoints = $state(questions.reduce((s, q) => s + (q.points ?? 1), 0));
 	let error = $state(data.error ?? '');
+	let submitError = $state('');
 
 	let isTeacherOwner = $state(false);
 	let saveMessage = $state('');
@@ -83,8 +84,11 @@
 				studentName: $user.name,
 				answers
 			});
-		} catch {
-			// ignore save error for now
+			submitError = '';
+		} catch (err) {
+			console.error('Submission error:', err);
+			submitError = `Submission failed: ${err.message}. Please try again or contact your teacher.`;
+			// Don't prevent the UI from showing submitted state, but show the error
 		}
 	}
 </script>
@@ -154,6 +158,11 @@
 						{:else}
 							<p>Score: {score} / {totalPoints}</p>
 							<p class="percentage">{Math.round((score / totalPoints) * 100)}%</p>
+						{/if}
+						{#if submitError}
+							<div class="error-message">
+								⚠️ {submitError}
+							</div>
 						{/if}
 					</div>
 				{/if}
@@ -340,6 +349,17 @@
 		font-weight: 900;
 		color: #10b981;
 		margin-top: 1rem;
+	}
+
+	.error-message {
+		background: rgba(239, 68, 68, 0.1);
+		border: 1px solid rgba(239, 68, 68, 0.3);
+		color: #dc2626;
+		padding: 1rem;
+		border-radius: 8px;
+		margin-top: 1rem;
+		font-size: 0.9rem;
+		line-height: 1.4;
 	}
 
 	/* Teacher interface styles */

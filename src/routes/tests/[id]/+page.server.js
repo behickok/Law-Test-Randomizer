@@ -45,11 +45,17 @@ export async function load({ params, fetch }) {
 		// Build questions map
 		const questionsMap = new Map();
 		for (const r of rows) {
+			// Skip rows with invalid question_id
+			if (!r.question_id) {
+				console.warn('Skipping row with null/undefined question_id:', r);
+				continue;
+			}
+			
 			if (!questionsMap.has(r.question_id)) {
 				questionsMap.set(r.question_id, {
 					id: r.question_id,
 					text: r.question_text,
-					points: r.points,
+					points: r.points || 1, // Default to 1 point if null
 					section_id: r.section_id,
 					section_name: r.section_name || 'Default Section',
 					section_order: r.section_order || 1,

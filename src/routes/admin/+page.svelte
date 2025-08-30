@@ -1,6 +1,6 @@
 <script>
 	import { user } from '$lib/user';
-	import { addTeacher, addStudent, query, getTeacher } from '$lib/api';
+	import { addTeacher, addStudent, query, getTeacher, getAllTeachers, getAllTestsWithTeachers, copyTestToTeacher } from '$lib/api';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { writable } from 'svelte/store';
@@ -66,6 +66,71 @@
 		queryOutput.set('');
 	}
 
+	// Test copying variables
+	const teachers = writable([]);
+	const allTests = writable([]);
+	let selectedTestId = '';
+	let selectedFromTeacherId = '';
+	let selectedToTeacherId = '';
+	let newTestTitle = '';
+	let copyMsg = '';
+	let isCopying = false;
+
+	async function loadTeachersAndTests() {
+		try {
+			const teachersRes = await getAllTeachers(fetch);
+			const testsRes = await getAllTestsWithTeachers(fetch);
+			teachers.set(Array.isArray(teachersRes) ? teachersRes : (teachersRes?.data ?? []));
+			allTests.set(Array.isArray(testsRes) ? testsRes : (testsRes?.data ?? []));
+		} catch (err) {
+			console.error('Error loading teachers and tests:', err);
+		}
+	}
+
+	async function handleCopyTest() {
+		if (!$user || $user.role !== 'teacher') {
+			copyMsg = 'You must be logged in as a teacher to copy tests.';
+			return;
+		}
+		
+		if (!selectedTestId || !selectedFromTeacherId || !selectedToTeacherId || !newTestTitle.trim()) {
+			copyMsg = 'Please fill in all fields.';
+			return;
+		}
+		
+		if (selectedFromTeacherId === selectedToTeacherId) {
+			copyMsg = 'Cannot copy test to the same teacher.';
+			return;
+		}
+
+		isCopying = true;
+		copyMsg = '';
+
+		try {
+			const result = await copyTestToTeacher(fetch, {
+				testId: selectedTestId,
+				fromTeacherId: selectedFromTeacherId,
+				toTeacherId: selectedToTeacherId,
+				newTitle: newTestTitle.trim()
+			});
+
+			copyMsg = result.message || 'Test copied successfully!';
+			
+			// Reset form
+			selectedTestId = '';
+			selectedFromTeacherId = '';
+			selectedToTeacherId = '';
+			newTestTitle = '';
+		} catch (err) {
+			copyMsg = err.message || 'Failed to copy test';
+		} finally {
+			isCopying = false;
+		}
+	}
+
+	// Get tests for selected teacher
+	$: availableTests = $allTests.filter(test => test.teacher_id == selectedFromTeacherId);
+
 	onMount(async () => {
 		if (!$user || $user.role !== 'teacher') {
 			goto('/');
@@ -74,6 +139,7 @@
 			if (teacher) {
 				teacherInviteCode = teacher.invite_code;
 			}
+			await loadTeachersAndTests();
 		}
 	});
 </script>
@@ -226,6 +292,114 @@
 									{studentMsg === 'Student added' ? '✅' : '❌'}
 								</span>
 								{studentMsg}
+							</div>
+						{/if}
+					</div>
+				</section>
+
+				<!-- Test Copying Section -->
+				<section class="admin-card copy-test-card">
+					<div class="card-header">
+						<h2 class="card-title">
+							<span class="section-icon">📋</span>
+							Copy Test Between Teachers
+						</h2>
+					</div>
+					<div class="card-content">
+						<div class="form-group">
+							<label for="from-teacher-select">Select Source Teacher</label>
+							<select
+								id="from-teacher-select"
+								bind:value={selectedFromTeacherId}
+								class="form-input"
+							>
+								<option value="">Choose source teacher...</option>
+								{#each $teachers as teacher (teacher.id)}
+									<option value={teacher.id}>{teacher.name}</option>
+								{/each}
+							</select>
+						</div>
+
+						{#if selectedFromTeacherId && availableTests.length > 0}
+							<div class="form-group">
+								<label for="test-select">Select Test to Copy</label>
+								<select
+									id="test-select"
+									bind:value={selectedTestId}
+									class="form-input"
+									on:change={() => {
+										const selectedTest = availableTests.find(t => t.id == selectedTestId);
+										if (selectedTest) {
+											newTestTitle = `${selectedTest.title} (Copy)`;
+										}
+									}}
+								>
+									<option value="">Choose test...</option>
+									{#each availableTests as test (test.id)}
+										<option value={test.id}>
+											{test.title} {test.is_active ? '(Active)' : '(Inactive)'}
+										</option>
+									{/each}
+								</select>
+							</div>
+						{/if}
+
+						{#if selectedFromTeacherId && availableTests.length === 0}
+							<div class="no-tests-message">
+								<span class="info-icon">ℹ️</span>
+								This teacher has no tests available to copy.
+							</div>
+						{/if}
+
+						{#if selectedTestId}
+							<div class="form-group">
+								<label for="to-teacher-select">Select Destination Teacher</label>
+								<select
+									id="to-teacher-select"
+									bind:value={selectedToTeacherId}
+									class="form-input"
+								>
+									<option value="">Choose destination teacher...</option>
+									{#each $teachers as teacher (teacher.id)}
+										{#if teacher.id != selectedFromTeacherId}
+											<option value={teacher.id}>{teacher.name}</option>
+										{/if}
+									{/each}
+								</select>
+							</div>
+
+							<div class="form-group">
+								<label for="new-test-title">New Test Title</label>
+								<input
+									id="new-test-title"
+									type="text"
+									placeholder="Enter title for the copied test..."
+									bind:value={newTestTitle}
+									class="form-input"
+								/>
+							</div>
+						{/if}
+
+						<button
+							on:click={handleCopyTest}
+							class="btn btn-accent"
+							disabled={!selectedTestId || !selectedFromTeacherId || !selectedToTeacherId || !newTestTitle.trim() || isCopying}
+						>
+							{#if isCopying}
+								<span class="btn-spinner">⏳</span>
+								Copying Test...
+							{:else}
+								<span class="btn-icon">📋</span>
+								Copy Test
+							{/if}
+						</button>
+
+						{#if copyMsg}
+							<div class="status-message {copyMsg.includes('successfully') || copyMsg.includes('Success') ? 'success' : 'error'}">
+								<span class="status-icon">
+									{copyMsg.includes('successfully') || copyMsg.includes('Success') ? '✅' : '❌'}
+								</span>
+								{copyMsg}
 							</div>
 						{/if}
 					</div>
@@ -855,6 +1029,10 @@
 		background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(217, 119, 6, 0.05));
 	}
 
+	.copy-test-card .card-header {
+		background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(124, 58, 237, 0.05));
+	}
+
 	.teacher-card:hover {
 		box-shadow: 0 20px 60px rgba(59, 130, 246, 0.15);
 	}
@@ -865,6 +1043,27 @@
 
 	.query-card:hover {
 		box-shadow: 0 20px 60px rgba(245, 158, 11, 0.15);
+	}
+
+	.copy-test-card:hover {
+		box-shadow: 0 20px 60px rgba(139, 92, 246, 0.15);
+	}
+
+	.no-tests-message {
+		background: rgba(59, 130, 246, 0.05);
+		border: 1px solid rgba(59, 130, 246, 0.2);
+		border-radius: 8px;
+		padding: 1rem;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		color: #2563eb;
+		font-weight: 500;
+		margin: 1rem 0;
+	}
+
+	.info-icon {
+		font-size: 1.2rem;
 	}
 
 	/* Animations */

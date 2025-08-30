@@ -107,21 +107,28 @@ export async function setTestActive(fetch, { testId, teacherId, isActive }) {
 
 export async function getTeacherResults(fetch, teacherId) {
 	const cleanTeacherId = validateNumeric(teacherId);
-	const sql = `SELECT ta.id, ta.student_name, ta.score, ta.completed_at, t.title
+	const sql = `SELECT ta.id, ta.student_name, ta.score, ta.completed_at, ta.started_at, t.title
                  FROM test_attempts ta
                  JOIN tests t ON t.id = ta.test_id
                  WHERE t.teacher_id = ${cleanTeacherId}
-                 ORDER BY ta.completed_at DESC, ta.student_name`;
+                 ORDER BY ta.started_at DESC, ta.student_name`;
 	return query(fetch, sql);
 }
 
 export async function getAttemptAnswers(fetch, attemptId) {
 	const cleanAttemptId = validateNumeric(attemptId);
-	const sql = `SELECT aa.id, q.question_text, q.points, c.choice_text, aa.answer_text, aa.is_correct, aa.points_awarded
+	const sql = `SELECT aa.id, q.question_text, q.points, 
+                        c.choice_text as student_answer, 
+                        aa.answer_text, 
+                        aa.is_correct, 
+                        aa.points_awarded,
+                        correct_c.choice_text as correct_answer
                 FROM attempt_answers aa
                 JOIN questions q ON q.id = aa.question_id
                 LEFT JOIN choices c ON c.id = aa.choice_id
-                WHERE aa.attempt_id = ${cleanAttemptId}`;
+                LEFT JOIN choices correct_c ON correct_c.question_id = q.id AND correct_c.is_correct = TRUE
+                WHERE aa.attempt_id = ${cleanAttemptId}
+                ORDER BY aa.id`;
 	return query(fetch, sql);
 }
 
@@ -221,60 +228,95 @@ export async function submitAttempt(fetch, { testId, studentId, studentName, ans
 	const cleanStudentId = validateNumeric(studentId);
 	const cleanStudentName = validateString(studentName);
 
-	const attemptRes = await query(
-		fetch,
-		`SELECT id FROM test_attempts WHERE test_id = ${cleanTestId} AND student_id = ${cleanStudentId} ORDER BY started_at DESC LIMIT 1`
-	);
-	const attemptId = Array.isArray(attemptRes) ? attemptRes[0]?.id : attemptRes?.data?.[0]?.id;
-
-	let id = attemptId;
-	if (!id) {
-		const insertRes = await query(
+	try {
+		const attemptRes = await query(
 			fetch,
-			`INSERT INTO test_attempts (test_id, student_id, student_name) VALUES (${cleanTestId}, ${cleanStudentId}, '${escapeSql(cleanStudentName)}') RETURNING id`
+			`SELECT id FROM test_attempts WHERE test_id = ${cleanTestId} AND student_id = ${cleanStudentId} ORDER BY started_at DESC LIMIT 1`
 		);
-		id = Array.isArray(insertRes) ? insertRes[0]?.id : insertRes?.data?.[0]?.id;
-	} else {
-		await query(
-			fetch,
-			`UPDATE test_attempts SET student_name = '${escapeSql(cleanStudentName)}' WHERE id = ${id}`
-		);
-		await query(fetch, `DELETE FROM attempt_answers WHERE attempt_id = ${id}`);
-	}
+		const attemptId = Array.isArray(attemptRes) ? attemptRes[0]?.id : attemptRes?.data?.[0]?.id;
 
-	let autoScore = 0;
-	let hasUngraded = false;
+		let id = attemptId;
+		if (!id) {
+			const insertRes = await query(
+				fetch,
+				`INSERT INTO test_attempts (test_id, student_id, student_name) VALUES (${cleanTestId}, ${cleanStudentId}, '${escapeSql(cleanStudentName)}') RETURNING id`
+			);
+			id = Array.isArray(insertRes) ? insertRes[0]?.id : insertRes?.data?.[0]?.id;
+			if (!id) {
+				throw new Error('Failed to create test attempt');
+			}
+		} else {
+			await query(
+				fetch,
+				`UPDATE test_attempts SET student_name = '${escapeSql(cleanStudentName)}' WHERE id = ${id}`
+			);
+			await query(fetch, `DELETE FROM attempt_answers WHERE attempt_id = ${id}`);
+		}
 
-	let values = '';
-	if (Array.isArray(answers) && answers.length > 0) {
-		values = answers
-			.map((a) => {
-				const qId = validateNumeric(a.questionId);
-				if (a.answerText !== undefined) {
-					hasUngraded = true;
-					const txt = escapeSql(validateString(a.answerText));
-					return `(${id}, ${qId}, NULL, NULL, '${txt}', NULL)`;
+		let autoScore = 0;
+		let hasUngraded = false;
+
+		// Insert answers if provided
+		if (Array.isArray(answers) && answers.length > 0) {
+			const validAnswers = answers.filter(a => {
+				// Skip answers with invalid question IDs
+				if (a.questionId == null || a.questionId === undefined || a.questionId === '') {
+					console.warn('Skipping answer with invalid question ID:', a);
+					return false;
 				}
-				const cId = validateNumeric(a.choiceId);
-				const isCorr = validateBoolean(!!a.isCorrect);
-				const pts = validateNumeric(a.points ?? 0);
-				if (isCorr) autoScore += pts;
-				return `(${id}, ${qId}, ${cId}, ${isCorr ? 'TRUE' : 'FALSE'}, NULL, ${isCorr ? pts : 0})`;
-			})
-			.join(', ');
-		await query(
+				return true;
+			});
+
+			if (validAnswers.length > 0) {
+				const values = validAnswers
+					.map((a) => {
+						try {
+							const qId = validateNumeric(a.questionId);
+							if (a.answerText !== undefined) {
+								hasUngraded = true;
+								const txt = escapeSql(validateString(a.answerText));
+								return `(${id}, ${qId}, NULL, NULL, '${txt}', NULL)`;
+							}
+							const cId = validateNumeric(a.choiceId);
+							const isCorr = validateBoolean(!!a.isCorrect);
+							const pts = validateNumeric(a.points ?? 0);
+							if (isCorr) autoScore += pts;
+							return `(${id}, ${qId}, ${cId}, ${isCorr ? 'TRUE' : 'FALSE'}, NULL, ${isCorr ? pts : 0})`;
+						} catch (error) {
+							console.error('Error processing answer:', a, error);
+							return null;
+						}
+					})
+					.filter(v => v !== null)
+					.join(', ');
+				
+				if (values) {
+					await query(
+						fetch,
+						`INSERT INTO attempt_answers (attempt_id, question_id, choice_id, is_correct, answer_text, points_awarded) VALUES ${values}`
+					);
+				}
+			}
+		}
+
+		// Update test attempt with score and completion timestamp
+		const scoreValue = hasUngraded ? 'NULL' : autoScore;
+		const updateResult = await query(
 			fetch,
-			`INSERT INTO attempt_answers (attempt_id, question_id, choice_id, is_correct, answer_text, points_awarded) VALUES ${values}`
+			`UPDATE test_attempts SET score = ${scoreValue}, completed_at = CURRENT_TIMESTAMP WHERE id = ${id}`
 		);
+
+		// Verify the update was successful
+		if (!updateResult && updateResult !== 0) {
+			console.error('Failed to update test attempt completion status');
+			// Still return the id so the student sees their submission, but log the error
+		}
+
+		return id;
+	} catch (error) {
+		console.error('Error in submitAttempt:', error);
+		throw new Error(`Failed to submit test attempt: ${error.message}`);
 	}
-
-	const scoreValue = hasUngraded ? 'NULL' : autoScore;
-	await query(
-		fetch,
-		`UPDATE test_attempts SET score = ${scoreValue}, completed_at = CURRENT_TIMESTAMP WHERE id = ${id}`
-	);
-
-	return id;
 }
 
 // Public signup functions (no authentication required)
@@ -363,9 +405,126 @@ export async function getTeacher(fetch, teacherId) {
 	return result[0];
 }
 
+export async function getAllTeachers(fetch) {
+	const sql = `SELECT id, name FROM teachers ORDER BY name`;
+	return query(fetch, sql);
+}
+
+export async function getAllTestsWithTeachers(fetch) {
+	const sql = `SELECT t.id, t.title, t.description, t.is_active, t.teacher_id, te.name as teacher_name
+	             FROM tests t
+	             JOIN teachers te ON t.teacher_id = te.id
+	             ORDER BY te.name, t.title`;
+	return query(fetch, sql);
+}
+
 export async function getActiveTests(fetch) {
 	const sql = `SELECT id, title, description, is_active FROM tests WHERE is_active = TRUE`;
 	return query(fetch, sql);
+}
+
+export async function copyTestToTeacher(fetch, { testId, fromTeacherId, toTeacherId, newTitle }) {
+	const cleanTestId = validateNumeric(testId);
+	const cleanFromTeacherId = validateNumeric(fromTeacherId);
+	const cleanToTeacherId = validateNumeric(toTeacherId);
+	const cleanNewTitle = validateString(newTitle);
+
+	try {
+		// Verify source test ownership
+		const ownershipCheck = await query(
+			fetch,
+			`SELECT id, title, description FROM tests WHERE id = ${cleanTestId} AND teacher_id = ${cleanFromTeacherId}`
+		);
+
+		if (ownershipCheck.length === 0) {
+			throw new Error('Source test not found or access denied');
+		}
+
+		const sourceTest = ownershipCheck[0];
+
+		// Create new test for destination teacher
+		const newTestRes = await query(
+			fetch,
+			`INSERT INTO tests (title, description, teacher_id, is_active) 
+			 VALUES ('${escapeSql(cleanNewTitle)}', '${escapeSql(sourceTest.description || '')}', ${cleanToTeacherId}, FALSE) 
+			 RETURNING id`
+		);
+		const newTestId = Array.isArray(newTestRes) ? newTestRes[0]?.id : newTestRes?.data?.[0]?.id;
+
+		if (!newTestId) {
+			throw new Error('Failed to create new test');
+		}
+
+		// Copy sections
+		const sectionsRes = await query(
+			fetch,
+			`SELECT section_name, section_order, total_questions FROM sections WHERE test_id = ${cleanTestId} ORDER BY section_order`
+		);
+		const sections = Array.isArray(sectionsRes) ? sectionsRes : (sectionsRes?.data ?? []);
+		
+		const sectionMapping = new Map();
+		for (const section of sections) {
+			const newSectionRes = await query(
+				fetch,
+				`INSERT INTO sections (test_id, section_name, section_order, total_questions) 
+				 VALUES (${newTestId}, '${escapeSql(section.section_name)}', ${section.section_order}, ${section.total_questions}) 
+				 RETURNING id`
+			);
+			const newSectionId = Array.isArray(newSectionRes) ? newSectionRes[0]?.id : newSectionRes?.data?.[0]?.id;
+			sectionMapping.set(section.section_name, newSectionId);
+		}
+
+		// Copy questions
+		const questionsRes = await query(
+			fetch,
+			`SELECT q.id, q.question_text, q.points, q.section_id, s.section_name
+			 FROM questions q
+			 LEFT JOIN sections s ON q.section_id = s.id
+			 WHERE q.test_id = ${cleanTestId}
+			 ORDER BY q.id`
+		);
+		const questions = Array.isArray(questionsRes) ? questionsRes : (questionsRes?.data ?? []);
+
+		const questionMapping = new Map();
+		for (const question of questions) {
+			const newSectionId = question.section_name ? sectionMapping.get(question.section_name) : null;
+			const newQuestionRes = await query(
+				fetch,
+				`INSERT INTO questions (test_id, question_text, points, section_id) 
+				 VALUES (${newTestId}, '${escapeSql(question.question_text)}', ${question.points || 1}, ${newSectionId || 'NULL'}) 
+				 RETURNING id`
+			);
+			const newQuestionId = Array.isArray(newQuestionRes) ? newQuestionRes[0]?.id : newQuestionRes?.data?.[0]?.id;
+			questionMapping.set(question.id, newQuestionId);
+		}
+
+		// Copy choices
+		const choicesRes = await query(
+			fetch,
+			`SELECT choice_text, is_correct, question_id FROM choices WHERE question_id IN (${questions.map(q => q.id).join(', ')}) ORDER BY question_id, id`
+		);
+		const choices = Array.isArray(choicesRes) ? choicesRes : (choicesRes?.data ?? []);
+
+		for (const choice of choices) {
+			const newQuestionId = questionMapping.get(choice.question_id);
+			if (newQuestionId) {
+				await query(
+					fetch,
+					`INSERT INTO choices (question_id, choice_text, is_correct) 
+					 VALUES (${newQuestionId}, '${escapeSql(choice.choice_text)}', ${choice.is_correct ? 'TRUE' : 'FALSE'})`
+				);
+			}
+		}
+
+		return { 
+			success: true, 
+			newTestId, 
+			message: `Test "${sourceTest.title}" successfully copied as "${cleanNewTitle}"` 
+		};
+	} catch (error) {
+		console.error('Error copying test:', error);
+		throw new Error(`Failed to copy test: ${error.message}`);
+	}
 }
 
 export async function getTestQuestions(fetch, { testId, teacherId }) {
