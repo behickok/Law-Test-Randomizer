@@ -491,7 +491,7 @@ export async function uploadImage(fetch, { name, description, mimeType, base64Da
 
 export async function getTeacherImages(fetch, teacherId) {
 	const cleanTeacherId = validateNumeric(teacherId);
-	const sql = `SELECT id, name, description, mime_type, file_size, created_at
+	const sql = `SELECT id, name, description, mime_type, base64_data, file_size, created_at
 	             FROM images 
 	             WHERE uploaded_by = ${cleanTeacherId}
 	             ORDER BY created_at DESC`;

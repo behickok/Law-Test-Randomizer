@@ -11,11 +11,13 @@
 		getAllStudents,
 		getClassAssignmentOverview,
 		assignStudentToClass,
-		removeStudentFromClass
+		removeStudentFromClass,
+		getTeacherImages
 	} from '$lib/api';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { writable } from 'svelte/store';
+	import ImageManager from '$lib/components/ImageManager.svelte';
 
 	let teacherInviteCode = '';
 	let teacherName = '';
@@ -239,6 +241,19 @@
 		return groups;
 	}, {});
 
+	// Image management variables
+	const teacherImages = writable([]);
+
+	async function loadTeacherImages() {
+		if (!$user || !$user.id) return;
+		try {
+			const images = await getTeacherImages(fetch, $user.id);
+			teacherImages.set(Array.isArray(images) ? images : images?.data ?? []);
+		} catch (err) {
+			console.error('Error loading teacher images:', err);
+		}
+	}
+
 	onMount(async () => {
 		if (!$user || $user.role !== 'teacher') {
 			goto('/');
@@ -249,6 +264,7 @@
 			}
 			await loadTeachersAndTests();
 			await loadStudentsAndAssignments();
+			await loadTeacherImages();
 		}
 	});
 </script>
@@ -720,6 +736,24 @@
 							</div>
 						{/if}
 					</div>
+				</div>
+			</section>
+
+			<!-- Image Manager Section -->
+			<section class="admin-card image-manager-card full-width">
+				<div class="card-header">
+					<h2 class="card-title">
+						<span class="section-icon">🖼️</span>
+						Image Library
+					</h2>
+				</div>
+				<div class="card-content">
+					<ImageManager
+						images={$teacherImages}
+						on:imagesUploaded={loadTeacherImages}
+						on:imageDeleted={loadTeacherImages}
+						on:imageUpdated={loadTeacherImages}
+					/>
 				</div>
 			</section>
 
@@ -1277,6 +1311,10 @@
 		background: linear-gradient(135deg, rgba(236, 72, 153, 0.05), rgba(219, 39, 119, 0.05));
 	}
 
+	.image-manager-card .card-header {
+		background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(220, 38, 38, 0.05));
+	}
+
 	.teacher-card:hover {
 		box-shadow: 0 20px 60px rgba(59, 130, 246, 0.15);
 	}
@@ -1291,6 +1329,10 @@
 
 	.copy-test-card:hover {
 		box-shadow: 0 20px 60px rgba(139, 92, 246, 0.15);
+	}
+
+	.image-manager-card:hover {
+		box-shadow: 0 20px 60px rgba(239, 68, 68, 0.15);
 	}
 
 	.assignment-card:hover {
