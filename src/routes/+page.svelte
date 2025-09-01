@@ -51,6 +51,10 @@
 			uploadMsg = 'Please enter test data';
 			return;
 		}
+		if (!title.trim()) {
+			uploadMsg = 'Please enter a test title';
+			return;
+		}
 
 		// Start loading state
 		isUploading = true;
@@ -192,7 +196,9 @@
 	}
 
 	function parseTestData(data) {
+		console.log('📊 parseTestData called with:', data.length, 'characters');
 		if (!data.trim()) {
+			console.log('⚠️ Empty data provided to parseTestData');
 			return { questions: [], sections: [], errors: [] };
 		}
 
@@ -200,6 +206,8 @@
 			.split(/\r?\n/)
 			.map((l) => l.trim())
 			.filter(Boolean);
+
+		console.log('📝 Processing', lines.length, 'lines of data');
 
 		const sections = [];
 		const errors = [];
@@ -290,6 +298,14 @@
 				isLongResponse,
 				status: 'new'
 			};
+
+			console.log(`✅ Created question object:`, {
+				questionId,
+				questionText: questionText?.substring(0, 50) + '...',
+				hasQuestionText: !!questionText,
+				choicesCount: choices.length,
+				isLongResponse
+			});
 
 			// Add question to current section or create default section
 			if (!currentSection) {
@@ -492,6 +508,7 @@
 	});
 
 	async function updatePreview() {
+		console.log('🔄 updatePreview called');
 		const parsed = parseTestData(testData);
 		let questions;
 		if (updateMode && existingQuestions.length > 0) {
@@ -502,23 +519,40 @@
 
 		// Process images in questions if user is a teacher
 		if ($user && $user.role === 'teacher') {
-			for (const question of questions) {
+			console.log(`🔄 Processing ${questions.length} questions for images...`);
+			for (let i = 0; i < questions.length; i++) {
+				const question = questions[i];
+				console.log(`📝 Processing question ${i + 1}: "${question.questionText?.substring(0, 100)}..."`);
+				
 				try {
 					const processedResult = await processQuestionWithImages(fetch, {
-						questionText: question.text,
+						questionText: question.questionText,
 						teacherId: $user.id
 					});
+					console.log(`✅ Question ${i + 1} processed:`, {
+						hasProcessedText: !!processedResult.processedText,
+						imageRefsCount: processedResult.imageReferences?.length || 0,
+						error: processedResult.error
+					});
+					
 					question.processed_text = processedResult.processedText;
 					question.image_references = processedResult.imageReferences;
+					
+					if (processedResult.error) {
+						console.error(`⚠️ Question ${i + 1} processing error:`, processedResult.error);
+					}
 				} catch (error) {
-					console.error('Error processing images for question:', error);
+					console.error(`💥 Error processing images for question ${i + 1}:`, error);
 					question.processed_text = question.text; // Fallback to original text
 					question.image_references = [];
 				}
 			}
+		} else {
+			console.log('ℹ️ User is not a teacher, skipping image processing');
 		}
 
 		preview = { questions: questions, sections: parsed.sections, errors: parsed.errors };
+		console.log('✅ Preview updated with', questions.length, 'questions');
 	}
 
 	// Reactive preview update when test data changes
@@ -761,6 +795,7 @@
 										placeholder="Enter test title..."
 										bind:value={title}
 										class="form-input"
+										required
 									/>
 								</div>
 
@@ -768,13 +803,23 @@
 									<label for="test-data">Test Data & Preview</label>
 									<div class="data-preview-container">
 										<div class="data-input-section">
-											<textarea
-												id="test-data"
-												placeholder="Paste your test data here. Use CSV format with commas to separate columns. Download template for examples."
-												bind:value={testData}
-												class="form-textarea"
-												rows="12"
-											></textarea>
+											<div class="textarea-container">
+												<textarea
+													id="test-data"
+													placeholder="Paste your test data here. Use CSV format with commas to separate columns. Download template for examples."
+													bind:value={testData}
+													class="form-textarea"
+													rows="12"
+												></textarea>
+												<button
+													type="button"
+													class="clear-btn"
+													onclick={() => (testData = '')}
+													title="Clear textarea"
+												>
+													🗑️ Clear
+												</button>
+											</div>
 											{#if preview.errors && preview.errors.length > 0}
 												<div class="parser-errors">
 													<h4>⚠️ Parsing Errors</h4>
@@ -916,7 +961,7 @@
 								<button
 									onclick={handleUpload}
 									class="btn btn-primary"
-									disabled={(updateMode && !selectedTestId) || isUploading}
+									disabled={(updateMode && !selectedTestId) || isUploading || !title.trim() || !testData.trim()}
 								>
 									{#if isUploading}
 										<span class="btn-spinner">⏳</span>
@@ -1519,6 +1564,41 @@
 		border-color: #667eea;
 		box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 		background: white;
+	}
+
+	.textarea-container {
+		position: relative;
+	}
+
+	.clear-btn {
+		position: absolute;
+		top: 0.75rem;
+		right: 0.75rem;
+		background: rgba(239, 68, 68, 0.9);
+		color: white;
+		border: none;
+		border-radius: 6px;
+		padding: 0.375rem 0.75rem;
+		font-size: 0.75rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		box-shadow: 0 1px 3px rgba(239, 68, 68, 0.25);
+		z-index: 10;
+	}
+
+	.clear-btn:hover {
+		background: rgba(239, 68, 68, 1);
+		transform: translateY(-1px);
+		box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+	}
+
+	.clear-btn:active {
+		transform: translateY(0);
+		box-shadow: 0 1px 3px rgba(239, 68, 68, 0.25);
 	}
 
 	.mode-selector {

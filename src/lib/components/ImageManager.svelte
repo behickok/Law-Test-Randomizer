@@ -361,7 +361,7 @@
 					>
 						<div class="image-preview">
 							<img
-								src="data:{image.mime_type};base64,{image.base64_data}"
+								src={image.base64_data.startsWith('data:') ? image.base64_data : `data:${image.mime_type};base64,${image.base64_data}`}
 								alt={image.description || image.name}
 							/>
 							{#if mode === 'select' && isSelected(image)}

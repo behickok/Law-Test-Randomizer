@@ -1,6 +1,6 @@
 <script>
 	import { onMount } from 'svelte';
-	import { updateQuestion, updateChoice, submitAttempt } from '$lib/api';
+	import { updateQuestion, updateChoice, submitAttempt, processQuestionWithImages } from '$lib/api';
 	import { user } from '$lib/user';
 
 	let { data } = $props();
@@ -14,12 +14,14 @@
 
 	let isTeacherOwner = $state(false);
 	let saveMessage = $state('');
+	let imageProcessingStatus = $state('');
+	let questionsNeedingProcessing = $state(0);
 
 	function shuffle(arr) {
 		return arr.sort(() => Math.random() - 0.5);
 	}
 
-	onMount(() => {
+	onMount(async () => {
 		if ($user && $user.role === 'teacher' && $user.id === test.teacher_id) {
 			isTeacherOwner = true;
 		}
@@ -27,6 +29,46 @@
 		// Only randomize questions for students, keep in order for teachers
 		if ($user && $user.role === 'student') {
 			questions = shuffle([...questions]);
+		}
+
+		// Check if any questions need client-side image processing
+		const questionsNeeding = questions.filter(q => q.needs_image_processing);
+		questionsNeedingProcessing = questionsNeeding.length;
+		
+		if (questionsNeeding.length > 0) {
+			imageProcessingStatus = `Processing images for ${questionsNeeding.length} questions...`;
+			
+			// Process images in batches to avoid blocking UI
+			const BATCH_SIZE = 5;
+			let processed = 0;
+			
+			for (let i = 0; i < questionsNeeding.length; i += BATCH_SIZE) {
+				const batch = questionsNeeding.slice(i, i + BATCH_SIZE);
+				
+				await Promise.all(batch.map(async (question) => {
+					try {
+						const result = await processQuestionWithImages(fetch, {
+							questionText: question.text,
+							teacherId: test.teacher_id
+						});
+						question.processed_question_text = result.processedText;
+						question.needs_image_processing = false;
+						processed++;
+						imageProcessingStatus = `Processing images... ${processed}/${questionsNeeding.length} complete`;
+					} catch (error) {
+						console.error('Error processing images for question:', error);
+						question.processed_question_text = question.text;
+						question.needs_image_processing = false;
+						processed++;
+					}
+				}));
+				
+				// Small delay to keep UI responsive
+				await new Promise(resolve => setTimeout(resolve, 10));
+			}
+			
+			imageProcessingStatus = '';
+			questionsNeedingProcessing = 0;
 		}
 	});
 
@@ -135,6 +177,15 @@
 					<div class="test-header">
 						<p class="student-info">Taking test as: <strong>{$user.name}</strong></p>
 					</div>
+					{#if imageProcessingStatus}
+						<div class="processing-indicator">
+							<div class="processing-content">
+								<div class="processing-spinner">⏳</div>
+								<p>{imageProcessingStatus}</p>
+								<div class="processing-note">Please wait while images are loaded...</div>
+							</div>
+						</div>
+					{/if}
 					{#each questions as q, i (q.id)}
 						<div class="question">
 							<div class="question-text">
@@ -553,5 +604,52 @@
 	.question input[type='radio']:focus {
 		outline: 2px solid #2563eb;
 		outline-offset: 2px;
+	}
+
+	/* Processing indicator */
+	.processing-indicator {
+		background: linear-gradient(135deg, #fef3c7, #fde68a);
+		border: 1px solid #f59e0b;
+		border-radius: 12px;
+		padding: 1.5rem;
+		margin-bottom: 2rem;
+		box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+		animation: pulse 2s infinite;
+	}
+
+	.processing-content {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		text-align: center;
+	}
+
+	.processing-spinner {
+		font-size: 2rem;
+		margin-bottom: 0.5rem;
+		animation: spin 1s linear infinite;
+	}
+
+	.processing-content p {
+		margin: 0 0 0.5rem 0;
+		font-size: 1.1rem;
+		font-weight: 600;
+		color: #92400e;
+	}
+
+	.processing-note {
+		font-size: 0.9rem;
+		color: #a16207;
+		font-style: italic;
+	}
+
+	@keyframes spin {
+		from { transform: rotate(0deg); }
+		to { transform: rotate(360deg); }
+	}
+
+	@keyframes pulse {
+		0%, 100% { opacity: 1; }
+		50% { opacity: 0.8; }
 	}
 </style>

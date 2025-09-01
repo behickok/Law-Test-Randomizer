@@ -541,20 +541,37 @@ export async function deleteImage(fetch, { imageId, teacherId }) {
 // Template processing functions
 export function parseQuestionTemplate(questionText, imageMap = {}) {
 	// Replace template variables like {{image_name}} with actual image references
+	console.log('🔄 Processing question template:', questionText);
+	console.log('🗂️ Available images in imageMap:', Object.keys(imageMap));
+	
 	return questionText.replace(/\{\{([^}]+)\}\}/g, (match, imageName) => {
 		const cleanImageName = imageName.trim();
+		console.log(`🔍 Found template: "${match}" -> cleaned name: "${cleanImageName}"`);
+		
 		if (imageMap[cleanImageName]) {
+			console.log(`✅ Image found for "${cleanImageName}":`, {
+				id: imageMap[cleanImageName].id,
+				name: imageMap[cleanImageName].name,
+				hasBase64: !!imageMap[cleanImageName].base64_data,
+				base64Length: imageMap[cleanImageName].base64_data?.length
+			});
 			return `<img src="${imageMap[cleanImageName].base64_data}" alt="${imageMap[cleanImageName].description || cleanImageName}" class="question-image" data-image-id="${imageMap[cleanImageName].id}" />`;
+		} else {
+			console.warn(`❌ Image NOT found for "${cleanImageName}". Available images:`, Object.keys(imageMap));
+			return match; // Keep original template if image not found
 		}
-		return match; // Keep original template if image not found
 	});
 }
 
 export async function processQuestionWithImages(fetch, { questionText, teacherId }) {
+	console.log('🚀 Starting processQuestionWithImages for teacher:', teacherId);
+	console.log('📝 Question text:', questionText);
+	
 	const cleanTeacherId = validateNumeric(teacherId);
 
 	// Validate question text
 	if (!questionText || typeof questionText !== 'string') {
+		console.log('⚠️ Invalid question text provided');
 		return {
 			processedText: questionText || '',
 			imageReferences: []
@@ -563,47 +580,81 @@ export async function processQuestionWithImages(fetch, { questionText, teacherId
 
 	// Extract template variables from question text
 	const templateMatches = [...questionText.matchAll(/\{\{([^}]+)\}\}/g)];
+	console.log('🔍 Found template matches:', templateMatches.map(m => m[0]));
 
 	if (templateMatches.length === 0) {
+		console.log('ℹ️ No image templates found in question text');
 		return {
 			processedText: questionText,
 			imageReferences: []
 		};
 	}
 
-	// Get all images for this teacher
-	const teacherImages = await getTeacherImages(fetch, cleanTeacherId);
-	const imageMap = {};
+	try {
+		// Get all images for this teacher
+		console.log('📥 Fetching teacher images...');
+		const teacherImages = await getTeacherImages(fetch, cleanTeacherId);
+		console.log('🖼️ Teacher images loaded:', teacherImages?.length || 0);
+		console.log('📋 Teacher image names:', (teacherImages || []).map(img => img.name));
+		
+		const imageMap = {};
 
-	// Create lookup map by image name
-	for (const image of teacherImages) {
-		imageMap[image.name] = image;
-	}
+		// Create lookup map by image name
+		for (const image of teacherImages || []) {
+			imageMap[image.name] = image;
+			console.log(`🏷️ Mapped image: "${image.name}" -> ID: ${image.id}`);
+		}
 
-	// Get full image data for referenced images
-	const referencedImages = [];
-	const usedImageIds = [];
+		// Get full image data for referenced images
+		const referencedImages = [];
+		const usedImageIds = [];
 
-	for (const match of templateMatches) {
-		const imageName = match[1].trim();
-		if (imageMap[imageName]) {
-			const fullImage = await getImageById(fetch, imageMap[imageName].id);
-			if (fullImage) {
-				imageMap[imageName] = fullImage;
-				referencedImages.push(fullImage);
-				usedImageIds.push(fullImage.id);
+		for (const match of templateMatches) {
+			const imageName = match[1].trim();
+			console.log(`🔄 Processing template for image: "${imageName}"`);
+			
+			if (imageMap[imageName]) {
+				console.log(`📡 Fetching full image data for: "${imageName}" (ID: ${imageMap[imageName].id})`);
+				try {
+					const fullImage = await getImageById(fetch, imageMap[imageName].id);
+					if (fullImage) {
+						console.log(`✅ Full image data loaded for "${imageName}":`, {
+							id: fullImage.id,
+							hasBase64: !!fullImage.base64_data,
+							base64Length: fullImage.base64_data?.length
+						});
+						imageMap[imageName] = fullImage;
+						referencedImages.push(fullImage);
+						usedImageIds.push(fullImage.id);
+					} else {
+						console.error(`❌ Failed to load full image data for "${imageName}" (ID: ${imageMap[imageName].id})`);
+					}
+				} catch (error) {
+					console.error(`💥 Error loading full image data for "${imageName}":`, error);
+				}
+			} else {
+				console.warn(`❌ Image "${imageName}" not found in teacher's images`);
 			}
 		}
+
+		// Process the template
+		console.log('🔄 Processing template with final imageMap...');
+		const processedText = parseQuestionTemplate(questionText, imageMap);
+		console.log('✅ Template processing complete');
+
+		return {
+			processedText,
+			imageReferences: usedImageIds,
+			referencedImages
+		};
+	} catch (error) {
+		console.error('💥 Error in processQuestionWithImages:', error);
+		return {
+			processedText: questionText,
+			imageReferences: [],
+			error: error.message
+		};
 	}
-
-	// Process the template
-	const processedText = parseQuestionTemplate(questionText, imageMap);
-
-	return {
-		processedText,
-		imageReferences: usedImageIds,
-		referencedImages
-	};
 }
 
 export async function getActiveTests(fetch) {
