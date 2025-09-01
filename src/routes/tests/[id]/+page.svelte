@@ -14,9 +14,8 @@
 
 	let isTeacherOwner = $state(false);
 	let saveMessage = $state('');
-	let imageProcessingStatus = $state('');
-	let questionsNeedingProcessing = $state(0);
-	let showImageModal = $state(false);
+        let imageProcessingStatus = $state('');
+        let showImageModal = $state(false);
 	let modalImageSrc = $state('');
 	let modalImageAlt = $state('');
 
@@ -34,18 +33,19 @@
 			return [];
 		}
 
-		const sections = [];
-		const sectionMap = new Map();
+                const sections = [];
+                const sectionMap = Object.create(null);
 
 		// Group questions by section, preserving order
 		for (const question of questions) {
-			const sectionTitle = question.section_title || 'Default Section';
-			if (!sectionMap.has(sectionTitle)) {
-				const newSection = { title: sectionTitle, questions: [] };
-				sections.push(newSection);
-				sectionMap.set(sectionTitle, newSection);
-			}
-			sectionMap.get(sectionTitle).questions.push(question);
+			// Questions from the server expose `section_name`; support legacy `section_title` too
+			const sectionName = question.section_name || question.section_title || 'Default Section';
+                        if (!sectionMap[sectionName]) {
+                                const newSection = { title: sectionName, questions: [] };
+                                sections.push(newSection);
+                                sectionMap[sectionName] = newSection;
+                        }
+                        sectionMap[sectionName].questions.push(question);
 		}
 
 		// Shuffle questions within each section
@@ -89,43 +89,43 @@
 		}
 
 		// Check if any questions need client-side image processing
-		const questionsNeeding = questions.filter(q => q.needs_image_processing);
-		questionsNeedingProcessing = questionsNeeding.length;
-		
+                const questionsNeeding = questions.filter((q) => q.needs_image_processing);
+
 		if (questionsNeeding.length > 0) {
 			imageProcessingStatus = `Processing images for ${questionsNeeding.length} questions...`;
-			
+
 			// Process images in batches to avoid blocking UI
 			const BATCH_SIZE = 5;
 			let processed = 0;
-			
+
 			for (let i = 0; i < questionsNeeding.length; i += BATCH_SIZE) {
 				const batch = questionsNeeding.slice(i, i + BATCH_SIZE);
-				
-				await Promise.all(batch.map(async (question) => {
-					try {
-						const result = await processQuestionWithImages(fetch, {
-							questionText: question.text,
-							teacherId: test.teacher_id
-						});
-						question.processed_question_text = result.processedText;
-						question.needs_image_processing = false;
-						processed++;
-						imageProcessingStatus = `Processing images... ${processed}/${questionsNeeding.length} complete`;
-					} catch (error) {
-						console.error('Error processing images for question:', error);
-						question.processed_question_text = question.text;
-						question.needs_image_processing = false;
-						processed++;
-					}
-				}));
-				
+
+				await Promise.all(
+					batch.map(async (question) => {
+						try {
+							const result = await processQuestionWithImages(fetch, {
+								questionText: question.text,
+								teacherId: test.teacher_id
+							});
+							question.processed_question_text = result.processedText;
+							question.needs_image_processing = false;
+							processed++;
+							imageProcessingStatus = `Processing images... ${processed}/${questionsNeeding.length} complete`;
+						} catch (error) {
+							console.error('Error processing images for question:', error);
+							question.processed_question_text = question.text;
+							question.needs_image_processing = false;
+							processed++;
+						}
+					})
+				);
+
 				// Small delay to keep UI responsive
-				await new Promise(resolve => setTimeout(resolve, 10));
+				await new Promise((resolve) => setTimeout(resolve, 10));
 			}
-			
-			imageProcessingStatus = '';
-			questionsNeedingProcessing = 0;
+
+                        imageProcessingStatus = '';
 		}
 	});
 
@@ -206,12 +206,15 @@
 				{#each questions as q (q.id)}
 					<div class="question">
 						<div class="question-input-section">
-							<label>Question Text (use {{ image_name }} for images):</label>
+                                                        <label>Question Text (use &#123;&#123; image_name &#125;&#125; for images):</label>
 							<textarea bind:value={q.text} rows="3" class="question-textarea"></textarea>
 							{#if q.processed_question_text && q.processed_question_text !== q.text}
 								<div class="question-preview">
 									<label>Preview:</label>
-									<div class="preview-content" onclick={handleImageClick}>{@html q.processed_question_text}</div>
+                                                                        <div class="preview-content" onclick={handleImageClick}>
+                                                                                <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                                                                                {@html q.processed_question_text}
+                                                                        </div>
 								</div>
 							{/if}
 						</div>
@@ -247,7 +250,9 @@
 						{#each questions as q, i (q.id)}
 							<div class="question">
 								<div class="question-text">
-									{i + 1}. {@html q.processed_question_text || q.text}
+                                                                        {i + 1}.
+                                                                        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+                                                                        {@html q.processed_question_text || q.text}
 								</div>
 								{#if q.choices.length}
 									{#each q.choices as c, choiceIndex (c.id)}
@@ -265,9 +270,9 @@
 								{:else}
 									<div class="long-response-container">
 										<label for="q{q.id}-response" class="long-response-label">Your answer:</label>
-										<textarea 
+										<textarea
 											id="q{q.id}-response"
-											bind:value={q.response} 
+											bind:value={q.response}
 											placeholder="Type your detailed answer here..."
 											class="long-response-textarea"
 											rows="6"
@@ -728,13 +733,22 @@
 	}
 
 	@keyframes spin {
-		from { transform: rotate(0deg); }
-		to { transform: rotate(360deg); }
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
 	}
 
 	@keyframes pulse {
-		0%, 100% { opacity: 1; }
-		50% { opacity: 0.8; }
+		0%,
+		100% {
+			opacity: 1;
+		}
+		50% {
+			opacity: 0.8;
+		}
 	}
 
 	/* Long Response Styling */
@@ -765,7 +779,9 @@
 		resize: vertical;
 		min-height: 120px;
 		background: white;
-		transition: border-color 0.2s ease, box-shadow 0.2s ease;
+		transition:
+			border-color 0.2s ease,
+			box-shadow 0.2s ease;
 	}
 
 	.long-response-textarea:focus {
@@ -819,7 +835,7 @@
 		color: #374151;
 		cursor: pointer;
 		z-index: 1001;
-		box-shadow: 
+		box-shadow:
 			0 4px 12px rgba(0, 0, 0, 0.15),
 			0 2px 4px rgba(0, 0, 0, 0.1),
 			inset 0 1px 0 rgba(255, 255, 255, 0.6);
@@ -834,7 +850,7 @@
 		background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
 		border-color: rgba(59, 130, 246, 0.3);
 		transform: scale(1.05) rotate(90deg);
-		box-shadow: 
+		box-shadow:
 			0 6px 20px rgba(0, 0, 0, 0.2),
 			0 3px 6px rgba(0, 0, 0, 0.15),
 			inset 0 1px 0 rgba(255, 255, 255, 0.8);
@@ -843,7 +859,7 @@
 
 	.modal-close-btn:active {
 		transform: scale(0.95) rotate(90deg);
-		box-shadow: 
+		box-shadow:
 			0 2px 8px rgba(0, 0, 0, 0.2),
 			inset 0 1px 3px rgba(0, 0, 0, 0.1);
 	}
@@ -870,7 +886,9 @@
 	.question-text :global(.question-image),
 	.preview-content :global(.question-image) {
 		cursor: pointer;
-		transition: transform 0.2s ease, box-shadow 0.2s ease;
+		transition:
+			transform 0.2s ease,
+			box-shadow 0.2s ease;
 	}
 
 	.question-text :global(.question-image):hover,
