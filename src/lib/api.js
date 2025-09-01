@@ -605,42 +605,25 @@ export async function processQuestionWithImages(fetch, { questionText, teacherId
 			console.log(`🏷️ Mapped image: "${image.name}" -> ID: ${image.id}`);
 		}
 
-		// Get full image data for referenced images
+		// The imageMap is already populated with full image data from getTeacherImages.
+		// The redundant and buggy re-fetch loop is removed.
+		const processedText = parseQuestionTemplate(questionText, imageMap);
+		console.log('✅ Template processing complete');
+
+		// Re-calculate referenced images and their IDs based on the final map
 		const referencedImages = [];
 		const usedImageIds = [];
+		const uniqueImageIds = new Set();
 
 		for (const match of templateMatches) {
 			const imageName = match[1].trim();
-			console.log(`🔄 Processing template for image: "${imageName}"`);
-			
-			if (imageMap[imageName]) {
-				console.log(`📡 Fetching full image data for: "${imageName}" (ID: ${imageMap[imageName].id})`);
-				try {
-					const fullImage = await getImageById(fetch, imageMap[imageName].id);
-					if (fullImage) {
-						console.log(`✅ Full image data loaded for "${imageName}":`, {
-							id: fullImage.id,
-							hasBase64: !!fullImage.base64_data,
-							base64Length: fullImage.base64_data?.length
-						});
-						imageMap[imageName] = fullImage;
-						referencedImages.push(fullImage);
-						usedImageIds.push(fullImage.id);
-					} else {
-						console.error(`❌ Failed to load full image data for "${imageName}" (ID: ${imageMap[imageName].id})`);
-					}
-				} catch (error) {
-					console.error(`💥 Error loading full image data for "${imageName}":`, error);
-				}
-			} else {
-				console.warn(`❌ Image "${imageName}" not found in teacher's images`);
+			const image = imageMap[imageName];
+			if (image && !uniqueImageIds.has(image.id)) {
+				referencedImages.push(image);
+				usedImageIds.push(image.id);
+				uniqueImageIds.add(image.id);
 			}
 		}
-
-		// Process the template
-		console.log('🔄 Processing template with final imageMap...');
-		const processedText = parseQuestionTemplate(questionText, imageMap);
-		console.log('✅ Template processing complete');
 
 		return {
 			processedText,
