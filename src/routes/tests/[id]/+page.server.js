@@ -1,4 +1,4 @@
-import { query, processQuestionWithImages, getTeacherImages, getImageById, parseQuestionTemplate } from '$lib/api';
+import { query, getTeacherImages, getImageById, parseQuestionTemplate } from '$lib/api';
 
 async function processQuestionsWithImagesOptimized(fetch, questions, teacherId) {
 	console.log(`🚀 Starting optimized image processing for ${questions.length} questions`);
@@ -92,13 +92,17 @@ async function processQuestionsWithImagesOptimized(fetch, questions, teacherId) 
 
 		console.log('✅ Optimized image processing completed');
 
-	} catch (error) {
-		console.error('💥 Error in optimized image processing:', error);
-		// Fallback - set all questions to use original text
-		questions.forEach(q => {
-			q.processed_question_text = q.text;
-		});
-	}
+       } catch (error) {
+               console.error('💥 Error in optimized image processing:', error);
+               // Fallback - set all questions to use original text and flag for client-side processing
+               questions.forEach(q => {
+                       q.processed_question_text = q.text;
+                       // Mark questions containing image templates so the client can process them later
+                       if (/\{\{[^}]+\}\}/g.test(q.text)) {
+                               q.needs_image_processing = true;
+                       }
+               });
+       }
 }
 
 function shuffle(array) {
