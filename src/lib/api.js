@@ -555,7 +555,20 @@ export function parseQuestionTemplate(questionText, imageMap = {}) {
 				hasBase64: !!imageMap[cleanImageName].base64_data,
 				base64Length: imageMap[cleanImageName].base64_data?.length
 			});
-			return `<img src="${imageMap[cleanImageName].base64_data}" alt="${imageMap[cleanImageName].description || cleanImageName}" class="question-image" data-image-id="${imageMap[cleanImageName].id}" />`;
+			
+			const image = imageMap[cleanImageName];
+			const src = image.base64_data.startsWith('data:') 
+				? image.base64_data 
+				: `data:${image.mime_type};base64,${image.base64_data}`;
+			
+			console.log(`🖼️ Generated image tag for "${cleanImageName}":`, {
+				imageId: image.id,
+				mimeType: image.mime_type,
+				srcLength: src.length,
+				srcPreview: src.substring(0, 50) + '...'
+			});
+				
+			return `<img src="${src}" alt="${image.description || cleanImageName}" class="question-image" data-image-id="${image.id}" />`;
 		} else {
 			console.warn(`❌ Image NOT found for "${cleanImageName}". Available images:`, Object.keys(imageMap));
 			return match; // Keep original template if image not found

@@ -757,7 +757,7 @@
 										>
 											<option value="">Choose a test...</option>
 											{#each $tests as test (test.id)}
-												<option value={test.id}>{test.title}</option>
+												<option value={test.id}>ID: {test.id} - {test.title}</option>
 											{/each}
 										</select>
 									</div>
@@ -1010,6 +1010,7 @@
 											<div class="test-item {t.is_active ? 'active' : 'inactive'}">
 												<div class="test-header">
 													<a href={`/tests/${t.id}`} class="test-link">
+														<span class="test-id">ID: {t.id}</span>
 														{t.title}
 													</a>
 													<div class="test-status">
@@ -1061,7 +1062,7 @@
 											<select id="test-select" bind:value={assignTestId} class="form-select">
 												<option value="">Choose a test...</option>
 												{#each $tests as t (t.id)}
-													<option value={t.id}>{t.title}</option>
+													<option value={t.id}>ID: {t.id} - {t.title}</option>
 												{/each}
 											</select>
 										</div>
@@ -1841,6 +1842,17 @@
 
 	.test-link:hover {
 		color: #667eea;
+	}
+
+	.test-id {
+		background: #f3f4f6;
+		color: #6b7280;
+		font-size: 0.75rem;
+		font-weight: 500;
+		padding: 0.25rem 0.5rem;
+		border-radius: 4px;
+		margin-right: 0.5rem;
+		display: inline-block;
 	}
 
 	.status-indicator {
