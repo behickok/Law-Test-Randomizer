@@ -16,9 +16,33 @@
 	let saveMessage = $state('');
 	let imageProcessingStatus = $state('');
 	let questionsNeedingProcessing = $state(0);
+	let showImageModal = $state(false);
+	let modalImageSrc = $state('');
+	let modalImageAlt = $state('');
 
 	function shuffle(arr) {
 		return arr.sort(() => Math.random() - 0.5);
+	}
+
+	function openImageModal(src, alt) {
+		modalImageSrc = src;
+		modalImageAlt = alt;
+		showImageModal = true;
+		document.body.style.overflow = 'hidden';
+	}
+
+	function closeImageModal() {
+		showImageModal = false;
+		modalImageSrc = '';
+		modalImageAlt = '';
+		document.body.style.overflow = 'auto';
+	}
+
+	function handleImageClick(event) {
+		if (event.target.tagName === 'IMG' && event.target.classList.contains('question-image')) {
+			event.preventDefault();
+			openImageModal(event.target.src, event.target.alt);
+		}
 	}
 
 	onMount(async () => {
@@ -154,7 +178,7 @@
 							{#if q.processed_question_text && q.processed_question_text !== q.text}
 								<div class="question-preview">
 									<label>Preview:</label>
-									<div class="preview-content">{@html q.processed_question_text}</div>
+									<div class="preview-content" onclick={handleImageClick}>{@html q.processed_question_text}</div>
 								</div>
 							{/if}
 						</div>
@@ -186,29 +210,43 @@
 							</div>
 						</div>
 					{/if}
-					{#each questions as q, i (q.id)}
-						<div class="question">
-							<div class="question-text">
-								{i + 1}. {@html q.processed_question_text || q.text}
+					<div class="questions-container" onclick={handleImageClick}>
+						{#each questions as q, i (q.id)}
+							<div class="question">
+								<div class="question-text">
+									{i + 1}. {@html q.processed_question_text || q.text}
+								</div>
+								{#if q.choices.length}
+									{#each q.choices as c, choiceIndex (c.id)}
+										<label>
+											<input
+												type="radio"
+												name={`q${q.id}`}
+												value={c.id}
+												onchange={() => (q.selected = c.id)}
+											/>
+											<span class="choice-label">{String.fromCharCode(97 + choiceIndex)}.</span>
+											{c.text}
+										</label>
+									{/each}
+								{:else}
+									<div class="long-response-container">
+										<label for="q{q.id}-response" class="long-response-label">Your answer:</label>
+										<textarea 
+											id="q{q.id}-response"
+											bind:value={q.response} 
+											placeholder="Type your detailed answer here..."
+											class="long-response-textarea"
+											rows="6"
+										></textarea>
+										<div class="character-count">
+											{q.response?.length || 0} characters
+										</div>
+									</div>
+								{/if}
 							</div>
-							{#if q.choices.length}
-								{#each q.choices as c, choiceIndex (c.id)}
-									<label>
-										<input
-											type="radio"
-											name={`q${q.id}`}
-											value={c.id}
-											onchange={() => (q.selected = c.id)}
-										/>
-										<span class="choice-label">{String.fromCharCode(97 + choiceIndex)}.</span>
-										{c.text}
-									</label>
-								{/each}
-							{:else}
-								<textarea bind:value={q.response} placeholder="Your answer here..."></textarea>
-							{/if}
-						</div>
-					{/each}
+						{/each}
+					</div>
 					<button type="button" onclick={submit}>Submit</button>
 				{:else}
 					<div class="score-display">
@@ -234,6 +272,19 @@
 		{/if}
 	{/if}
 </main>
+
+<!-- Image Modal -->
+{#if showImageModal}
+	<div class="image-modal-overlay" onclick={closeImageModal}>
+		<div class="image-modal-content" onclick={(e) => e.stopPropagation()}>
+			<button class="modal-close-btn" onclick={closeImageModal}>×</button>
+			<img src={modalImageSrc} alt={modalImageAlt} class="modal-image" />
+			{#if modalImageAlt}
+				<div class="modal-caption">{modalImageAlt}</div>
+			{/if}
+		</div>
+	</div>
+{/if}
 
 <style>
 	* {
@@ -651,5 +702,147 @@
 	@keyframes pulse {
 		0%, 100% { opacity: 1; }
 		50% { opacity: 0.8; }
+	}
+
+	/* Long Response Styling */
+	.long-response-container {
+		margin-top: 1rem;
+		padding: 1rem;
+		background: #f8fafc;
+		border: 2px solid #e2e8f0;
+		border-radius: 8px;
+	}
+
+	.long-response-label {
+		display: block;
+		font-weight: 600;
+		color: #374151;
+		margin-bottom: 0.5rem;
+		font-size: 0.9rem;
+	}
+
+	.long-response-textarea {
+		width: 100%;
+		padding: 0.75rem;
+		border: 2px solid #d1d5db;
+		border-radius: 6px;
+		font-family: inherit;
+		font-size: 0.95rem;
+		line-height: 1.5;
+		resize: vertical;
+		min-height: 120px;
+		background: white;
+		transition: border-color 0.2s ease, box-shadow 0.2s ease;
+	}
+
+	.long-response-textarea:focus {
+		outline: none;
+		border-color: #3b82f6;
+		box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+	}
+
+	.character-count {
+		text-align: right;
+		font-size: 0.8rem;
+		color: #6b7280;
+		margin-top: 0.25rem;
+	}
+
+	/* Image Modal Styling */
+	.image-modal-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.9);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+		padding: 1rem;
+	}
+
+	.image-modal-content {
+		position: relative;
+		max-width: 90vw;
+		max-height: 90vh;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.modal-close-btn {
+		position: absolute;
+		top: -15px;
+		right: -15px;
+		background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+		border: 2px solid rgba(255, 255, 255, 0.3);
+		border-radius: 50%;
+		width: 44px;
+		height: 44px;
+		font-size: 20px;
+		font-weight: 300;
+		color: #374151;
+		cursor: pointer;
+		z-index: 1001;
+		box-shadow: 
+			0 4px 12px rgba(0, 0, 0, 0.15),
+			0 2px 4px rgba(0, 0, 0, 0.1),
+			inset 0 1px 0 rgba(255, 255, 255, 0.6);
+		transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		backdrop-filter: blur(10px);
+	}
+
+	.modal-close-btn:hover {
+		background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+		border-color: rgba(59, 130, 246, 0.3);
+		transform: scale(1.05) rotate(90deg);
+		box-shadow: 
+			0 6px 20px rgba(0, 0, 0, 0.2),
+			0 3px 6px rgba(0, 0, 0, 0.15),
+			inset 0 1px 0 rgba(255, 255, 255, 0.8);
+		color: #1f2937;
+	}
+
+	.modal-close-btn:active {
+		transform: scale(0.95) rotate(90deg);
+		box-shadow: 
+			0 2px 8px rgba(0, 0, 0, 0.2),
+			inset 0 1px 3px rgba(0, 0, 0, 0.1);
+	}
+
+	.modal-image {
+		max-width: 100%;
+		max-height: 85vh;
+		object-fit: contain;
+		border-radius: 8px;
+		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+	}
+
+	.modal-caption {
+		margin-top: 1rem;
+		padding: 0.5rem 1rem;
+		background: rgba(255, 255, 255, 0.9);
+		color: #374151;
+		border-radius: 4px;
+		font-size: 0.9rem;
+		text-align: center;
+	}
+
+	/* Make question images clickable */
+	.question-text :global(.question-image),
+	.preview-content :global(.question-image) {
+		cursor: pointer;
+		transition: transform 0.2s ease, box-shadow 0.2s ease;
+	}
+
+	.question-text :global(.question-image):hover,
+	.preview-content :global(.question-image):hover {
+		transform: scale(1.02);
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 	}
 </style>
