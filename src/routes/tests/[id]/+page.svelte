@@ -21,7 +21,40 @@
 	let modalImageAlt = $state('');
 
 	function shuffle(arr) {
-		return arr.sort(() => Math.random() - 0.5);
+		// Fisher-Yates shuffle for better randomness
+		for (let i = arr.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[arr[i], arr[j]] = [arr[j], arr[i]];
+		}
+		return arr;
+	}
+
+	function shuffleWithinSections(questions) {
+		if (!questions || questions.length === 0) {
+			return [];
+		}
+
+		const sections = [];
+		const sectionMap = new Map();
+
+		// Group questions by section, preserving order
+		for (const question of questions) {
+			const sectionTitle = question.section_title || 'Default Section';
+			if (!sectionMap.has(sectionTitle)) {
+				const newSection = { title: sectionTitle, questions: [] };
+				sections.push(newSection);
+				sectionMap.set(sectionTitle, newSection);
+			}
+			sectionMap.get(sectionTitle).questions.push(question);
+		}
+
+		// Shuffle questions within each section
+		for (const section of sections) {
+			section.questions = shuffle(section.questions);
+		}
+
+		// Flatten the sections back into a single questions array
+		return sections.flatMap((section) => section.questions);
 	}
 
 	function openImageModal(src, alt) {
@@ -52,7 +85,7 @@
 
 		// Only randomize questions for students, keep in order for teachers
 		if ($user && $user.role === 'student') {
-			questions = shuffle([...questions]);
+			questions = shuffleWithinSections([...questions]);
 		}
 
 		// Check if any questions need client-side image processing
