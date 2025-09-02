@@ -206,8 +206,13 @@
 				{#each questions as q (q.id)}
 					<div class="question">
 						<div class="question-input-section">
-                                                        <label>Question Text (use &#123;&#123; image_name &#125;&#125; for images):</label>
-							<textarea bind:value={q.text} rows="3" class="question-textarea"></textarea>
+							<div class="question-header">
+								<label for={`question-text-${q.id}`}>
+									Question Text (use &#123;&#123; image_name &#125;&#125; for images):
+								</label>
+								<span class="question-id">ID: {q.id}</span>
+							</div>
+							<textarea id={`question-text-${q.id}`} bind:value={q.text} rows="3" class="question-textarea"></textarea>
 							{#if q.processed_question_text && q.processed_question_text !== q.text}
 								<div class="question-preview">
 									<label>Preview:</label>
@@ -514,6 +519,18 @@
 	/* Question input and preview styles */
 	.question-input-section {
 		margin-bottom: 1rem;
+	}
+
+	.question-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.question-id {
+		font-size: 0.8rem;
+		color: #6b7280;
+		font-weight: 500;
 	}
 
 	.question-input-section label {
