@@ -191,7 +191,6 @@
 		}
 	}
 </script>
-
 <main class="container">
 	{#if error}
 		<p class="info-message">{error}</p>
@@ -210,7 +209,7 @@
 								<!-- <label for={`question-text-${q.id}`}>
 									Question Text (use &#123;&#123; image_name &#125;&#125; for images):
 								</label> -->
-								<span class="question-id">ID: {q.question_id}</span>
+								<span class="question-id">ID: {q.id}</span>
 							</div>
 							<textarea id={`question-text-${q.id}`} bind:value={q.text} rows="3" class="question-textarea"></textarea>
 							{#if q.processed_question_text && q.processed_question_text !== q.text}
