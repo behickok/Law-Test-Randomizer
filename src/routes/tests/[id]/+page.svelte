@@ -207,10 +207,10 @@
 					<div class="question">
 						<div class="question-input-section">
 							<div class="question-header">
-								<label for={`question-text-${q.id}`}>
+								<!-- <label for={`question-text-${q.id}`}>
 									Question Text (use &#123;&#123; image_name &#125;&#125; for images):
-								</label>
-								<span class="question-id">ID: {q.id}</span>
+								</label> -->
+								<span class="question-id">ID: {q.question_id}</span>
 							</div>
 							<textarea id={`question-text-${q.id}`} bind:value={q.text} rows="3" class="question-textarea"></textarea>
 							{#if q.processed_question_text && q.processed_question_text !== q.text}
