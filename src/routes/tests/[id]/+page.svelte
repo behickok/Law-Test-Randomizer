@@ -1,11 +1,19 @@
 <script>
 	import { onMount } from 'svelte';
-	import { updateQuestion, updateChoice, submitAttempt, processQuestionWithImages } from '$lib/api';
+	import {
+		updateQuestion,
+		updateChoice,
+		submitAttempt,
+		processQuestionWithImages,
+		startAttempt,
+		saveAttemptAnswer
+	} from '$lib/api';
 	import { user } from '$lib/user';
 
 	let { data } = $props();
 	let test = data.test;
 	let questions = $state(data.questions ?? []);
+	let attemptId = $state(null);
 	let submitted = $state(false);
 	let score = $state(0);
 	let totalPoints = $state(questions.reduce((s, q) => s + (q.points ?? 1), 0));
@@ -14,48 +22,10 @@
 
 	let isTeacherOwner = $state(false);
 	let saveMessage = $state('');
-        let imageProcessingStatus = $state('');
-        let showImageModal = $state(false);
+	let imageProcessingStatus = $state('');
+	let showImageModal = $state(false);
 	let modalImageSrc = $state('');
 	let modalImageAlt = $state('');
-
-	function shuffle(arr) {
-		// Fisher-Yates shuffle for better randomness
-		for (let i = arr.length - 1; i > 0; i--) {
-			const j = Math.floor(Math.random() * (i + 1));
-			[arr[i], arr[j]] = [arr[j], arr[i]];
-		}
-		return arr;
-	}
-
-	function shuffleWithinSections(questions) {
-		if (!questions || questions.length === 0) {
-			return [];
-		}
-
-                const sections = [];
-                const sectionMap = Object.create(null);
-
-		// Group questions by section, preserving order
-		for (const question of questions) {
-			// Questions from the server expose `section_name`; support legacy `section_title` too
-			const sectionName = question.section_name || question.section_title || 'Default Section';
-                        if (!sectionMap[sectionName]) {
-                                const newSection = { title: sectionName, questions: [] };
-                                sections.push(newSection);
-                                sectionMap[sectionName] = newSection;
-                        }
-                        sectionMap[sectionName].questions.push(question);
-		}
-
-		// Shuffle questions within each section
-		for (const section of sections) {
-			section.questions = shuffle(section.questions);
-		}
-
-		// Flatten the sections back into a single questions array
-		return sections.flatMap((section) => section.questions);
-	}
 
 	function openImageModal(src, alt) {
 		modalImageSrc = src;
@@ -83,13 +53,20 @@
 			isTeacherOwner = true;
 		}
 
-		// Only randomize questions for students, keep in order for teachers
 		if ($user && $user.role === 'student') {
-			questions = shuffleWithinSections([...questions]);
+			questions = [];
+			const result = await startAttempt(fetch, {
+				testId: test.id,
+				studentId: $user.id,
+				studentName: $user.name
+			});
+			attemptId = result.attemptId;
+			questions = result.questions || [];
+			totalPoints = questions.reduce((s, q) => s + (q.points ?? 1), 0);
 		}
 
 		// Check if any questions need client-side image processing
-                const questionsNeeding = questions.filter((q) => q.needs_image_processing);
+		const questionsNeeding = questions.filter((q) => q.needs_image_processing);
 
 		if (questionsNeeding.length > 0) {
 			imageProcessingStatus = `Processing images for ${questionsNeeding.length} questions...`;
@@ -125,7 +102,7 @@
 				await new Promise((resolve) => setTimeout(resolve, 10));
 			}
 
-                        imageProcessingStatus = '';
+			imageProcessingStatus = '';
 		}
 	});
 
@@ -154,43 +131,19 @@
 	}
 
 	async function submit() {
-		const answers = [];
-		let autoScore = 0;
-		let hasLong = false;
 		totalPoints = questions.reduce((s, q) => s + (q.points ?? 1), 0);
-		for (const q of questions) {
-			if (!q.choices.length) {
-				hasLong = true;
-				answers.push({ questionId: q.id, answerText: q.response });
-				continue;
-			}
-			const choice = q.choices.find((c) => c.id == q.selected);
-			const correct = !!choice?.is_correct;
-			if (correct) autoScore += q.points;
-			answers.push({
-				questionId: q.id,
-				choiceId: q.selected,
-				isCorrect: correct,
-				points: q.points
-			});
-		}
-		score = hasLong ? null : autoScore;
 		submitted = true;
 		try {
-			await submitAttempt(fetch, {
-				testId: test.id,
-				studentId: $user.id,
-				studentName: $user.name,
-				answers
-			});
+			const res = await submitAttempt(fetch, { attemptId });
+			score = res.score;
 			submitError = '';
 		} catch (err) {
 			console.error('Submission error:', err);
 			submitError = `Submission failed: ${err.message}. Please try again or contact your teacher.`;
-			// Don't prevent the UI from showing submitted state, but show the error
 		}
 	}
 </script>
+
 <main class="container">
 	{#if error}
 		<p class="info-message">{error}</p>
@@ -211,14 +164,19 @@
 								</label> -->
 								<span class="question-id">ID: {q.id}</span>
 							</div>
-							<textarea id={`question-text-${q.id}`} bind:value={q.text} rows="3" class="question-textarea"></textarea>
+							<textarea
+								id={`question-text-${q.id}`}
+								bind:value={q.text}
+								rows="3"
+								class="question-textarea"
+							></textarea>
 							{#if q.processed_question_text && q.processed_question_text !== q.text}
 								<div class="question-preview">
 									<label>Preview:</label>
-                                                                        <div class="preview-content" onclick={handleImageClick}>
-                                                                                <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                                                                                {@html q.processed_question_text}
-                                                                        </div>
+									<div class="preview-content" onclick={handleImageClick}>
+										<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+										{@html q.processed_question_text}
+									</div>
 								</div>
 							{/if}
 						</div>
@@ -254,9 +212,9 @@
 						{#each questions as q, i (q.id)}
 							<div class="question">
 								<div class="question-text">
-                                                                        {i + 1}.
-                                                                        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-                                                                        {@html q.processed_question_text || q.text}
+									{i + 1}.
+									<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+									{@html q.processed_question_text || q.text}
 								</div>
 								{#if q.choices.length}
 									{#each q.choices as c, choiceIndex (c.id)}
@@ -265,7 +223,15 @@
 												type="radio"
 												name={`q${q.id}`}
 												value={c.id}
-												onchange={() => (q.selected = c.id)}
+												checked={q.selected == c.id}
+												onchange={() => {
+													q.selected = c.id;
+													saveAttemptAnswer(fetch, {
+														attemptId,
+														questionId: q.id,
+														choiceId: c.id
+													});
+												}}
 											/>
 											<span class="choice-label">{String.fromCharCode(97 + choiceIndex)}.</span>
 											{c.text}
@@ -280,6 +246,12 @@
 											placeholder="Type your detailed answer here..."
 											class="long-response-textarea"
 											rows="6"
+											on:blur={() =>
+												saveAttemptAnswer(fetch, {
+													attemptId,
+													questionId: q.id,
+													answerText: q.response
+												})}
 										></textarea>
 										<div class="character-count">
 											{q.response?.length || 0} characters

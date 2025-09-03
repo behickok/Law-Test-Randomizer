@@ -231,100 +231,207 @@ export async function updateChoice(fetch, { choiceId, text, isCorrect, teacherId
 	return query(fetch, sql);
 }
 
-export async function submitAttempt(fetch, { testId, studentId, studentName, answers }) {
+function shuffle(array) {
+	const shuffled = [...array];
+	for (let i = shuffled.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+	}
+	return shuffled;
+}
+
+async function processQuestionsWithImagesOptimized(fetch, questions) {
+	// simplified version: just set processed_question_text
+	for (const q of questions) {
+		q.processed_question_text = q.text || q.question_text;
+	}
+	return;
+}
+
+export async function startAttempt(fetch, { testId, studentId, studentName }) {
 	const cleanTestId = validateNumeric(testId);
 	const cleanStudentId = validateNumeric(studentId);
 	const cleanStudentName = validateString(studentName);
 
-	try {
-		const attemptRes = await query(
-			fetch,
-			`SELECT id FROM test_attempts WHERE test_id = ${cleanTestId} AND student_id = ${cleanStudentId} ORDER BY started_at DESC LIMIT 1`
-		);
-		const attemptId = Array.isArray(attemptRes) ? attemptRes[0]?.id : attemptRes?.data?.[0]?.id;
-
-		let id = attemptId;
-		if (!id) {
-			const insertRes = await query(
-				fetch,
-				`INSERT INTO test_attempts (test_id, student_id, student_name) VALUES (${cleanTestId}, ${cleanStudentId}, '${escapeSql(cleanStudentName)}') RETURNING id`
-			);
-			id = Array.isArray(insertRes) ? insertRes[0]?.id : insertRes?.data?.[0]?.id;
-			if (!id) {
-				throw new Error('Failed to create test attempt');
-			}
-		} else {
-			await query(
-				fetch,
-				`UPDATE test_attempts SET student_name = '${escapeSql(cleanStudentName)}' WHERE id = ${id}`
-			);
-			await query(fetch, `DELETE FROM attempt_answers WHERE attempt_id = ${id}`);
-		}
-
-		let autoScore = 0;
-		let hasUngraded = false;
-
-		// Insert answers if provided
-		if (Array.isArray(answers) && answers.length > 0) {
-			const validAnswers = answers.filter((a) => {
-				// Skip answers with invalid question IDs
-				if (a.questionId == null || a.questionId === undefined || a.questionId === '') {
-					console.warn('Skipping answer with invalid question ID:', a);
-					return false;
-				}
-				return true;
-			});
-
-			if (validAnswers.length > 0) {
-				const values = validAnswers
-					.map((a) => {
-						try {
-							const qId = validateNumeric(a.questionId);
-							if (a.answerText !== undefined) {
-								hasUngraded = true;
-								const txt = escapeSql(validateString(a.answerText));
-								return `(${id}, ${qId}, NULL, NULL, '${txt}', NULL)`;
-							}
-							const cId = validateNumeric(a.choiceId);
-							const isCorr = validateBoolean(!!a.isCorrect);
-							const pts = validateNumeric(a.points ?? 0);
-							if (isCorr) autoScore += pts;
-							return `(${id}, ${qId}, ${cId}, ${isCorr ? 'TRUE' : 'FALSE'}, NULL, ${isCorr ? pts : 0})`;
-						} catch (error) {
-							console.error('Error processing answer:', a, error);
-							return null;
-						}
-					})
-					.filter((v) => v !== null)
-					.join(', ');
-
-				if (values) {
-					await query(
-						fetch,
-						`INSERT INTO attempt_answers (attempt_id, question_id, choice_id, is_correct, answer_text, points_awarded) VALUES ${values}`
-					);
-				}
-			}
-		}
-
-		// Update test attempt with score and completion timestamp
-		const scoreValue = hasUngraded ? 'NULL' : autoScore;
-		const updateResult = await query(
-			fetch,
-			`UPDATE test_attempts SET score = ${scoreValue}, completed_at = CURRENT_TIMESTAMP WHERE id = ${id}`
-		);
-
-		// Verify the update was successful
-		if (!updateResult && updateResult !== 0) {
-			console.error('Failed to update test attempt completion status');
-			// Still return the id so the student sees their submission, but log the error
-		}
-
-		return id;
-	} catch (error) {
-		console.error('Error in submitAttempt:', error);
-		throw new Error(`Failed to submit test attempt: ${error.message}`);
+	const tRes = await query(
+		fetch,
+		`select id, title, teacher_id from tests where id = ${cleanTestId}`
+	);
+	const test = Array.isArray(tRes) ? tRes[0] : tRes?.data?.[0];
+	if (!test) {
+		throw new Error('Test not found');
 	}
+
+	// get existing attempt if any
+	const attemptRes = await query(
+		fetch,
+		`SELECT id FROM test_attempts WHERE test_id = ${cleanTestId} AND student_id = ${cleanStudentId} AND completed_at IS NULL ORDER BY started_at DESC LIMIT 1`
+	);
+	let attemptId = Array.isArray(attemptRes) ? attemptRes[0]?.id : attemptRes?.data?.[0]?.id;
+
+	const sectionsRes = await query(
+		fetch,
+		`select id, section_name, section_order, total_questions from sections where test_id = ${cleanTestId} order by section_order`
+	);
+	const sections = Array.isArray(sectionsRes) ? sectionsRes : (sectionsRes?.data ?? []);
+
+	if (attemptId) {
+		const qRes = await query(
+			fetch,
+			`select aa.id as attempt_answer_id, q.id as question_id, q.question_text, q.points, q.section_id,
+                                s.section_name, s.section_order, s.total_questions,
+                                c.id as choice_id, c.choice_text, c.is_correct,
+                                aa.choice_id as selected_choice, aa.answer_text
+                         from attempt_answers aa
+                         join questions q on q.id = aa.question_id
+                         left join sections s on q.section_id = s.id
+                         left join choices c on c.question_id = q.id
+                         where aa.attempt_id = ${attemptId}
+                         order by aa.id, c.id`
+		);
+
+		const questionsMap = new Map();
+		for (const row of qRes) {
+			if (!questionsMap.has(row.question_id)) {
+				questionsMap.set(row.question_id, {
+					id: row.question_id,
+					text: row.question_text,
+					processed_question_text: row.question_text,
+					points: row.points || 1,
+					section_id: row.section_id,
+					section_name: row.section_name || 'Default Section',
+					section_order: row.section_order || 1,
+					total_questions: row.total_questions || 999,
+					choices: [],
+					selected: row.selected_choice,
+					response: row.answer_text
+				});
+			}
+			if (row.choice_id) {
+				questionsMap.get(row.question_id).choices.push({
+					id: row.choice_id,
+					text: row.choice_text,
+					is_correct: row.is_correct
+				});
+			}
+		}
+		const questions = Array.from(questionsMap.values());
+                await processQuestionsWithImagesOptimized(fetch, questions);
+		return { attemptId, test, questions, sections };
+	}
+
+	// no existing attempt: build questions and randomize
+	const qRes = await query(
+		fetch,
+		`select q.id as question_id, q.question_text, q.points, q.section_id,
+                        s.section_name, s.section_order, s.total_questions,
+                        c.id as choice_id, c.choice_text, c.is_correct
+                 from questions q
+                 left join sections s on q.section_id = s.id
+                 left join choices c on q.id = c.question_id
+                 where q.test_id = ${cleanTestId}
+                 order by s.section_order, q.id, c.id`
+	);
+
+	const questionsMap = new Map();
+	for (const r of qRes) {
+		if (!questionsMap.has(r.question_id)) {
+			questionsMap.set(r.question_id, {
+				id: r.question_id,
+				text: r.question_text,
+				processed_question_text: r.question_text,
+				points: r.points || 1,
+				section_id: r.section_id,
+				section_name: r.section_name || 'Default Section',
+				section_order: r.section_order || 1,
+				total_questions: r.total_questions || 999,
+				choices: [],
+				selected: null,
+				response: null
+			});
+		}
+		if (r.choice_id) {
+			questionsMap.get(r.question_id).choices.push({
+				id: r.choice_id,
+				text: r.choice_text,
+				is_correct: r.is_correct
+			});
+		}
+	}
+
+	const sectionGroups = new Map();
+	for (const question of questionsMap.values()) {
+		const key = question.section_id || 'default';
+		if (!sectionGroups.has(key)) {
+			sectionGroups.set(key, {
+				name: question.section_name,
+				order: question.section_order,
+				total_questions: question.total_questions,
+				questions: []
+			});
+		}
+		sectionGroups.get(key).questions.push(question);
+	}
+
+	const finalQuestions = [];
+	const sortedSections = Array.from(sectionGroups.values()).sort((a, b) => a.order - b.order);
+	for (const section of sortedSections) {
+		const shuffledQuestions = shuffle(section.questions);
+		const selectedQuestions = shuffledQuestions.slice(0, section.total_questions);
+		finalQuestions.push(...selectedQuestions);
+	}
+
+	const insertRes = await query(
+		fetch,
+		`INSERT INTO test_attempts (test_id, student_id, student_name) VALUES (${cleanTestId}, ${cleanStudentId}, '${escapeSql(cleanStudentName)}') RETURNING id`
+	);
+	attemptId = Array.isArray(insertRes) ? insertRes[0]?.id : insertRes?.data?.[0]?.id;
+
+	if (!attemptId) {
+		throw new Error('Failed to create test attempt');
+	}
+
+	const values = finalQuestions.map((q) => `(${attemptId}, ${q.id})`).join(', ');
+	if (values) {
+		await query(fetch, `INSERT INTO attempt_answers (attempt_id, question_id) VALUES ${values}`);
+	}
+
+        await processQuestionsWithImagesOptimized(fetch, finalQuestions);
+
+	return { attemptId, test, questions: finalQuestions, sections };
+}
+
+export async function saveAttemptAnswer(fetch, { attemptId, questionId, choiceId, answerText }) {
+	const cleanAttemptId = validateNumeric(attemptId);
+	const cleanQuestionId = validateNumeric(questionId);
+	const choicePart = choiceId == null ? 'NULL' : validateNumeric(choiceId);
+	const answerPart = answerText == null ? 'NULL' : `'${escapeSql(validateString(answerText))}'`;
+	const sql = `UPDATE attempt_answers SET choice_id = ${choicePart}, answer_text = ${answerPart}, is_correct = NULL, points_awarded = NULL WHERE attempt_id = ${cleanAttemptId} AND question_id = ${cleanQuestionId}`;
+	return query(fetch, sql);
+}
+
+export async function submitAttempt(fetch, { attemptId }) {
+	const cleanAttemptId = validateNumeric(attemptId);
+
+	await query(
+		fetch,
+		`UPDATE attempt_answers aa SET is_correct = c.is_correct, points_awarded = CASE WHEN c.is_correct THEN q.points ELSE 0 END FROM choices c JOIN questions q ON q.id = aa.question_id WHERE aa.attempt_id = ${cleanAttemptId} AND aa.choice_id = c.id`
+	);
+
+	await query(
+		fetch,
+		`UPDATE test_attempts SET score = (
+                        SELECT CASE
+                                WHEN EXISTS (SELECT 1 FROM attempt_answers WHERE attempt_id = ${cleanAttemptId} AND points_awarded IS NULL) THEN NULL
+                                ELSE COALESCE(SUM(points_awarded),0)
+                        END
+                        FROM attempt_answers WHERE attempt_id = ${cleanAttemptId}
+                ), completed_at = CURRENT_TIMESTAMP WHERE id = ${cleanAttemptId}`
+	);
+
+	const res = await query(fetch, `SELECT score FROM test_attempts WHERE id = ${cleanAttemptId}`);
+	const score = Array.isArray(res) ? res[0]?.score : res?.data?.[0]?.score;
+	return { id: cleanAttemptId, score };
 }
 
 // Public signup functions (no authentication required)
@@ -544,11 +651,11 @@ export function parseQuestionTemplate(questionText, imageMap = {}) {
 	// Replace template variables like {{image_name}} with actual image references
 	console.log('🔄 Processing question template:', questionText);
 	console.log('🗂️ Available images in imageMap:', Object.keys(imageMap));
-	
+
 	return questionText.replace(/\{\{([^}]+)\}\}/g, (match, imageName) => {
 		const cleanImageName = imageName.trim();
 		console.log(`🔍 Found template: "${match}" -> cleaned name: "${cleanImageName}"`);
-		
+
 		if (imageMap[cleanImageName]) {
 			console.log(`✅ Image found for "${cleanImageName}":`, {
 				id: imageMap[cleanImageName].id,
@@ -556,22 +663,25 @@ export function parseQuestionTemplate(questionText, imageMap = {}) {
 				hasBase64: !!imageMap[cleanImageName].base64_data,
 				base64Length: imageMap[cleanImageName].base64_data?.length
 			});
-			
+
 			const image = imageMap[cleanImageName];
-			const src = image.base64_data.startsWith('data:') 
-				? image.base64_data 
+			const src = image.base64_data.startsWith('data:')
+				? image.base64_data
 				: `data:${image.mime_type};base64,${image.base64_data}`;
-			
+
 			console.log(`🖼️ Generated image tag for "${cleanImageName}":`, {
 				imageId: image.id,
 				mimeType: image.mime_type,
 				srcLength: src.length,
 				srcPreview: src.substring(0, 50) + '...'
 			});
-				
+
 			return `<img src="${src}" alt="${image.description || cleanImageName}" class="question-image" data-image-id="${image.id}" />`;
 		} else {
-			console.warn(`❌ Image NOT found for "${cleanImageName}". Available images:`, Object.keys(imageMap));
+			console.warn(
+				`❌ Image NOT found for "${cleanImageName}". Available images:`,
+				Object.keys(imageMap)
+			);
 			return match; // Keep original template if image not found
 		}
 	});
@@ -580,7 +690,7 @@ export function parseQuestionTemplate(questionText, imageMap = {}) {
 export async function processQuestionWithImages(fetch, { questionText, teacherId }) {
 	console.log('🚀 Starting processQuestionWithImages for teacher:', teacherId);
 	console.log('📝 Question text:', questionText);
-	
+
 	const cleanTeacherId = validateNumeric(teacherId);
 
 	// Validate question text
@@ -594,7 +704,10 @@ export async function processQuestionWithImages(fetch, { questionText, teacherId
 
 	// Extract template variables from question text
 	const templateMatches = [...questionText.matchAll(/\{\{([^}]+)\}\}/g)];
-	console.log('🔍 Found template matches:', templateMatches.map(m => m[0]));
+	console.log(
+		'🔍 Found template matches:',
+		templateMatches.map((m) => m[0])
+	);
 
 	if (templateMatches.length === 0) {
 		console.log('ℹ️ No image templates found in question text');
@@ -609,8 +722,11 @@ export async function processQuestionWithImages(fetch, { questionText, teacherId
 		console.log('📥 Fetching teacher images...');
 		const teacherImages = await getTeacherImages(fetch, cleanTeacherId);
 		console.log('🖼️ Teacher images loaded:', teacherImages?.length || 0);
-		console.log('📋 Teacher image names:', (teacherImages || []).map(img => img.name));
-		
+		console.log(
+			'📋 Teacher image names:',
+			(teacherImages || []).map((img) => img.name)
+		);
+
 		const imageMap = {};
 
 		// Create lookup map by image name
