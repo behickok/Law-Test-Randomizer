@@ -4,14 +4,14 @@
 	import { query, signupTeacher, signupStudent, signupReviewer } from '$lib/api';
 	import { PUBLIC_PASSPHRASE } from '$env/static/public';
 
-	let pin = '';
-	let name = '';
-	let email = '';
-	let error = '';
-	let isLoading = false;
-	let mode = 'login'; // 'login', 'signup'
-	let signupRole = 'student'; // 'student', 'teacher', 'reviewer'
-	let loginRole = ''; // Required role selection for login
+	let pin = $state('');
+	let name = $state('');
+	let email = $state('');
+	let error = $state('');
+	let isLoading = $state(false);
+	let mode = $state('login'); // 'login', 'signup'
+	let signupRole = $state('student'); // 'student', 'teacher', 'reviewer'
+	let loginRole = $state(''); // Required role selection for login
 
 	async function login() {
 		error = '';
@@ -214,7 +214,7 @@
 			{:else}
 				<!-- Signup form content -->
 			{/if}
-			
+
 			{#if mode === 'signup'}
 				<div class="input-group">
 					<label for="name-input">Full Name</label>
