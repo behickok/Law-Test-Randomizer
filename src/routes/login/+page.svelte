@@ -1,19 +1,27 @@
 <script>
 	import { goto } from '$app/navigation';
 	import { user } from '$lib/user';
-	import { query, signupTeacher, signupStudent } from '$lib/api';
+	import { query, signupTeacher, signupStudent, signupReviewer } from '$lib/api';
 	import { PUBLIC_PASSPHRASE } from '$env/static/public';
 
 	let pin = '';
 	let name = '';
+	let email = '';
 	let error = '';
 	let isLoading = false;
 	let mode = 'login'; // 'login', 'signup'
-	let signupRole = 'student'; // 'student', 'teacher'
+	let signupRole = 'student'; // 'student', 'teacher', 'reviewer'
+	let loginRole = ''; // Required role selection for login
 
 	async function login() {
 		error = '';
 		isLoading = true;
+
+		if (!loginRole) {
+			error = 'Please select your role';
+			isLoading = false;
+			return;
+		}
 
 		if (!/^\d+$/.test(pin)) {
 			error = 'PIN must be numeric';
@@ -29,27 +37,32 @@
 				};
 				return fetch(input, init);
 			};
-			const teacher = await query(
-				authedFetch,
-				`SELECT id, name, 'teacher' as role FROM teachers WHERE pin = '${pin}'`
-			);
-			if (teacher.length > 0) {
-				$user = teacher[0];
+
+			let result;
+			if (loginRole === 'teacher') {
+				result = await query(
+					authedFetch,
+					`SELECT id, name, 'teacher' as role FROM teachers WHERE pin = '${pin}'`
+				);
+			} else if (loginRole === 'student') {
+				result = await query(
+					authedFetch,
+					`SELECT id, name, 'student' as role FROM students WHERE pin = '${pin}'`
+				);
+			} else if (loginRole === 'reviewer') {
+				result = await query(
+					authedFetch,
+					`SELECT id, name, email, 'reviewer' as role FROM reviewers WHERE pin = '${pin}' AND is_active = TRUE`
+				);
+			}
+
+			if (result && result.length > 0) {
+				$user = result[0];
 				goto('/');
 				return;
 			}
 
-			const student = await query(
-				authedFetch,
-				`SELECT id, name, 'student' as role FROM students WHERE pin = '${pin}'`
-			);
-			if (student.length > 0) {
-				$user = student[0];
-				goto('/');
-				return;
-			}
-
-			error = 'Invalid PIN';
+			error = `Invalid PIN for ${loginRole}`;
 		} catch (e) {
 			error = e.message;
 		} finally {
@@ -63,6 +76,12 @@
 
 		if (!name.trim()) {
 			error = 'Name is required';
+			isLoading = false;
+			return;
+		}
+
+		if (signupRole === 'reviewer' && !email.trim()) {
+			error = 'Email is required for reviewers';
 			isLoading = false;
 			return;
 		}
@@ -91,6 +110,8 @@
 			let result;
 			if (signupRole === 'teacher') {
 				result = await signupTeacher(authedFetch, { name: name.trim(), pin });
+			} else if (signupRole === 'reviewer') {
+				result = await signupReviewer(authedFetch, { name: name.trim(), email: email.trim(), pin });
 			} else {
 				result = await signupStudent(authedFetch, { name: name.trim(), pin });
 			}
@@ -120,6 +141,9 @@
 		error = '';
 		pin = '';
 		name = '';
+		email = '';
+		loginRole = '';
+		signupRole = 'student';
 	}
 </script>
 
@@ -160,6 +184,37 @@
 		</div>
 
 		<form on:submit|preventDefault={mode === 'login' ? login : signup} class="auth-form">
+			{#if mode === 'login'}
+				<div class="input-group">
+					<label for="login-role-select">Select Your Role</label>
+					<div class="role-selector">
+						<label class="role-option">
+							<input type="radio" bind:group={loginRole} value="student" disabled={isLoading} />
+							<span class="role-label">
+								<span class="role-icon">👨‍🎓</span>
+								Student
+							</span>
+						</label>
+						<label class="role-option">
+							<input type="radio" bind:group={loginRole} value="teacher" disabled={isLoading} />
+							<span class="role-label">
+								<span class="role-icon">👨‍🏫</span>
+								Teacher
+							</span>
+						</label>
+						<label class="role-option">
+							<input type="radio" bind:group={loginRole} value="reviewer" disabled={isLoading} />
+							<span class="role-label">
+								<span class="role-icon">👨‍💼</span>
+								Reviewer
+							</span>
+						</label>
+					</div>
+				</div>
+			{:else}
+				<!-- Signup form content -->
+			{/if}
+			
 			{#if mode === 'signup'}
 				<div class="input-group">
 					<label for="name-input">Full Name</label>
@@ -195,8 +250,35 @@
 								Teacher
 							</span>
 						</label>
+						<label class="role-option">
+							<input type="radio" bind:group={signupRole} value="reviewer" disabled={isLoading} />
+							<span class="role-label">
+								<span class="role-icon">👨‍💼</span>
+								Reviewer
+							</span>
+						</label>
 					</div>
 				</div>
+
+				{#if signupRole === 'reviewer'}
+					<div class="input-group">
+						<label for="email-input">Email Address</label>
+						<div class="input-wrapper">
+							<input
+								id="email-input"
+								type="email"
+								bind:value={email}
+								on:input={handleInputChange}
+								placeholder="Enter your email address"
+								class:error
+								disabled={isLoading}
+								autocomplete="email"
+								required
+							/>
+							<div class="input-underline"></div>
+						</div>
+					</div>
+				{/if}
 			{/if}
 
 			<div class="input-group">

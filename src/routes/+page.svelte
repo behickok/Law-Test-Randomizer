@@ -14,11 +14,17 @@
 		getActiveTests,
 		gradeAttemptAnswer,
 		getTeacherImages,
-		processQuestionWithImages
+		processQuestionWithImages,
+		getReviewAssignments,
+		getReviewResults,
+		deleteReviewAssignment,
+		updateReviewAssignment
 	} from '$lib/api';
 	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 	import ImageManager from '$lib/components/ImageManager.svelte';
+	import ReviewAssignment from '$lib/components/ReviewAssignment.svelte';
+	import ReviewerDashboard from '$lib/components/ReviewerDashboard.svelte';
 
 	let { data } = $props();
 	const tests = writable(data.tests ?? []);
@@ -41,6 +47,18 @@
 	let imageManagerMode = $state('manage'); // 'manage' or 'select'
 	let selectedImages = $state([]);
 	let showTemplateModal = $state(false); // Modal visibility state
+
+	// Review system state
+	let showCreateReviewAssignment = $state(false);
+	let showReviewerDashboard = $state(false);
+	let reviewAssignments = $state([]);
+	let selectedReviewAssignment = $state(null);
+	let reviewResults = $state([]);
+	let showEditReviewAssignment = $state(false);
+	let editingAssignment = $state(null);
+	let editTitle = $state('');
+	let editDescription = $state('');
+	let expandedReviewResults = $state(new Set()); // Track expanded review result rows
 
 	async function handleUpload() {
 		if (!$user || $user.role !== 'teacher') {
@@ -477,6 +495,95 @@
 		}
 	}
 
+	// Review system functions
+	async function loadReviewAssignments() {
+		if (!$user || $user.role !== 'teacher') {
+			reviewAssignments = [];
+			return;
+		}
+		try {
+			const res = await getReviewAssignments(fetch, $user.id);
+			reviewAssignments = Array.isArray(res) ? res : (res?.data ?? []);
+		} catch (err) {
+			console.error('Error loading review assignments:', err);
+			reviewAssignments = [];
+		}
+	}
+
+	async function loadReviewResults(assignmentId) {
+		if (!$user || $user.role !== 'teacher') return;
+		
+		try {
+			const res = await getReviewResults(fetch, assignmentId);
+			reviewResults = Array.isArray(res) ? res : (res?.data ?? []);
+		} catch (err) {
+			console.error('Error loading review results:', err);
+			reviewResults = [];
+		}
+	}
+
+	function handleReviewAssignmentCreated(event) {
+		loadReviewAssignments();
+		showCreateReviewAssignment = false;
+	}
+	
+	function editReviewAssignment(assignment) {
+		editingAssignment = assignment;
+		editTitle = assignment.assignment_title;
+		editDescription = assignment.description || '';
+		showEditReviewAssignment = true;
+	}
+	
+	async function saveReviewAssignmentEdit() {
+		if (!editingAssignment || !editTitle.trim()) return;
+		
+		try {
+			await updateReviewAssignment(fetch, {
+				assignmentId: editingAssignment.assignment_id,
+				teacherId: $user.id,
+				title: editTitle.trim(),
+				description: editDescription.trim()
+			});
+			
+			// Refresh the assignments list
+			await loadReviewAssignments();
+			
+			// Close the edit modal
+			showEditReviewAssignment = false;
+			editingAssignment = null;
+			editTitle = '';
+			editDescription = '';
+		} catch (err) {
+			console.error('Error updating review assignment:', err);
+			alert('Failed to update assignment: ' + err.message);
+		}
+	}
+	
+	async function deleteReviewAssignmentHandler(assignmentId) {
+		if (!confirm('Are you sure you want to delete this review assignment? This will delete all associated question reviews.')) {
+			return;
+		}
+		
+		try {
+			await deleteReviewAssignment(fetch, assignmentId, $user.id);
+			
+			// Refresh the assignments list
+			await loadReviewAssignments();
+		} catch (err) {
+			console.error('Error deleting review assignment:', err);
+			alert('Failed to delete assignment: ' + err.message);
+		}
+	}
+
+	function toggleReviewResultExpansion(questionId) {
+		if (expandedReviewResults.has(questionId)) {
+			expandedReviewResults.delete(questionId);
+		} else {
+			expandedReviewResults.add(questionId);
+		}
+		expandedReviewResults = expandedReviewResults; // Trigger reactivity
+	}
+
 	function showImageManagerModal() {
 		imageManagerMode = 'manage';
 		showImageManager = true;
@@ -501,6 +608,7 @@
 		loadTeacherImages();
 		if ($user?.role === 'teacher') {
 			loadTeacherResults();
+			loadReviewAssignments();
 		}
 		if ($user?.role === 'student') {
 			loadStudentResults();
@@ -1213,10 +1321,105 @@
 								{/if}
 							</div>
 						</section>
+
+						<!-- Review Assignment Management Section -->
+						<section class="card review-management-card">
+							<div class="card-header">
+								<h2 class="card-title">
+									<span class="section-icon">👥</span>
+									Question Review Management
+								</h2>
+							</div>
+							<div class="card-content">
+								<div class="review-actions">
+									<button 
+										class="btn btn-primary"
+										onclick={() => showCreateReviewAssignment = true}
+									>
+										<span class="btn-icon">➕</span>
+										Create Review Assignment
+									</button>
+									<button 
+										class="btn btn-secondary"
+										onclick={() => showReviewerDashboard = true}
+									>
+										<span class="btn-icon">📝</span>
+										My Reviews
+									</button>
+								</div>
+
+								{#if reviewAssignments.length > 0}
+									<div class="review-assignments">
+										<h4>Your Review Assignments</h4>
+										<div class="assignments-list">
+											{#each reviewAssignments as assignment (assignment.assignment_id)}
+												<div class="assignment-item">
+													<div class="assignment-info">
+														<h5>{assignment.assignment_title}</h5>
+														<div class="assignment-meta">
+															<span>Test: {assignment.test_title}</span>
+															<span>Status: {assignment.assignment_status}</span>
+														</div>
+													</div>
+													<div class="assignment-progress">
+														<div class="progress-stats">
+															<span>{assignment.reviews_completed}/{assignment.total_reviews_assigned} completed</span>
+															{#if assignment.avg_rating}
+																<span>Avg Rating: {assignment.avg_rating}/5</span>
+															{/if}
+														</div>
+														<div class="assignment-actions">
+															<button 
+																class="btn btn-sm btn-outline"
+																onclick={() => loadReviewResults(assignment.assignment_id)}
+															>
+																View Results
+															</button>
+															<button 
+																class="btn btn-sm btn-secondary"
+																onclick={() => editReviewAssignment(assignment)}
+															>
+																Edit
+															</button>
+															<button 
+																class="btn btn-sm btn-danger"
+																onclick={() => deleteReviewAssignmentHandler(assignment.assignment_id)}
+															>
+																Delete
+															</button>
+														</div>
+													</div>
+												</div>
+											{/each}
+										</div>
+									</div>
+								{:else}
+									<div class="empty-state">
+										<span class="empty-icon">👥</span>
+										<p>No review assignments yet. Create one to have other teachers review your test questions.</p>
+									</div>
+								{/if}
+							</div>
+						</section>
 					</div>
 					<!-- Close dashboard-grid -->
 				</div>
 				<!-- Close teacher-dashboard -->
+			{/if}
+
+			{#if $user.role === 'reviewer'}
+				<div class="dashboard reviewer-dashboard">
+					<div class="dashboard-header">
+						<h1 class="dashboard-title">
+							<span class="title-icon">👨‍💼</span>
+							Reviewer Dashboard
+						</h1>
+						<p class="dashboard-subtitle">Welcome, {$user.name}! Review questions and provide feedback.</p>
+					</div>
+					
+					<!-- Reviewer Dashboard Content -->
+					<ReviewerDashboard />
+				</div>
 			{/if}
 
 			{#if $user.role === 'student'}
@@ -1349,6 +1552,191 @@
 					on:imageDeleted={handleImageDeleted}
 					on:selectionChanged={(e) => (selectedImages = e.detail)}
 				/>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Review Assignment Modal -->
+<ReviewAssignment 
+	bind:visible={showCreateReviewAssignment}
+	on:assignmentCreated={handleReviewAssignmentCreated}
+/>
+
+<!-- Edit Review Assignment Modal -->
+{#if showEditReviewAssignment}
+	<div class="modal-overlay" onclick={() => showEditReviewAssignment = false}>
+		<div class="modal edit-assignment-modal" onclick={(e) => e.stopPropagation()}>
+			<div class="modal-header">
+				<h2>Edit Review Assignment</h2>
+				<button class="modal-close" onclick={() => showEditReviewAssignment = false}>
+					<span class="close-icon">&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<div class="form-group">
+					<label for="edit-title">Assignment Title</label>
+					<input
+						id="edit-title"
+						type="text"
+						bind:value={editTitle}
+						placeholder="Assignment title"
+						class="form-input"
+					/>
+				</div>
+				
+				<div class="form-group">
+					<label for="edit-description">Description</label>
+					<textarea
+						id="edit-description"
+						bind:value={editDescription}
+						placeholder="Optional description"
+						rows="3"
+						class="form-input"
+					></textarea>
+				</div>
+				
+				<div class="modal-actions">
+					<button 
+						class="btn btn-secondary" 
+						onclick={() => showEditReviewAssignment = false}
+					>
+						Cancel
+					</button>
+					<button 
+						class="btn btn-primary" 
+						onclick={saveReviewAssignmentEdit}
+						disabled={!editTitle.trim()}
+					>
+						Save Changes
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Reviewer Dashboard Modal -->
+{#if showReviewerDashboard}
+	<div class="modal-overlay" onclick={() => showReviewerDashboard = false}>
+		<div class="modal reviewer-dashboard-modal" onclick={(e) => e.stopPropagation()}>
+			<div class="modal-header">
+				<h2>Review Questions</h2>
+				<button class="modal-close" onclick={() => showReviewerDashboard = false}>
+					<span class="close-icon">&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<ReviewerDashboard />
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Review Results Modal -->
+{#if reviewResults.length > 0}
+	<div class="modal-overlay" onclick={() => reviewResults = []}>
+		<div class="modal review-results-modal" onclick={(e) => e.stopPropagation()}>
+			<div class="modal-header">
+				<h2>Review Results</h2>
+				<button class="modal-close" onclick={() => reviewResults = []}>
+					<span class="close-icon">&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<div class="review-results">
+					<div class="results-summary">
+						<h3>Question Review Summary</h3>
+						<p>{reviewResults.length} questions reviewed</p>
+					</div>
+					
+					<div class="review-results-list">
+						{#each reviewResults as result, index}
+							<div class="review-result-card">
+								<div class="result-header">
+									<div class="question-info">
+										<div class="question-preview">
+											{result.question_text.length > 120 
+												? result.question_text.substring(0, 120) + '...' 
+												: result.question_text}
+										</div>
+										<div class="question-meta">
+											<span class="question-points">{result.points} pts</span>
+											<span class="review-count">{result.completed_reviews}/{result.total_reviews} reviews</span>
+										</div>
+									</div>
+									<div class="result-actions">
+										<button 
+											class="expand-details-btn" 
+											onclick={() => toggleReviewResultExpansion(index)}
+											type="button"
+										>
+											{expandedReviewResults.has(index) ? '↑ Less' : '↓ More'}
+										</button>
+									</div>
+								</div>
+								
+								<div class="result-summary">
+									<div class="primary-feedback">
+										<div class="rating-section">
+											{#if result.avg_rating}
+												<div class="rating-display">
+													<span class="rating-score">{result.avg_rating}/5</span>
+													<div class="stars">
+														{'★'.repeat(Math.round(result.avg_rating))}{'☆'.repeat(5 - Math.round(result.avg_rating))}
+													</div>
+												</div>
+											{:else}
+												<div class="no-rating">No rating</div>
+											{/if}
+										</div>
+										
+										<div class="feedback-section">
+											{#if result.all_feedback && result.all_feedback.trim()}
+												<div class="feedback-preview">
+													<strong>Feedback:</strong>
+													<div class="feedback-text">
+														{result.all_feedback.split(' | ').join(' • ')}
+													</div>
+												</div>
+											{:else}
+												<div class="no-feedback">No feedback provided</div>
+											{/if}
+										</div>
+									</div>
+								</div>
+								
+								{#if expandedReviewResults.has(index)}
+									<div class="result-details">
+										<div class="detailed-ratings">
+											<div class="detail-item">
+												<span class="detail-label">Difficulty:</span>
+												<span class="detail-value">{result.avg_difficulty || 'Not rated'}</span>
+											</div>
+											<div class="detail-item">
+												<span class="detail-label">Clarity:</span>
+												<span class="detail-value">{result.avg_clarity || 'Not rated'}</span>
+											</div>
+											<div class="detail-item">
+												<span class="detail-label">Relevance:</span>
+												<span class="detail-value">{result.avg_relevance || 'Not rated'}</span>
+											</div>
+										</div>
+										
+										{#if result.all_suggestions && result.all_suggestions.trim()}
+											<div class="suggestions-section">
+												<strong>Suggestions:</strong>
+												<div class="suggestions-text">
+													{result.all_suggestions.split(' | ').join(' • ')}
+												</div>
+											</div>
+										{/if}
+									</div>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -3049,5 +3437,453 @@
 
 	.explanation-text.warning {
 		color: #d97706;
+	}
+
+	/* Review System Styles */
+	.review-management-card .card-header {
+		background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(124, 58, 237, 0.05));
+	}
+
+	.review-actions {
+		display: flex;
+		gap: 1rem;
+		margin-bottom: 2rem;
+	}
+
+	.review-assignments h4 {
+		margin: 0 0 1rem 0;
+		color: #374151;
+		font-weight: 600;
+	}
+
+	.assignments-list {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.assignment-item {
+		background: #f9fafb;
+		border: 2px solid #e5e7eb;
+		border-radius: 8px;
+		padding: 1.5rem;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		transition: all 0.2s;
+	}
+
+	.assignment-item:hover {
+		border-color: #d1d5db;
+		background: #f3f4f6;
+	}
+
+	.assignment-info h5 {
+		margin: 0 0 0.5rem 0;
+		font-size: 1.1rem;
+		font-weight: 600;
+		color: #1f2937;
+	}
+
+	.assignment-meta {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		font-size: 0.875rem;
+		color: #6b7280;
+	}
+
+	.assignment-progress {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: 0.5rem;
+	}
+
+	.assignment-actions {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+
+	/* New Review Results Card Styling */
+	.review-results-list {
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+		margin-top: 1.5rem;
+	}
+
+	.review-result-card {
+		background: linear-gradient(135deg, #ffffff, #f8fafc);
+		border: 2px solid #e5e7eb;
+		border-radius: 12px;
+		padding: 1.5rem;
+		transition: all 0.3s ease;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+	}
+
+	.review-result-card:hover {
+		border-color: #d1d5db;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+		transform: translateY(-1px);
+	}
+
+	.result-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		margin-bottom: 1rem;
+		padding-bottom: 1rem;
+		border-bottom: 1px solid #f3f4f6;
+	}
+
+	.question-info {
+		flex: 1;
+	}
+
+	.review-result-card .question-preview {
+		font-size: 1rem;
+		line-height: 1.5;
+		color: #374151;
+		margin-bottom: 0.75rem;
+		font-weight: 500;
+	}
+
+	.question-meta {
+		display: flex;
+		gap: 1rem;
+		align-items: center;
+	}
+
+	.review-result-card .question-points {
+		font-size: 0.85rem;
+		color: #1e40af;
+		font-weight: 600;
+		background: #dbeafe;
+		padding: 0.25rem 0.75rem;
+		border-radius: 12px;
+	}
+
+	.review-count {
+		font-size: 0.85rem;
+		color: #6b7280;
+		font-weight: 500;
+	}
+
+	.result-actions {
+		display: flex;
+		align-items: center;
+	}
+
+	.expand-details-btn {
+		background: #f3f4f6;
+		border: 1px solid #d1d5db;
+		color: #374151;
+		padding: 0.5rem 0.75rem;
+		border-radius: 6px;
+		cursor: pointer;
+		font-size: 0.85rem;
+		font-weight: 500;
+		transition: all 0.2s;
+	}
+
+	.expand-details-btn:hover {
+		background: #e5e7eb;
+		border-color: #9ca3af;
+	}
+
+	.result-summary {
+		margin-bottom: 1rem;
+	}
+
+	.primary-feedback {
+		display: flex;
+		gap: 2rem;
+		align-items: flex-start;
+	}
+
+	.rating-section {
+		min-width: 120px;
+	}
+
+	.review-result-card .rating-display {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.rating-score {
+		font-size: 1.1rem;
+		font-weight: 700;
+		color: #1f2937;
+	}
+
+	.review-result-card .rating-display .stars {
+		font-size: 1.2rem;
+		color: #fbbf24;
+		letter-spacing: 1px;
+	}
+
+	.no-rating {
+		text-align: center;
+		color: #9ca3af;
+		font-size: 0.9rem;
+		font-style: italic;
+		padding: 1rem 0;
+	}
+
+	.feedback-section {
+		flex: 1;
+	}
+
+	.feedback-preview strong {
+		color: #374151;
+		font-size: 0.9rem;
+		margin-bottom: 0.5rem;
+		display: block;
+	}
+
+	.feedback-text {
+		background: #f9fafb;
+		border: 1px solid #e5e7eb;
+		border-radius: 6px;
+		padding: 0.75rem;
+		font-size: 0.9rem;
+		line-height: 1.4;
+		color: #4b5563;
+		max-height: 80px;
+		overflow-y: auto;
+	}
+
+	.no-feedback {
+		color: #9ca3af;
+		font-size: 0.9rem;
+		font-style: italic;
+		padding: 0.75rem;
+		text-align: center;
+		background: #f9fafb;
+		border-radius: 6px;
+	}
+
+	.result-details {
+		margin-top: 1rem;
+		padding-top: 1rem;
+		border-top: 1px solid #f3f4f6;
+		animation: slideDownResults 0.3s ease-out;
+	}
+
+	@keyframes slideDownResults {
+		from {
+			opacity: 0;
+			max-height: 0;
+		}
+		to {
+			opacity: 1;
+			max-height: 300px;
+		}
+	}
+
+	.detailed-ratings {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+		gap: 1rem;
+		margin-bottom: 1rem;
+	}
+
+	.detail-item {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0.75rem;
+		background: #f8fafc;
+		border-radius: 6px;
+		border: 1px solid #e2e8f0;
+	}
+
+	.detail-label {
+		font-weight: 600;
+		color: #374151;
+		font-size: 0.9rem;
+	}
+
+	.detail-value {
+		color: #6b7280;
+		font-size: 0.9rem;
+	}
+
+	.suggestions-section {
+		margin-top: 1rem;
+	}
+
+	.suggestions-section strong {
+		color: #374151;
+		font-size: 0.9rem;
+		margin-bottom: 0.5rem;
+		display: block;
+	}
+
+	.suggestions-text {
+		background: #fef3c7;
+		border: 1px solid #fcd34d;
+		border-radius: 6px;
+		padding: 0.75rem;
+		font-size: 0.9rem;
+		line-height: 1.4;
+		color: #92400e;
+	}
+
+	.progress-stats {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		text-align: right;
+		font-size: 0.875rem;
+		color: #374151;
+	}
+
+	/* Review Results Modal Styles */
+	.reviewer-dashboard-modal,
+	.review-results-modal {
+		max-width: 95vw;
+		width: 1200px;
+		max-height: 95vh;
+		background: white;
+	}
+
+	.review-results {
+		max-height: 70vh;
+		overflow-y: auto;
+	}
+
+	.results-summary {
+		margin-bottom: 2rem;
+		padding: 1rem;
+		background: #f0f9ff;
+		border-radius: 8px;
+		border-left: 4px solid #0ea5e9;
+	}
+
+	.results-summary h3 {
+		margin: 0 0 0.5rem 0;
+		color: #0c4a6e;
+	}
+
+	.results-summary p {
+		margin: 0;
+		color: #0369a1;
+		font-weight: 500;
+	}
+
+	.results-table {
+		overflow-x: auto;
+	}
+
+	.results-table table {
+		width: 100%;
+		border-collapse: collapse;
+		background: white;
+		border-radius: 8px;
+		overflow: hidden;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	}
+
+	.results-table th {
+		background: #f8fafc;
+		padding: 1rem;
+		text-align: left;
+		font-weight: 600;
+		color: #374151;
+		border-bottom: 1px solid #e5e7eb;
+	}
+
+	.results-table td {
+		padding: 1rem;
+		border-bottom: 1px solid #f3f4f6;
+		vertical-align: top;
+	}
+
+	.results-table tr:hover {
+		background: #f9fafb;
+	}
+
+	.results-table tr.low-rating {
+		background: rgba(239, 68, 68, 0.05);
+		border-left: 4px solid #ef4444;
+	}
+
+	.results-table tr.high-rating {
+		background: rgba(34, 197, 94, 0.05);
+		border-left: 4px solid #22c55e;
+	}
+
+	.question-cell {
+		max-width: 300px;
+	}
+
+	.question-preview {
+		font-size: 0.95rem;
+		line-height: 1.4;
+		color: #374151;
+		margin-bottom: 0.5rem;
+	}
+
+	.question-points {
+		font-size: 0.875rem;
+		color: #6b7280;
+		font-weight: 500;
+	}
+
+	.rating-display {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		align-items: center;
+	}
+
+	.stars {
+		color: #fbbf24;
+		font-size: 0.875rem;
+	}
+
+	@media (max-width: 768px) {
+		.review-actions {
+			flex-direction: column;
+		}
+
+		.assignment-item {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 1rem;
+		}
+
+		.assignment-progress {
+			align-items: flex-start;
+			width: 100%;
+		}
+
+		.progress-stats {
+			text-align: left;
+		}
+
+		.reviewer-dashboard-modal,
+		.review-results-modal {
+			width: 95vw;
+			margin: 1rem;
+		}
+
+		.results-table {
+			font-size: 0.875rem;
+		}
+
+		.results-table th,
+		.results-table td {
+			padding: 0.5rem;
+		}
+
+		.question-cell {
+			max-width: 200px;
+		}
 	}
 </style>

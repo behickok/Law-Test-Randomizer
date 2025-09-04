@@ -12,7 +12,11 @@
 		getClassAssignmentOverview,
 		assignStudentToClass,
 		removeStudentFromClass,
-		getTeacherImages
+		getTeacherImages,
+		getAllReviewersForAdmin,
+		addReviewer,
+		updateReviewer,
+		deleteReviewer
 	} from '$lib/api';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -53,6 +57,89 @@
 			studentPin = '';
 		} catch {
 			studentMsg = 'Failed to add student';
+		}
+	}
+
+	// Reviewer management variables
+	let reviewerName = '';
+	let reviewerEmail = '';
+	let reviewerPin = '';
+	let reviewerMsg = '';
+	const allReviewers = writable([]);
+	let editingReviewer = null;
+	let showEditReviewer = false;
+
+	async function handleAddReviewer() {
+		if (!$user || $user.role !== 'teacher') {
+			reviewerMsg = 'You must be logged in as a teacher to add reviewers.';
+			return;
+		}
+		
+		if (!reviewerName.trim() || !reviewerEmail.trim() || !reviewerPin.trim()) {
+			reviewerMsg = 'Please fill in all fields.';
+			return;
+		}
+
+		try {
+			await addReviewer(fetch, { name: reviewerName.trim(), email: reviewerEmail.trim(), pin: reviewerPin.trim() });
+			reviewerMsg = 'Reviewer added successfully';
+			reviewerName = '';
+			reviewerEmail = '';
+			reviewerPin = '';
+			loadReviewers();
+		} catch (err) {
+			reviewerMsg = err.message || 'Failed to add reviewer';
+		}
+	}
+
+	async function loadReviewers() {
+		try {
+			const reviewers = await getAllReviewersForAdmin(fetch);
+			allReviewers.set(Array.isArray(reviewers) ? reviewers : (reviewers?.data ?? []));
+		} catch (err) {
+			console.error('Error loading reviewers:', err);
+		}
+	}
+
+	function editReviewer(reviewer) {
+		editingReviewer = { ...reviewer };
+		showEditReviewer = true;
+	}
+
+	async function saveReviewerEdit() {
+		if (!editingReviewer || !editingReviewer.name.trim() || !editingReviewer.email.trim() || !editingReviewer.pin.trim()) {
+			reviewerMsg = 'Please fill in all fields.';
+			return;
+		}
+
+		try {
+			await updateReviewer(fetch, {
+				id: editingReviewer.id,
+				name: editingReviewer.name.trim(),
+				email: editingReviewer.email.trim(),
+				pin: editingReviewer.pin.trim(),
+				isActive: editingReviewer.is_active
+			});
+			reviewerMsg = 'Reviewer updated successfully';
+			showEditReviewer = false;
+			editingReviewer = null;
+			loadReviewers();
+		} catch (err) {
+			reviewerMsg = err.message || 'Failed to update reviewer';
+		}
+	}
+
+	async function deleteReviewerHandler(reviewerId, reviewerName) {
+		if (!confirm(`Are you sure you want to deactivate reviewer "${reviewerName}"? They will no longer be able to log in, but their review history will be preserved.`)) {
+			return;
+		}
+
+		try {
+			await deleteReviewer(fetch, reviewerId);
+			reviewerMsg = `Reviewer "${reviewerName}" has been deactivated.`;
+			loadReviewers();
+		} catch (err) {
+			reviewerMsg = err.message || 'Failed to deactivate reviewer';
 		}
 	}
 
@@ -265,6 +352,7 @@
 			await loadTeachersAndTests();
 			await loadStudentsAndAssignments();
 			await loadTeacherImages();
+			await loadReviewers();
 		}
 	});
 </script>
@@ -417,6 +505,64 @@
 									{studentMsg === 'Student added' ? '✅' : '❌'}
 								</span>
 								{studentMsg}
+							</div>
+						{/if}
+					</div>
+				</section>
+
+				<!-- Add Reviewer Section -->
+				<section class="admin-card reviewer-card">
+					<div class="card-header">
+						<h2 class="card-title">
+							<span class="section-icon">👨‍💼</span>
+							Add New Reviewer
+						</h2>
+					</div>
+					<div class="card-content">
+						<div class="form-group">
+							<label for="reviewer-name">Reviewer Name</label>
+							<input
+								id="reviewer-name"
+								type="text"
+								placeholder="Enter reviewer's full name..."
+								bind:value={reviewerName}
+								class="form-input"
+							/>
+						</div>
+						<div class="form-group">
+							<label for="reviewer-email">Reviewer Email</label>
+							<input
+								id="reviewer-email"
+								type="email"
+								placeholder="Enter reviewer's email..."
+								bind:value={reviewerEmail}
+								class="form-input"
+							/>
+						</div>
+						<div class="form-group">
+							<label for="reviewer-pin">Reviewer PIN</label>
+							<input
+								id="reviewer-pin"
+								type="text"
+								placeholder="Create a secure PIN..."
+								bind:value={reviewerPin}
+								class="form-input"
+							/>
+						</div>
+						<button
+							on:click={handleAddReviewer}
+							class="btn btn-primary"
+							disabled={!reviewerName || !reviewerEmail || !reviewerPin}
+						>
+							<span class="btn-icon">➕</span>
+							Add Reviewer
+						</button>
+						{#if reviewerMsg}
+							<div class="status-message {reviewerMsg.includes('successfully') ? 'success' : 'error'}">
+								<span class="status-icon">
+									{reviewerMsg.includes('successfully') ? '✅' : '❌'}
+								</span>
+								{reviewerMsg}
 							</div>
 						{/if}
 					</div>
@@ -662,6 +808,61 @@
 				</div>
 			</section>
 
+			<!-- Reviewer Management Section -->
+			<section class="admin-card reviewer-management-card full-width">
+				<div class="card-header">
+					<h2 class="card-title">
+						<span class="section-icon">👨‍💼</span>
+						Reviewer Management
+					</h2>
+				</div>
+				<div class="card-content">
+					<div class="reviewers-overview">
+						<h3 class="section-subtitle">
+							<span class="subtitle-icon">📋</span>
+							All Reviewers
+						</h3>
+						{#if $allReviewers.length > 0}
+							<div class="reviewers-grid">
+								{#each $allReviewers as reviewer (reviewer.id)}
+									<div class="reviewer-card {reviewer.is_active ? '' : 'inactive'}">
+										<div class="reviewer-info">
+											<div class="reviewer-name">{reviewer.name}</div>
+											<div class="reviewer-email">{reviewer.email}</div>
+											<div class="reviewer-pin">PIN: {reviewer.pin}</div>
+											<div class="reviewer-status">
+												{reviewer.is_active ? '✅ Active' : '❌ Inactive'}
+											</div>
+										</div>
+										<div class="reviewer-actions">
+											<button
+												class="btn btn-sm btn-secondary"
+												on:click={() => editReviewer(reviewer)}
+											>
+												Edit
+											</button>
+											{#if reviewer.is_active}
+												<button
+													class="btn btn-sm btn-danger"
+													on:click={() => deleteReviewerHandler(reviewer.id, reviewer.name)}
+												>
+													Deactivate
+												</button>
+											{/if}
+										</div>
+									</div>
+								{/each}
+							</div>
+						{:else}
+							<div class="empty-state">
+								<span class="empty-icon">👨‍💼</span>
+								No reviewers found. Add reviewers to get started with the review system.
+							</div>
+						{/if}
+					</div>
+				</div>
+			</section>
+
 			<!-- Query Panel Section -->
 			<section class="admin-card query-card">
 				<div class="card-header">
@@ -813,6 +1014,81 @@
 		{/if}
 	</main>
 </div>
+
+<!-- Edit Reviewer Modal -->
+{#if showEditReviewer && editingReviewer}
+	<div class="modal-overlay" on:click={() => showEditReviewer = false}>
+		<div class="modal edit-reviewer-modal" on:click={(e) => e.stopPropagation()}>
+			<div class="modal-header">
+				<h2>Edit Reviewer</h2>
+				<button class="modal-close" on:click={() => showEditReviewer = false}>
+					<span class="close-icon">&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+				<div class="form-group">
+					<label for="edit-reviewer-name">Name</label>
+					<input
+						id="edit-reviewer-name"
+						type="text"
+						bind:value={editingReviewer.name}
+						placeholder="Reviewer name"
+						class="form-input"
+					/>
+				</div>
+				
+				<div class="form-group">
+					<label for="edit-reviewer-email">Email</label>
+					<input
+						id="edit-reviewer-email"
+						type="email"
+						bind:value={editingReviewer.email}
+						placeholder="Reviewer email"
+						class="form-input"
+					/>
+				</div>
+				
+				<div class="form-group">
+					<label for="edit-reviewer-pin">PIN</label>
+					<input
+						id="edit-reviewer-pin"
+						type="text"
+						bind:value={editingReviewer.pin}
+						placeholder="Reviewer PIN"
+						class="form-input"
+					/>
+				</div>
+				
+				<div class="form-group">
+					<label class="checkbox-label">
+						<input
+							type="checkbox"
+							bind:checked={editingReviewer.is_active}
+							class="checkbox-input"
+						/>
+						<span class="checkbox-text">Active (can log in and review)</span>
+					</label>
+				</div>
+				
+				<div class="modal-actions">
+					<button 
+						class="btn btn-secondary" 
+						on:click={() => showEditReviewer = false}
+					>
+						Cancel
+					</button>
+					<button 
+						class="btn btn-primary" 
+						on:click={saveReviewerEdit}
+						disabled={!editingReviewer.name.trim() || !editingReviewer.email.trim() || !editingReviewer.pin.trim()}
+					>
+						Save Changes
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <style>
 	* {
@@ -1713,5 +1989,195 @@
 
 	.results-output::-webkit-scrollbar-thumb:hover {
 		background: rgba(255, 255, 255, 0.5);
+	}
+
+	/* Reviewer Management Styles */
+	.reviewer-card .card-header {
+		background: linear-gradient(135deg, rgba(147, 51, 234, 0.05), rgba(126, 34, 206, 0.05));
+	}
+
+	.reviewer-management-card .card-header {
+		background: linear-gradient(135deg, rgba(147, 51, 234, 0.05), rgba(126, 34, 206, 0.05));
+	}
+
+	.reviewers-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: 1.5rem;
+		margin-top: 1.5rem;
+	}
+
+	.reviewer-card {
+		background: rgba(255, 255, 255, 0.8);
+		border: 2px solid rgba(147, 51, 234, 0.1);
+		border-radius: 12px;
+		padding: 1.5rem;
+		transition: all 0.3s ease;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+	}
+
+	.reviewer-card:hover {
+		border-color: rgba(147, 51, 234, 0.3);
+		box-shadow: 0 8px 25px rgba(147, 51, 234, 0.1);
+		transform: translateY(-2px);
+	}
+
+	.reviewer-card.inactive {
+		opacity: 0.6;
+		border-color: rgba(156, 163, 175, 0.3);
+	}
+
+	.reviewer-info {
+		margin-bottom: 1rem;
+		padding-bottom: 1rem;
+		border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+	}
+
+	.reviewer-name {
+		font-size: 1.1rem;
+		font-weight: 600;
+		color: #1f2937;
+		margin-bottom: 0.25rem;
+	}
+
+	.reviewer-email {
+		font-size: 0.9rem;
+		color: #6b7280;
+		margin-bottom: 0.5rem;
+	}
+
+	.reviewer-pin {
+		font-size: 0.875rem;
+		color: #6b7280;
+		font-family: 'JetBrains Mono', monospace;
+		background: rgba(0, 0, 0, 0.05);
+		padding: 0.25rem 0.5rem;
+		border-radius: 4px;
+		display: inline-block;
+		margin-bottom: 0.5rem;
+	}
+
+	.reviewer-status {
+		font-size: 0.875rem;
+		font-weight: 500;
+	}
+
+	.reviewer-actions {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+	}
+
+	/* Modal Styles */
+	.modal-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+	}
+
+	.modal {
+		background: white;
+		border-radius: 12px;
+		min-width: 500px;
+		max-width: 90vw;
+		max-height: 90vh;
+		overflow-y: auto;
+		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+	}
+
+	.modal-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 1.5rem;
+		border-bottom: 1px solid #e5e7eb;
+		background: #f9fafb;
+		border-radius: 12px 12px 0 0;
+	}
+
+	.modal-header h2 {
+		margin: 0;
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: #1f2937;
+	}
+
+	.modal-close {
+		background: none;
+		border: none;
+		font-size: 1.5rem;
+		cursor: pointer;
+		color: #6b7280;
+		padding: 0.5rem;
+		border-radius: 6px;
+		transition: all 0.2s;
+	}
+
+	.modal-close:hover {
+		background: rgba(239, 68, 68, 0.1);
+		color: #dc2626;
+	}
+
+	.close-icon {
+		font-size: 1.5rem;
+	}
+
+	.modal-body {
+		padding: 1.5rem;
+	}
+
+	.modal-actions {
+		display: flex;
+		gap: 1rem;
+		justify-content: flex-end;
+		margin-top: 2rem;
+		padding-top: 1rem;
+		border-top: 1px solid #f3f4f6;
+	}
+
+	.checkbox-label {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		cursor: pointer;
+		padding: 0.75rem;
+		border-radius: 8px;
+		transition: background 0.2s;
+	}
+
+	.checkbox-label:hover {
+		background: rgba(0, 0, 0, 0.02);
+	}
+
+	.checkbox-input {
+		width: 1.25rem;
+		height: 1.25rem;
+		cursor: pointer;
+	}
+
+	.checkbox-text {
+		font-size: 1rem;
+		color: #374151;
+	}
+
+	/* Button danger variant */
+	.btn-danger {
+		background: linear-gradient(135deg, #ef4444, #dc2626);
+		color: white;
+		border: none;
+		box-shadow: 0 1px 3px rgba(239, 68, 68, 0.12);
+	}
+
+	.btn-danger:hover:not(:disabled) {
+		background: linear-gradient(135deg, #dc2626, #b91c1c);
+		transform: translateY(-1px);
+		box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
 	}
 </style>
