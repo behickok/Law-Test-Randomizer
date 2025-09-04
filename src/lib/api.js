@@ -316,7 +316,7 @@ export async function startAttempt(fetch, { testId, studentId, studentName }) {
 			}
 		}
 		const questions = Array.from(questionsMap.values());
-                await processQuestionsWithImagesOptimized(fetch, questions);
+		await processQuestionsWithImagesOptimized(fetch, questions);
 		return { attemptId, test, questions, sections };
 	}
 
@@ -396,7 +396,7 @@ export async function startAttempt(fetch, { testId, studentId, studentName }) {
 		await query(fetch, `INSERT INTO attempt_answers (attempt_id, question_id) VALUES ${values}`);
 	}
 
-        await processQuestionsWithImagesOptimized(fetch, finalQuestions);
+	await processQuestionsWithImagesOptimized(fetch, finalQuestions);
 
 	return { attemptId, test, questions: finalQuestions, sections };
 }
@@ -628,7 +628,7 @@ export async function addReviewer(fetch, { name, email, pin }) {
 	const cleanName = validateString(name);
 	const cleanEmail = validateString(email);
 	const cleanPin = validateNumeric(pin);
-	
+
 	const sql = `INSERT INTO reviewers (name, email, pin, is_active) 
 	             VALUES ('${escapeSql(cleanName)}', '${escapeSql(cleanEmail)}', '${escapeSql(cleanPin)}', TRUE)
 	             RETURNING id, name, email`;
@@ -641,7 +641,7 @@ export async function updateReviewer(fetch, { id, name, email, pin, isActive }) 
 	const cleanEmail = validateString(email);
 	const cleanPin = validateNumeric(pin);
 	const cleanIsActive = validateBoolean(isActive);
-	
+
 	const sql = `UPDATE reviewers 
 	             SET name = '${escapeSql(cleanName)}', 
 	                 email = '${escapeSql(cleanEmail)}', 
@@ -653,7 +653,7 @@ export async function updateReviewer(fetch, { id, name, email, pin, isActive }) 
 
 export async function deleteReviewer(fetch, id) {
 	const cleanId = validateNumeric(id);
-	
+
 	// Instead of deleting, deactivate to preserve review history
 	const sql = `UPDATE reviewers SET is_active = FALSE WHERE id = ${cleanId}`;
 	return query(fetch, sql);
@@ -665,11 +665,11 @@ export async function createReviewerInvitation(fetch, { teacherId, reviewerName,
 	const cleanReviewerEmail = validateString(reviewerEmail);
 
 	const inviteCode = crypto.randomUUID();
-	
+
 	const sql = `INSERT INTO reviewer_invitations (teacher_id, reviewer_name, reviewer_email, invite_code) 
 	             VALUES (${cleanTeacherId}, '${escapeSql(cleanReviewerName)}', '${escapeSql(cleanReviewerEmail)}', '${inviteCode}') 
 	             RETURNING invite_code`;
-	
+
 	return query(fetch, sql);
 }
 
@@ -1078,7 +1078,10 @@ export async function getTestQuestions(fetch, { testId, teacherId }) {
 
 // Review System API Functions
 
-export async function createReviewAssignment(fetch, { testId, teacherId, reviewers, title, description, questionsPerReviewer = 40, overlapFactor = 2 }) {
+export async function createReviewAssignment(
+	fetch,
+	{ testId, teacherId, reviewers, title, description, questionsPerReviewer = 40, overlapFactor = 2 }
+) {
 	const cleanTestId = validateNumeric(testId);
 	const cleanTeacherId = validateNumeric(teacherId);
 	const cleanTitle = validateString(title);
@@ -1091,14 +1094,14 @@ export async function createReviewAssignment(fetch, { testId, teacherId, reviewe
 	}
 
 	// Validate reviewers - they should reference the reviewers table now
-	const cleanReviewers = reviewers.map(r => validateNumeric(r));
-	
+	const cleanReviewers = reviewers.map((r) => validateNumeric(r));
+
 	// Verify all reviewers exist in reviewers table
 	const reviewerCheck = await query(
 		fetch,
 		`SELECT id FROM reviewers WHERE id IN (${cleanReviewers.join(',')}) AND is_active = TRUE`
 	);
-	
+
 	if (reviewerCheck.length !== cleanReviewers.length) {
 		throw new Error('One or more selected reviewers are not valid');
 	}
@@ -1111,7 +1114,9 @@ export async function createReviewAssignment(fetch, { testId, teacherId, reviewe
 			 VALUES (${cleanTestId}, ${cleanTeacherId}, '${escapeSql(cleanTitle)}', '${escapeSql(cleanDescription)}', ${cleanQuestionsPerReviewer}, ${cleanOverlapFactor}) 
 			 RETURNING id`
 		);
-		const assignmentId = Array.isArray(assignmentRes) ? assignmentRes[0]?.id : assignmentRes?.data?.[0]?.id;
+		const assignmentId = Array.isArray(assignmentRes)
+			? assignmentRes[0]?.id
+			: assignmentRes?.data?.[0]?.id;
 
 		if (!assignmentId) {
 			throw new Error('Failed to create review assignment');
@@ -1129,7 +1134,12 @@ export async function createReviewAssignment(fetch, { testId, teacherId, reviewe
 		}
 
 		// Distribute questions among reviewers with overlap
-		const questionAssignments = distributeQuestions(questions, cleanReviewers, cleanQuestionsPerReviewer, cleanOverlapFactor);
+		const questionAssignments = distributeQuestions(
+			questions,
+			cleanReviewers,
+			cleanQuestionsPerReviewer,
+			cleanOverlapFactor
+		);
 
 		// Insert question review assignments
 		const insertPromises = [];
@@ -1163,11 +1173,11 @@ function distributeQuestions(questions, reviewers, questionsPerReviewer, overlap
 	// For each question, assign it to 'overlapFactor' number of reviewers
 	for (const question of questions) {
 		let assignmentsForThisQuestion = 0;
-		
+
 		// Sort reviewers by current question count to balance load
-		const sortedReviewers = reviewers.slice().sort((a, b) => 
-			reviewerQuestionCounts[a] - reviewerQuestionCounts[b]
-		);
+		const sortedReviewers = reviewers
+			.slice()
+			.sort((a, b) => reviewerQuestionCounts[a] - reviewerQuestionCounts[b]);
 
 		for (const reviewerId of sortedReviewers) {
 			if (assignmentsForThisQuestion >= overlapFactor) break;
@@ -1198,35 +1208,40 @@ export async function getAllReviewAssignments(fetch) {
 
 export async function getReviewerAssignments(fetch, reviewerId) {
 	const cleanReviewerId = validateNumeric(reviewerId);
-	
+
 	// Verify this is a valid reviewer
-	const reviewerCheck = await query(
+	const reviewerCheckRes = await query(
 		fetch,
 		`SELECT id FROM reviewers WHERE id = ${cleanReviewerId} AND is_active = TRUE`
 	);
-	
+	const reviewerCheck = Array.isArray(reviewerCheckRes)
+		? reviewerCheckRes
+		: (reviewerCheckRes?.data ?? []);
+
 	if (reviewerCheck.length === 0) {
 		throw new Error('Invalid reviewer ID');
 	}
-	
-        const sql = `SELECT DISTINCT ra.id, ra.title, ra.description, t.title as test_title,
-                            teacher.name as assigner_name, ra.created_at,
-                            COUNT(qr.id) as total_questions,
-                            COUNT(CASE WHEN qr.status = 'completed' THEN 1 END) as completed_questions
-                     FROM review_assignments ra
-                     JOIN tests t ON ra.test_id = t.id
-                     JOIN teachers teacher ON ra.assigner_id = teacher.id
-                     JOIN question_reviews qr ON ra.id = qr.assignment_id
-                     WHERE ra.status = 'active' AND qr.reviewer_id = ${cleanReviewerId}
-                     GROUP BY ra.id, ra.title, ra.description, t.title, teacher.name, ra.created_at
-                     ORDER BY ra.created_at DESC`;
+
+	const sql = `SELECT ra.id, ra.title, ra.description, t.title as test_title,
+                           teacher.name as assigner_name, ra.created_at,
+                           COUNT(qr.id) as total_questions,
+                           COUNT(CASE WHEN qr.status = 'completed' THEN 1 END) as completed_questions
+                    FROM review_assignments ra
+                    JOIN tests t ON ra.test_id = t.id
+                    JOIN teachers teacher ON ra.assigner_id = teacher.id
+                    LEFT JOIN question_reviews qr
+                       ON ra.id = qr.assignment_id AND qr.reviewer_id = ${cleanReviewerId}
+                    WHERE ra.status = 'active'
+                    GROUP BY ra.id, ra.title, ra.description, t.title, teacher.name, ra.created_at
+                    HAVING COUNT(qr.id) > 0
+                    ORDER BY ra.created_at DESC`;
 	return query(fetch, sql);
 }
 
 export async function getQuestionsForReview(fetch, reviewerId, assignmentId) {
 	const cleanReviewerId = validateNumeric(reviewerId);
 	const cleanAssignmentId = validateNumeric(assignmentId);
-	
+
 	const sql = `SELECT qr.id as review_id, q.id as question_id, q.question_text, q.points,
 	                    c.id as choice_id, c.choice_text, c.is_correct,
 	                    qr.status as review_status, qr.rating, qr.feedback, qr.suggestions,
@@ -1236,7 +1251,7 @@ export async function getQuestionsForReview(fetch, reviewerId, assignmentId) {
 	             LEFT JOIN choices c ON q.id = c.question_id
 	             WHERE qr.reviewer_id = ${cleanReviewerId} AND qr.assignment_id = ${cleanAssignmentId}
 	             ORDER BY q.id, c.id`;
-	
+
 	const rows = await query(fetch, sql);
 	const questionsMap = new Map();
 
@@ -1269,7 +1284,10 @@ export async function getQuestionsForReview(fetch, reviewerId, assignmentId) {
 	return Array.from(questionsMap.values());
 }
 
-export async function submitQuestionReview(fetch, { reviewId, rating, feedback, suggestions, difficultyRating, clarityRating, relevanceRating }) {
+export async function submitQuestionReview(
+	fetch,
+	{ reviewId, rating, feedback, suggestions, difficultyRating, clarityRating, relevanceRating }
+) {
 	const cleanReviewId = validateNumeric(reviewId);
 	const cleanRating = rating ? validateNumeric(rating) : null;
 	const cleanFeedback = feedback ? escapeSql(validateString(feedback)) : null;
@@ -1288,13 +1306,13 @@ export async function submitQuestionReview(fetch, { reviewId, rating, feedback, 
 	                 status = 'completed',
 	                 completed_at = CURRENT_TIMESTAMP
 	             WHERE id = ${cleanReviewId}`;
-	
+
 	return query(fetch, sql);
 }
 
 export async function getReviewResults(fetch, assignmentId) {
 	const cleanAssignmentId = validateNumeric(assignmentId);
-	
+
 	const sql = `SELECT q.id as question_id, q.question_text, q.points,
 	                    COUNT(qr.id) as total_reviews,
 	                    COUNT(CASE WHEN qr.status = 'completed' THEN 1 END) as completed_reviews,
@@ -1314,7 +1332,7 @@ export async function getReviewResults(fetch, assignmentId) {
 	             GROUP BY q.id, q.question_text, q.points
 	             HAVING COUNT(qr.id) > 0
 	             ORDER BY avg_rating ASC NULLS LAST, q.id`;
-	
+
 	return query(fetch, sql);
 }
 
@@ -1328,28 +1346,28 @@ export async function updateReviewAssignmentStatus(fetch, { assignmentId, teache
 	}
 
 	const completedAt = cleanStatus === 'completed' ? 'CURRENT_TIMESTAMP' : 'NULL';
-	
+
 	const sql = `UPDATE review_assignments 
 	             SET status = '${cleanStatus}', completed_at = ${completedAt}
 	             WHERE id = ${cleanAssignmentId} AND assigner_id = ${cleanTeacherId}`;
-	
+
 	return query(fetch, sql);
 }
 
 export async function deleteReviewAssignment(fetch, assignmentId, teacherId) {
 	const cleanAssignmentId = validateNumeric(assignmentId);
 	const cleanTeacherId = validateNumeric(teacherId);
-	
+
 	try {
 		// First delete all question reviews for this assignment
 		await query(fetch, `DELETE FROM question_reviews WHERE assignment_id = ${cleanAssignmentId}`);
-		
+
 		// Then delete the review assignment itself (with teacher permission check)
 		const result = await query(
-			fetch, 
+			fetch,
 			`DELETE FROM review_assignments WHERE id = ${cleanAssignmentId} AND assigner_id = ${cleanTeacherId}`
 		);
-		
+
 		return {
 			success: true,
 			message: 'Review assignment deleted successfully'
@@ -1359,20 +1377,23 @@ export async function deleteReviewAssignment(fetch, assignmentId, teacherId) {
 	}
 }
 
-export async function updateReviewAssignment(fetch, { assignmentId, teacherId, title, description }) {
+export async function updateReviewAssignment(
+	fetch,
+	{ assignmentId, teacherId, title, description }
+) {
 	const cleanAssignmentId = validateNumeric(assignmentId);
 	const cleanTeacherId = validateNumeric(teacherId);
 	const cleanTitle = validateString(title);
 	const cleanDescription = validateString(description || '');
-	
+
 	try {
 		const sql = `UPDATE review_assignments 
 		             SET title = '${escapeSql(cleanTitle)}', 
 		                 description = '${escapeSql(cleanDescription)}'
 		             WHERE id = ${cleanAssignmentId} AND assigner_id = ${cleanTeacherId}`;
-		             
+
 		await query(fetch, sql);
-		
+
 		return {
 			success: true,
 			message: 'Review assignment updated successfully'
