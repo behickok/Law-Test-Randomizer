@@ -1216,8 +1216,8 @@ export async function getReviewerAssignments(fetch, reviewerId) {
                      FROM review_assignments ra
                      JOIN tests t ON ra.test_id = t.id
                      JOIN teachers teacher ON ra.assigner_id = teacher.id
-                     LEFT JOIN question_reviews qr ON ra.id = qr.assignment_id AND qr.reviewer_id = ${cleanReviewerId}
-                     WHERE ra.status = 'active'
+                     JOIN question_reviews qr ON ra.id = qr.assignment_id
+                     WHERE ra.status = 'active' AND qr.reviewer_id = ${cleanReviewerId}
                      GROUP BY ra.id, ra.title, ra.description, t.title, teacher.name, ra.created_at
                      ORDER BY ra.created_at DESC`;
 	return query(fetch, sql);
