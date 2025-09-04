@@ -10,20 +10,20 @@
 
 	const dispatch = createEventDispatcher();
 
-	export let visible = false;
+	let { visible = false } = $props();
 
-	let selectedTestId = '';
-	let title = '';
-	let description = '';
-	let questionsPerReviewer = 80;
-	let overlapFactor = 2;
-	let selectedReviewers = [];
-	let availableTests = [];
-	let availableReviewers = [];
-	let isLoading = false;
-	let message = '';
-	let messageType = '';
-	let testQuestionCount = 0;
+	let selectedTestId = $state('');
+	let title = $state('');
+	let description = $state('');
+	let questionsPerReviewer = $state(80);
+	let overlapFactor = $state(2);
+	let selectedReviewers = $state([]);
+	let availableTests = $state([]);
+	let availableReviewers = $state([]);
+	let isLoading = $state(false);
+	let message = $state('');
+	let messageType = $state('');
+	let testQuestionCount = $state(0);
 
 	async function loadData() {
 		if (!$user || $user.role !== 'teacher') return;
@@ -141,18 +141,22 @@
 	}
 
 	// Calculate assignment preview
-	$: totalAssignments = selectedReviewers.length > 0 ? Math.min(testQuestionCount * overlapFactor, selectedReviewers.length * questionsPerReviewer) : 0;
-	$: avgQuestionsPerReviewer = selectedReviewers.length > 0 ? Math.round(totalAssignments / selectedReviewers.length) : 0;
+	const totalAssignments = $derived(selectedReviewers.length > 0 ? Math.min(testQuestionCount * overlapFactor, selectedReviewers.length * questionsPerReviewer) : 0);
+	const avgQuestionsPerReviewer = $derived(selectedReviewers.length > 0 ? Math.round(totalAssignments / selectedReviewers.length) : 0);
 
 	// Load data when component becomes visible
-	$: if (visible) {
-		loadData();
-	}
+	$effect(() => {
+		if (visible) {
+			loadData();
+		}
+	});
 
 	// Load question count when test changes
-	$: if (selectedTestId) {
-		loadTestQuestionCount();
-	}
+	$effect(() => {
+		if (selectedTestId) {
+			loadTestQuestionCount();
+		}
+	});
 </script>
 
 {#if visible}

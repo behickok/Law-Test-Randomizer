@@ -12,26 +12,23 @@
 	const dispatch = createEventDispatcher();
 
 	// Props
-	export let images = [];
-	export let selectedImages = [];
-	export let mode = 'manage'; // 'manage' or 'select'
-	export let maxSelections = null;
+	let { images = [], selectedImages = [], mode = 'manage', maxSelections = null } = $props();
 
 	// State
-	let uploadFiles = [];
-	let dragOver = false;
-	let uploading = false;
-	let uploadProgress = '';
-	let searchQuery = '';
-	let editingImage = null;
-	let editForm = { name: '', description: '' };
+	let uploadFiles = $state([]);
+	let dragOver = $state(false);
+	let uploading = $state(false);
+	let uploadProgress = $state('');
+	let searchQuery = $state('');
+	let editingImage = $state(null);
+	let editForm = $state({ name: '', description: '' });
 
 	// Reactive
-	$: filteredImages = images.filter(
+	const filteredImages = $derived(images.filter(
 		(img) =>
 			img.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 			(img.description && img.description.toLowerCase().includes(searchQuery.toLowerCase()))
-	);
+	));
 
 	async function handleFileSelect(event) {
 		const files = Array.from(event.target.files || []);

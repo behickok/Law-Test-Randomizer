@@ -230,7 +230,7 @@
 	}
 
 	// Get tests for selected teacher
-	$: availableTests = $allTests.filter((test) => test.teacher_id == selectedFromTeacherId);
+	const availableTests = $derived($allTests.filter((test) => test.teacher_id == selectedFromTeacherId));
 
 	// Class assignment variables
 	const allStudents = writable([]);
@@ -305,7 +305,7 @@
 	}
 
 	// Get students grouped by their assignments
-	$: studentGroups = $classAssignments.reduce((groups, assignment) => {
+	const studentGroups = $derived($classAssignments.reduce((groups, assignment) => {
 		const key = assignment.student_id;
 		if (!groups[key]) {
 			groups[key] = {
@@ -326,7 +326,7 @@
 		}
 
 		return groups;
-	}, {});
+	}, {}));
 
 	// Image management variables
 	const teacherImages = writable([]);

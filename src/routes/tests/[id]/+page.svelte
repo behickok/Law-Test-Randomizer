@@ -246,7 +246,7 @@
 											placeholder="Type your detailed answer here..."
 											class="long-response-textarea"
 											rows="6"
-											on:blur={() =>
+											onblur={() =>
 												saveAttemptAnswer(fetch, {
 													attemptId,
 													questionId: q.id,

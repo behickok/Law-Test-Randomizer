@@ -216,10 +216,10 @@
 		return '★'.repeat(ratingValue) + '☆'.repeat(5 - ratingValue);
 	}
 
-	$: currentQuestion = questionsToReview[currentQuestionIndex];
-	$: completedQuestions = questionsToReview.filter(q => q.reviewStatus === 'completed').length;
-	$: totalQuestions = questionsToReview.length;
-	$: progressPercentage = totalQuestions > 0 ? Math.round((completedQuestions / totalQuestions) * 100) : 0;
+	const currentQuestion = $derived(questionsToReview[currentQuestionIndex]);
+	const completedQuestions = $derived(questionsToReview.filter(q => q.reviewStatus === 'completed').length);
+	const totalQuestions = $derived(questionsToReview.length);
+	const progressPercentage = $derived(totalQuestions > 0 ? Math.round((completedQuestions / totalQuestions) * 100) : 0);
 
 	onMount(() => {
 		loadAssignments();
