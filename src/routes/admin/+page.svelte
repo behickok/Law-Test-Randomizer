@@ -23,10 +23,10 @@
 	import { writable } from 'svelte/store';
 	import ImageManager from '$lib/components/ImageManager.svelte';
 
-	let teacherInviteCode = '';
-	let teacherName = '';
-	let teacherPin = '';
-	let teacherMsg = '';
+	let teacherInviteCode = $state('');
+	let teacherName = $state('');
+	let teacherPin = $state('');
+	let teacherMsg = $state('');
 	async function handleAddTeacher() {
 		if (!$user || $user.role !== 'teacher') {
 			teacherMsg = 'You must be logged in as a teacher to add teachers.';
@@ -42,9 +42,9 @@
 		}
 	}
 
-	let studentName = '';
-	let studentPin = '';
-	let studentMsg = '';
+	let studentName = $state('');
+	let studentPin = $state('');
+	let studentMsg = $state('');
 	async function handleAddStudent() {
 		if (!$user || $user.role !== 'teacher') {
 			studentMsg = 'You must be logged in as a teacher to add students.';
@@ -61,27 +61,31 @@
 	}
 
 	// Reviewer management variables
-	let reviewerName = '';
-	let reviewerEmail = '';
-	let reviewerPin = '';
-	let reviewerMsg = '';
+	let reviewerName = $state('');
+	let reviewerEmail = $state('');
+	let reviewerPin = $state('');
+	let reviewerMsg = $state('');
 	const allReviewers = writable([]);
-	let editingReviewer = null;
-	let showEditReviewer = false;
+	let editingReviewer = $state(null);
+	let showEditReviewer = $state(false);
 
 	async function handleAddReviewer() {
 		if (!$user || $user.role !== 'teacher') {
 			reviewerMsg = 'You must be logged in as a teacher to add reviewers.';
 			return;
 		}
-		
+
 		if (!reviewerName.trim() || !reviewerEmail.trim() || !reviewerPin.trim()) {
 			reviewerMsg = 'Please fill in all fields.';
 			return;
 		}
 
 		try {
-			await addReviewer(fetch, { name: reviewerName.trim(), email: reviewerEmail.trim(), pin: reviewerPin.trim() });
+			await addReviewer(fetch, {
+				name: reviewerName.trim(),
+				email: reviewerEmail.trim(),
+				pin: reviewerPin.trim()
+			});
 			reviewerMsg = 'Reviewer added successfully';
 			reviewerName = '';
 			reviewerEmail = '';
@@ -107,7 +111,12 @@
 	}
 
 	async function saveReviewerEdit() {
-		if (!editingReviewer || !editingReviewer.name.trim() || !editingReviewer.email.trim() || !editingReviewer.pin.trim()) {
+		if (
+			!editingReviewer ||
+			!editingReviewer.name.trim() ||
+			!editingReviewer.email.trim() ||
+			!editingReviewer.pin.trim()
+		) {
 			reviewerMsg = 'Please fill in all fields.';
 			return;
 		}
@@ -130,7 +139,11 @@
 	}
 
 	async function deleteReviewerHandler(reviewerId, reviewerName) {
-		if (!confirm(`Are you sure you want to deactivate reviewer "${reviewerName}"? They will no longer be able to log in, but their review history will be preserved.`)) {
+		if (
+			!confirm(
+				`Are you sure you want to deactivate reviewer "${reviewerName}"? They will no longer be able to log in, but their review history will be preserved.`
+			)
+		) {
 			return;
 		}
 
@@ -143,9 +156,9 @@
 		}
 	}
 
-	let sql = '';
+	let sql = $state('');
 	const queryOutput = writable('');
-	let isQueryRunning = false;
+	let isQueryRunning = $state(false);
 	async function handleQuery() {
 		if (!$user || $user.role !== 'teacher') {
 			queryOutput.set('You must be logged in as a teacher to run queries.');
@@ -170,12 +183,12 @@
 	// Test copying variables
 	const teachers = writable([]);
 	const allTests = writable([]);
-	let selectedTestId = '';
-	let selectedFromTeacherId = '';
-	let selectedToTeacherId = '';
-	let newTestTitle = '';
-	let copyMsg = '';
-	let isCopying = false;
+	let selectedTestId = $state('');
+	let selectedFromTeacherId = $state('');
+	let selectedToTeacherId = $state('');
+	let newTestTitle = $state('');
+	let copyMsg = $state('');
+	let isCopying = $state(false);
 
 	async function loadTeachersAndTests() {
 		try {
@@ -230,15 +243,17 @@
 	}
 
 	// Get tests for selected teacher
-	const availableTests = $derived($allTests.filter((test) => test.teacher_id == selectedFromTeacherId));
+	const availableTests = $derived(
+		$allTests.filter((test) => test.teacher_id == selectedFromTeacherId)
+	);
 
 	// Class assignment variables
 	const allStudents = writable([]);
 	const classAssignments = writable([]);
-	let selectedStudentId = '';
-	let selectedAssignTeacherId = '';
-	let assignMsg = '';
-	let isAssigning = false;
+	let selectedStudentId = $state('');
+	let selectedAssignTeacherId = $state('');
+	let assignMsg = $state('');
+	let isAssigning = $state(false);
 
 	async function loadStudentsAndAssignments() {
 		try {
@@ -305,28 +320,30 @@
 	}
 
 	// Get students grouped by their assignments
-	const studentGroups = $derived($classAssignments.reduce((groups, assignment) => {
-		const key = assignment.student_id;
-		if (!groups[key]) {
-			groups[key] = {
-				student: {
-					id: assignment.student_id,
-					name: assignment.student_name,
-					pin: assignment.student_pin
-				},
-				teachers: []
-			};
-		}
+	const studentGroups = $derived(
+		$classAssignments.reduce((groups, assignment) => {
+			const key = assignment.student_id;
+			if (!groups[key]) {
+				groups[key] = {
+					student: {
+						id: assignment.student_id,
+						name: assignment.student_name,
+						pin: assignment.student_pin
+					},
+					teachers: []
+				};
+			}
 
-		if (assignment.teacher_id) {
-			groups[key].teachers.push({
-				id: assignment.teacher_id,
-				name: assignment.teacher_name
-			});
-		}
+			if (assignment.teacher_id) {
+				groups[key].teachers.push({
+					id: assignment.teacher_id,
+					name: assignment.teacher_name
+				});
+			}
 
-		return groups;
-	}, {}));
+			return groups;
+		}, {})
+	);
 
 	// Image management variables
 	const teacherImages = writable([]);
@@ -335,7 +352,7 @@
 		if (!$user || !$user.id) return;
 		try {
 			const images = await getTeacherImages(fetch, $user.id);
-			teacherImages.set(Array.isArray(images) ? images : images?.data ?? []);
+			teacherImages.set(Array.isArray(images) ? images : (images?.data ?? []));
 		} catch (err) {
 			console.error('Error loading teacher images:', err);
 		}
@@ -558,7 +575,9 @@
 							Add Reviewer
 						</button>
 						{#if reviewerMsg}
-							<div class="status-message {reviewerMsg.includes('successfully') ? 'success' : 'error'}">
+							<div
+								class="status-message {reviewerMsg.includes('successfully') ? 'success' : 'error'}"
+							>
 								<span class="status-icon">
 									{reviewerMsg.includes('successfully') ? '✅' : '❌'}
 								</span>
@@ -1017,11 +1036,11 @@
 
 <!-- Edit Reviewer Modal -->
 {#if showEditReviewer && editingReviewer}
-	<div class="modal-overlay" on:click={() => showEditReviewer = false}>
+	<div class="modal-overlay" on:click={() => (showEditReviewer = false)}>
 		<div class="modal edit-reviewer-modal" on:click={(e) => e.stopPropagation()}>
 			<div class="modal-header">
 				<h2>Edit Reviewer</h2>
-				<button class="modal-close" on:click={() => showEditReviewer = false}>
+				<button class="modal-close" on:click={() => (showEditReviewer = false)}>
 					<span class="close-icon">&times;</span>
 				</button>
 			</div>
@@ -1036,7 +1055,7 @@
 						class="form-input"
 					/>
 				</div>
-				
+
 				<div class="form-group">
 					<label for="edit-reviewer-email">Email</label>
 					<input
@@ -1047,7 +1066,7 @@
 						class="form-input"
 					/>
 				</div>
-				
+
 				<div class="form-group">
 					<label for="edit-reviewer-pin">PIN</label>
 					<input
@@ -1058,7 +1077,7 @@
 						class="form-input"
 					/>
 				</div>
-				
+
 				<div class="form-group">
 					<label class="checkbox-label">
 						<input
@@ -1069,18 +1088,17 @@
 						<span class="checkbox-text">Active (can log in and review)</span>
 					</label>
 				</div>
-				
+
 				<div class="modal-actions">
-					<button 
-						class="btn btn-secondary" 
-						on:click={() => showEditReviewer = false}
-					>
+					<button class="btn btn-secondary" on:click={() => (showEditReviewer = false)}>
 						Cancel
 					</button>
-					<button 
-						class="btn btn-primary" 
+					<button
+						class="btn btn-primary"
 						on:click={saveReviewerEdit}
-						disabled={!editingReviewer.name.trim() || !editingReviewer.email.trim() || !editingReviewer.pin.trim()}
+						disabled={!editingReviewer.name.trim() ||
+							!editingReviewer.email.trim() ||
+							!editingReviewer.pin.trim()}
 					>
 						Save Changes
 					</button>

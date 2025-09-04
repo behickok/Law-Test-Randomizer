@@ -5,7 +5,7 @@
 	import { joinClassWithInviteCode } from '$lib/api';
 	import { goto } from '$app/navigation';
 
-	let message = 'Joining class...';
+	let message = $state('Joining class...');
 
 	onMount(async () => {
 		if (!$user || $user.role !== 'student') {
