@@ -158,22 +158,24 @@
 		}
 	}
 	
-	function toggleQuestionExpansion(questionIndex) {
-		if (expandedQuestions.has(questionIndex)) {
-			expandedQuestions.delete(questionIndex);
-		} else {
-			expandedQuestions.add(questionIndex);
-		}
-		expandedQuestions = expandedQuestions; // Trigger reactivity
-	}
-	
-	function updateQuestionField(questionIndex, field, value) {
-		questionsToReview[questionIndex] = {
-			...questionsToReview[questionIndex],
-			[`temp${field.charAt(0).toUpperCase() + field.slice(1)}`]: value
-		};
-		questionsToReview = questionsToReview; // Trigger reactivity
-	}
+        function toggleQuestionExpansion(questionIndex) {
+                if (expandedQuestions.has(questionIndex)) {
+                        expandedQuestions.delete(questionIndex);
+                } else {
+                        expandedQuestions.add(questionIndex);
+                }
+                // Reassign to a new Set to ensure reactivity without $state
+                expandedQuestions = new Set(expandedQuestions);
+        }
+
+        function updateQuestionField(questionIndex, field, value) {
+                questionsToReview[questionIndex] = {
+                        ...questionsToReview[questionIndex],
+                        [`temp${field.charAt(0).toUpperCase() + field.slice(1)}`]: value
+                };
+                // Reassign to a new array to trigger reactivity without $state
+                questionsToReview = [...questionsToReview];
+        }
 
 	function nextQuestion() {
 		if (currentQuestionIndex < questionsToReview.length - 1) {
