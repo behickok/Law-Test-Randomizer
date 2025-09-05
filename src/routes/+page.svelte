@@ -1669,13 +1669,13 @@
 									<div class="result-actions">
                                                                                 <button
                                                                                         class="expand-details-btn"
-                                                                                        on:click={() => toggleReviewResultExpansion(index)}
+                                                                                        onclick={() => toggleReviewResultExpansion(index)}
                                                                                         type="button"
                                                                                 >
                                                                                         {expandedReviewResults.has(index) ? '↑ Less' : '↓ More'}
                                                                                 </button>
-									</div>
-								</div>
+                                                                       </div>
+                                                               </div>
 								
 								<div class="result-summary">
 									<div class="primary-feedback">
