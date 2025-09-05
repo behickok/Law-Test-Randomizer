@@ -1222,18 +1222,16 @@ export async function getReviewerAssignments(fetch, reviewerId) {
 		throw new Error('Invalid reviewer ID');
 	}
 
-	const sql = `SELECT ra.id, ra.title, ra.description, t.title as test_title,
+	const sql = `SELECT DISTINCT ra.id, ra.title, ra.description, t.title as test_title,
                            teacher.name as assigner_name, ra.created_at,
                            COUNT(qr.id) as total_questions,
                            COUNT(CASE WHEN qr.status = 'completed' THEN 1 END) as completed_questions
                     FROM review_assignments ra
                     JOIN tests t ON ra.test_id = t.id
                     JOIN teachers teacher ON ra.assigner_id = teacher.id
-                    LEFT JOIN question_reviews qr
-                       ON ra.id = qr.assignment_id AND qr.reviewer_id = ${cleanReviewerId}
-                    WHERE ra.status = 'active'
+                    JOIN question_reviews qr ON ra.id = qr.assignment_id
+                    WHERE qr.reviewer_id = ${cleanReviewerId} AND ra.status = 'active'
                     GROUP BY ra.id, ra.title, ra.description, t.title, teacher.name, ra.created_at
-                    HAVING COUNT(qr.id) > 0
                     ORDER BY ra.created_at DESC`;
 	return query(fetch, sql);
 }

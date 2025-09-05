@@ -7,22 +7,22 @@
 		submitQuestionReview
 	} from '$lib/api';
 
-	let assignments = [];
-	let selectedAssignment = null;
-	let questionsToReview = [];
-	let currentQuestionIndex = 0;
-	let isLoading = false;
-	let message = '';
-	let messageType = '';
+	let assignments = $state([]);
+	let selectedAssignment = $state(null);
+	let questionsToReview = $state([]);
+	let currentQuestionIndex = $state(0);
+	let isLoading = $state(false);
+	let message = $state('');
+	let messageType = $state('');
 
 	// Review form state
-	let rating = null;
-	let feedback = '';
-	let suggestions = '';
-	let difficultyRating = null;
-	let clarityRating = null;
-	let relevanceRating = null;
-	let expandedQuestions = new Set(); // Track which questions are expanded
+	let rating = $state(null);
+	let feedback = $state('');
+	let suggestions = $state('');
+	let difficultyRating = $state(null);
+	let clarityRating = $state(null);
+	let relevanceRating = $state(null);
+	let expandedQuestions = $state(new Set()); // Track which questions are expanded
 
 	async function loadAssignments() {
 		if (!$user || $user.role !== 'reviewer') return;
@@ -31,6 +31,7 @@
 		try {
 			const result = await getReviewerAssignments(fetch, $user.id);
 			assignments = Array.isArray(result) ? result : (result?.data ?? []);
+			console.log('Loaded assignments:', assignments);
 		} catch (err) {
 			console.error('Error loading assignments:', err);
 			message = 'Failed to load review assignments';
