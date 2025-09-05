@@ -575,14 +575,15 @@
 		}
 	}
 
-	function toggleReviewResultExpansion(questionId) {
-		if (expandedReviewResults.has(questionId)) {
-			expandedReviewResults.delete(questionId);
-		} else {
-			expandedReviewResults.add(questionId);
-		}
-		expandedReviewResults = expandedReviewResults; // Trigger reactivity
-	}
+        function toggleReviewResultExpansion(questionId) {
+                if (expandedReviewResults.has(questionId)) {
+                        expandedReviewResults.delete(questionId);
+                } else {
+                        expandedReviewResults.add(questionId);
+                }
+                // Reassign to a new Set to ensure reactivity without $state
+                expandedReviewResults = new Set(expandedReviewResults);
+        }
 
 	function showImageManagerModal() {
 		imageManagerMode = 'manage';
@@ -1666,15 +1667,15 @@
 										</div>
 									</div>
 									<div class="result-actions">
-										<button 
-											class="expand-details-btn" 
-											onclick={() => toggleReviewResultExpansion(index)}
-											type="button"
-										>
-											{expandedReviewResults.has(index) ? '↑ Less' : '↓ More'}
-										</button>
-									</div>
-								</div>
+                                                                                <button
+                                                                                        class="expand-details-btn"
+                                                                                        onclick={() => toggleReviewResultExpansion(index)}
+                                                                                        type="button"
+                                                                                >
+                                                                                        {expandedReviewResults.has(index) ? '↑ Less' : '↓ More'}
+                                                                                </button>
+                                                                       </div>
+                                                               </div>
 								
 								<div class="result-summary">
 									<div class="primary-feedback">
