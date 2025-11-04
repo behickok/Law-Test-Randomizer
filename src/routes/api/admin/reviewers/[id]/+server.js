@@ -1,5 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { escapeSql, normaliseResult, runQuery } from '$lib/server/db';
+import { hashPin, pinExists } from '$lib/server/pin';
+import { requireTeacher } from '$lib/server/authz';
 
 function requireNumericParam(value) {
 	if (!/^\d+$/.test(value ?? '')) {
@@ -28,17 +30,27 @@ function requireNumericString(value, field) {
 	return String(value).trim();
 }
 
-export async function PUT({ params, request, fetch }) {
+export async function PUT({ params, request, fetch, locals }) {
 	try {
+		requireTeacher(locals);
 		const id = requireNumericParam(params.id);
 		const body = await request.json();
 		const name = requireString(body?.name, 'name');
 		const email = requireString(body?.email, 'email');
-		const pin = requireNumericString(body?.pin, 'pin');
 		const isActive = Boolean(body?.isActive);
+		const pinProvided = body?.pin !== undefined && body?.pin !== null;
+		let hashedPinSql = '';
 
-		if (pin.length < 4) {
-			return json({ error: 'PIN must be at least 4 digits' }, { status: 400 });
+		if (pinProvided) {
+			const pin = requireNumericString(body?.pin, 'pin');
+			if (pin.length < 4) {
+				return json({ error: 'PIN must be at least 4 digits' }, { status: 400 });
+			}
+			if (await pinExists(fetch, pin, { table: 'reviewers', id })) {
+				return json({ error: 'PIN already exists. Choose a different PIN.' }, { status: 400 });
+			}
+			const hashedPin = hashPin(pin);
+			hashedPinSql = `, pin = '${escapeSql(hashedPin)}'`;
 		}
 
 		const emailCheck = normaliseResult(
@@ -56,8 +68,8 @@ export async function PUT({ params, request, fetch }) {
 			`UPDATE reviewers
 			 SET name = '${escapeSql(name)}',
 			     email = '${escapeSql(email)}',
-			     pin = '${escapeSql(pin)}',
 			     is_active = ${isActive ? 'TRUE' : 'FALSE'}
+			     ${hashedPinSql}
 			 WHERE id = ${id}`
 		);
 
@@ -70,8 +82,9 @@ export async function PUT({ params, request, fetch }) {
 	}
 }
 
-export async function DELETE({ params, fetch }) {
+export async function DELETE({ params, fetch, locals }) {
 	try {
+		requireTeacher(locals);
 		const id = requireNumericParam(params.id);
 		await runQuery(
 			fetch,

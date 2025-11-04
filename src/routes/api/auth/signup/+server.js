@@ -1,23 +1,13 @@
 import { json } from '@sveltejs/kit';
 import { randomUUID } from 'node:crypto';
 import { escapeSql, runQuery, normaliseResult } from '$lib/server/db';
-
-async function ensureUniquePin(fetch, pin) {
-	const checks = normaliseResult(
-		await runQuery(
-			fetch,
-			`SELECT 1 FROM teachers WHERE pin = '${escapeSql(pin)}'
-			 UNION SELECT 1 FROM students WHERE pin = '${escapeSql(pin)}'
-			 UNION SELECT 1 FROM reviewers WHERE pin = '${escapeSql(pin)}'
-			 LIMIT 1`
-		)
-	);
-	if (checks.length > 0) {
-		const error = new Error('PIN already exists. Please choose a different PIN.');
-		error.status = 400;
-		throw error;
-	}
-}
+import { hashPin, pinExists } from '$lib/server/pin';
+import {
+	createSession,
+	getSessionCookieName,
+	getSessionCookieOptions,
+	makeSessionCookieValue
+} from '$lib/server/session';
 
 async function ensureUniqueReviewerEmail(fetch, email) {
 	const checks = normaliseResult(
@@ -30,7 +20,7 @@ async function ensureUniqueReviewerEmail(fetch, email) {
 	}
 }
 
-export async function POST({ request, fetch }) {
+export async function POST({ request, fetch, cookies }) {
 	try {
 		const body = await request.json();
 		const role = body?.role;
@@ -56,7 +46,9 @@ export async function POST({ request, fetch }) {
 			return json({ error: 'PIN must be at least 4 digits' }, { status: 400 });
 		}
 
-		await ensureUniquePin(fetch, pin);
+		if (await pinExists(fetch, pin)) {
+			return json({ error: 'PIN already exists. Please choose a different PIN.' }, { status: 400 });
+		}
 
 		let rows = [];
 		let inviteDetails = null;
@@ -78,20 +70,22 @@ export async function POST({ request, fetch }) {
 		}
 
 		if (role === 'teacher') {
+			const hashedPin = hashPin(pin);
 			rows = normaliseResult(
 				await runQuery(
 					fetch,
 					`INSERT INTO teachers (name, pin, invite_code)
-					 VALUES ('${escapeSql(name)}', '${escapeSql(pin)}', '${randomUUID()}')
+					 VALUES ('${escapeSql(name)}', '${escapeSql(hashedPin)}', '${randomUUID()}')
 					 RETURNING id, name, 'teacher' as role`
 				)
 			);
 		} else if (role === 'student') {
+			const hashedPin = hashPin(pin);
 			rows = normaliseResult(
 				await runQuery(
 					fetch,
 					`INSERT INTO students (name, pin)
-					 VALUES ('${escapeSql(name)}', '${escapeSql(pin)}')
+					 VALUES ('${escapeSql(name)}', '${escapeSql(hashedPin)}')
 					 RETURNING id, name, 'student' as role`
 				)
 			);
@@ -104,11 +98,12 @@ export async function POST({ request, fetch }) {
 
 			await ensureUniqueReviewerEmail(fetch, reviewerEmail);
 
+			const hashedPin = hashPin(pin);
 			rows = normaliseResult(
 				await runQuery(
 					fetch,
 					`INSERT INTO reviewers (name, email, pin, invite_code, is_active)
-					 VALUES ('${escapeSql(name)}', '${escapeSql(reviewerEmail)}', '${escapeSql(pin)}', '${
+					 VALUES ('${escapeSql(name)}', '${escapeSql(reviewerEmail)}', '${escapeSql(hashedPin)}', '${
 						inviteDetails ? inviteCode : randomUUID()
 					}', TRUE)
 					 RETURNING id, name, email, 'reviewer' as role`
@@ -129,7 +124,18 @@ export async function POST({ request, fetch }) {
 			return json({ error: 'Signup failed' }, { status: 500 });
 		}
 
-		return json({ user: rows[0] });
+		const userPayload = rows[0];
+		const sessionRecord = await createSession(fetch, userPayload);
+		cookies.set(
+			getSessionCookieName(),
+			makeSessionCookieValue(sessionRecord),
+			{
+				...getSessionCookieOptions(),
+				expires: sessionRecord.expiresAt
+			}
+		);
+
+		return json({ user: userPayload });
 	} catch (error) {
 		return json(
 			{ error: error?.message || 'Signup failed' },

@@ -11,7 +11,7 @@
   - Unit test suite runs quickly and passes (`npm run test:unit -- --run`).
 - **Top risks**
   - Client-side SQL execution and exposed bearer token allow any user to run arbitrary reads/writes against production data (`src/lib/api.js:29`, `src/routes/api/query/+server.js:5`).
-  - Short, unhashed PINs with no rate limiting or session management make account takeover trivial (`migrations/001_init.sql:27`, `src/routes/login/+page.svelte:33`).
+  - Legacy plaintext PINs linger for dormant accounts, and there is still no rate limiting or session management, so account takeover remains easy (`src/routes/api/auth/login/+server.js:1`, `src/lib/user.js:33`).
   - Administrative UI gives every logged-in teacher direct SQL access, enabling privilege escalation and data loss (`src/routes/admin/+page.svelte:159`).
 
 ## Security (critical risks)
@@ -19,7 +19,7 @@
 - **Public bearer token.** The bearer token that protects the Railway backend is injected via `$env/static/public`, so it is bundled into the client and visible in DevTools and the repo (`src/routes/login/+page.svelte:33`, `src/routes/api/query/+server.js:11`). Anyone can replay it against production. *Action:* Treat the token as a server secret (`$env/static/private`), terminate all current tokens, and replace with real authentication.
 - **No server-side ownership checks.** Critical mutations trust `teacher_id` supplied by the client (`src/routes/api/tests/upload/+server.js:66`), so any attacker can create, overwrite, or delete tests for other teachers. *Action:* Derive teacher identity from a secure session on the server and enforce row-level ownership.
 - **Arbitrary SQL console.** The admin page exposes a raw SQL console to any teacher (`src/routes/admin/+page.svelte:159`). Combined with exposed credentials, this is equivalent to full database compromise. *Action:* Remove or heavily restrict this console, limiting it to vetted read-only diagnostics behind admin-only auth.
-- **Weak credentials & storage.** User PINs are stored in plaintext (`migrations/001_init.sql:27`) and must be numeric, minimum four digits (`src/routes/login/+page.svelte:95`). There is no hashing, rotation, or brute-force protection. *Action:* Replace PINs with salted password hashes and add rate limiting, MFA, and password reset flows.
+- **Weak credentials & storage (partially addressed).** New auth/admin endpoints hash PINs and stop returning secrets (`src/routes/api/admin/students/+server.js:3`, `src/routes/api/auth/login/+server.js:1`), and legacy plaintext values are auto-upgraded on login. Dormant accounts remain unhashed until they authenticate, and there is still no rate limiting or server-backed session. *Action:* backfill hashes for inactive accounts, add brute-force protection, and migrate to full password + session management.
 - **Untrusted local storage session.** User identity is stored entirely in `localStorage` and can be edited by the browser (`src/lib/user.js:33`). There is no server session or signature, so role escalation is as simple as editing the stored JSON. *Action:* Implement server-issued JWTs or HTTP-only cookies with signature checks.
 
 ## Usability

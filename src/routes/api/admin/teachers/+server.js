@@ -1,6 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { randomUUID } from 'node:crypto';
 import { escapeSql, normaliseResult, runQuery } from '$lib/server/db';
+import { hashPin, pinExists } from '$lib/server/pin';
+import { requireTeacher } from '$lib/server/authz';
 
 function requireString(value, field) {
 	if (typeof value !== 'string' || !value.trim()) {
@@ -20,8 +22,9 @@ function requireNumericString(value, field) {
 	return String(value).trim();
 }
 
-export async function GET({ fetch }) {
+export async function GET({ fetch, locals }) {
 	try {
+		requireTeacher(locals);
 		const rows = normaliseResult(
 			await runQuery(fetch, 'SELECT id, name FROM teachers ORDER BY name')
 		);
@@ -34,8 +37,9 @@ export async function GET({ fetch }) {
 	}
 }
 
-export async function POST({ request, fetch }) {
+export async function POST({ request, fetch, locals }) {
 	try {
+		requireTeacher(locals);
 		const body = await request.json();
 		const name = requireString(body?.name, 'name');
 		const pin = requireNumericString(body?.pin, 'pin');
@@ -44,26 +48,17 @@ export async function POST({ request, fetch }) {
 			return json({ error: 'PIN must be at least 4 digits' }, { status: 400 });
 		}
 
-		// Ensure PIN uniqueness across teachers/students/reviewers
-		const uniquenessCheck = normaliseResult(
-			await runQuery(
-				fetch,
-				`SELECT 1 FROM teachers WHERE pin = '${escapeSql(pin)}'
-				 UNION SELECT 1 FROM students WHERE pin = '${escapeSql(pin)}'
-				 UNION SELECT 1 FROM reviewers WHERE pin = '${escapeSql(pin)}'
-				 LIMIT 1`
-			)
-		);
-
-		if (uniquenessCheck.length > 0) {
+		if (await pinExists(fetch, pin)) {
 			return json({ error: 'PIN already exists. Choose a different PIN.' }, { status: 400 });
 		}
+
+		const hashedPin = hashPin(pin);
 
 		const result = normaliseResult(
 			await runQuery(
 				fetch,
 				`INSERT INTO teachers (name, pin, invite_code)
-				 VALUES ('${escapeSql(name)}', '${escapeSql(pin)}', '${randomUUID()}')
+				 VALUES ('${escapeSql(name)}', '${escapeSql(hashedPin)}', '${randomUUID()}')
 				 RETURNING id, name`
 			)
 		);

@@ -252,6 +252,113 @@ describe('$lib/api', () => {
 			expect(result).toEqual([{ id: 5 }]);
 		});
 
+		it('getAllStudents maps credential metadata', async () => {
+			const fetchMock = vi.fn().mockResolvedValue(
+				createFetchResponse({
+					ok: true,
+					json: {
+						students: [
+							{ id: 1, name: 'Ada Lovelace', has_pin: 1, pin_is_hashed: 0 },
+							{ id: 2, name: 'Grace Hopper', has_pin: 0, pin_is_hashed: 0 }
+						]
+					}
+				})
+			);
+
+			const result = await api.getAllStudents(fetchMock);
+
+			expect(fetchMock).toHaveBeenCalledWith('/api/admin/students');
+			expect(result).toEqual([
+				{ id: 1, name: 'Ada Lovelace', hasPin: true, pinIsHashed: false, legacyPin: true },
+				{ id: 2, name: 'Grace Hopper', hasPin: false, pinIsHashed: false, legacyPin: false }
+			]);
+		});
+
+		it('getAllReviewersForAdmin normalises credential metadata', async () => {
+			const fetchMock = vi.fn().mockResolvedValue(
+				createFetchResponse({
+					ok: true,
+					json: {
+						reviewers: [
+							{
+								id: 7,
+								name: 'Jordan',
+								email: 'jordan@example.com',
+								is_active: true,
+								has_pin: 1,
+								pin_is_hashed: 1,
+								created_at: '2024-01-01'
+							}
+						]
+					}
+				})
+			);
+
+			const result = await api.getAllReviewersForAdmin(fetchMock);
+
+			expect(fetchMock).toHaveBeenCalledWith('/api/admin/reviewers');
+			expect(result).toEqual([
+				{
+					id: 7,
+					name: 'Jordan',
+					email: 'jordan@example.com',
+					is_active: true,
+					created_at: '2024-01-01',
+					hasPin: true,
+					pinIsHashed: true,
+					legacyPin: false
+				}
+			]);
+		});
+
+		it('updateReviewer omits pin when not provided', async () => {
+			const fetchMock = vi
+				.fn()
+				.mockResolvedValue(createFetchResponse({ ok: true, json: { success: true } }));
+
+			await api.updateReviewer(fetchMock, {
+				id: '4',
+				name: 'Alex',
+				email: 'alex@example.com',
+				isActive: true
+			});
+
+			expect(fetchMock).toHaveBeenCalledWith('/api/admin/reviewers/4', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					name: 'Alex',
+					email: 'alex@example.com',
+					isActive: true
+				})
+			});
+		});
+
+		it('updateReviewer includes pin when provided', async () => {
+			const fetchMock = vi
+				.fn()
+				.mockResolvedValue(createFetchResponse({ ok: true, json: { success: true } }));
+
+			await api.updateReviewer(fetchMock, {
+				id: '4',
+				name: 'Alex',
+				email: 'alex@example.com',
+				isActive: false,
+				pin: '5678'
+			});
+
+			expect(fetchMock).toHaveBeenCalledWith('/api/admin/reviewers/4', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					name: 'Alex',
+					email: 'alex@example.com',
+					isActive: false,
+					pin: '5678'
+				})
+			});
+		});
+
 		it('assignStudentToClass posts to classes endpoint', async () => {
 			const fetchMock = vi
 				.fn()

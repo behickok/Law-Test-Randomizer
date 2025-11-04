@@ -547,7 +547,18 @@ export async function getAllStudents(fetch) {
 		throw new Error(await res.text());
 	}
 	const data = await res.json();
-	return Array.isArray(data) ? data : data?.students ?? [];
+	const students = Array.isArray(data) ? data : data?.students ?? [];
+	return students.map((student) => {
+		const hasPin = Boolean(student.hasPin ?? student.has_pin);
+		const pinIsHashed = Boolean(student.pinIsHashed ?? student.pin_is_hashed);
+		return {
+			id: student.id,
+			name: student.name,
+			hasPin,
+			pinIsHashed,
+			legacyPin: hasPin && !pinIsHashed
+		};
+	});
 }
 
 export async function getAllReviewers(fetch) {
@@ -565,7 +576,21 @@ export async function getAllReviewersForAdmin(fetch) {
 		throw new Error(await res.text());
 	}
 	const data = await res.json();
-	return Array.isArray(data) ? data : data?.reviewers ?? [];
+	const reviewers = Array.isArray(data) ? data : data?.reviewers ?? [];
+	return reviewers.map((reviewer) => {
+		const hasPin = Boolean(reviewer.hasPin ?? reviewer.has_pin);
+		const pinIsHashed = Boolean(reviewer.pinIsHashed ?? reviewer.pin_is_hashed);
+		return {
+			id: reviewer.id,
+			name: reviewer.name,
+			email: reviewer.email,
+			is_active: reviewer.is_active,
+			created_at: reviewer.created_at,
+			hasPin,
+			pinIsHashed,
+			legacyPin: hasPin && !pinIsHashed
+		};
+	});
 }
 
 export async function addReviewer(fetch, { name, email, pin }) {
@@ -592,18 +617,22 @@ export async function updateReviewer(fetch, { id, name, email, pin, isActive }) 
 	const cleanId = validateNumeric(id);
 	const cleanName = validateString(name);
 	const cleanEmail = validateString(email);
-	const cleanPin = validateNumeric(pin);
 	const cleanIsActive = validateBoolean(isActive);
+	const payload = {
+		name: cleanName,
+		email: cleanEmail,
+		isActive: cleanIsActive
+	};
+
+	if (pin !== undefined && pin !== null && String(pin).trim() !== '') {
+		const cleanPin = validateNumeric(pin);
+		payload.pin = String(cleanPin);
+	}
 
 	const res = await fetch(`${BASE_URL}/admin/reviewers/${cleanId}`, {
 		method: 'PUT',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({
-			name: cleanName,
-			email: cleanEmail,
-			pin: String(cleanPin),
-			isActive: cleanIsActive
-		})
+		body: JSON.stringify(payload)
 	});
 	if (!res.ok) {
 		throw new Error(await res.text());
@@ -701,7 +730,24 @@ export async function getClassAssignmentOverview(fetch) {
 		throw new Error(await res.text());
 	}
 	const data = await res.json();
-	return Array.isArray(data) ? data : data?.assignments ?? [];
+	const assignments = Array.isArray(data) ? data : data?.assignments ?? [];
+	return assignments.map((assignment) => {
+		const hasPin =
+			Boolean(assignment.studentHasPin ?? assignment.student_has_pin) ||
+			Boolean(assignment.student_pin);
+		const pinIsHashed = Boolean(
+			assignment.studentPinIsHashed ?? assignment.student_pin_is_hashed
+		);
+		return {
+			student_id: assignment.student_id,
+			student_name: assignment.student_name,
+			student_has_pin: hasPin,
+			student_pin_is_hashed: pinIsHashed,
+			teacher_id: assignment.teacher_id,
+			teacher_name: assignment.teacher_name,
+			status: assignment.status
+		};
+	});
 }
 
 // Image management functions

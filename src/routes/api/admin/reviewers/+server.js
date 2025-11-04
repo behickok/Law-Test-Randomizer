@@ -1,5 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { escapeSql, normaliseResult, runQuery } from '$lib/server/db';
+import { hashPin, pinExists } from '$lib/server/pin';
+import { requireTeacher } from '$lib/server/authz';
 
 function requireString(value, field) {
 	if (typeof value !== 'string' || !value.trim()) {
@@ -19,8 +21,9 @@ function requireNumericString(value, field) {
 	return String(value).trim();
 }
 
-export async function GET({ fetch }) {
+export async function GET({ fetch, locals }) {
 	try {
+		requireTeacher(locals);
 		const rows = normaliseResult(
 			await runQuery(
 				fetch,
@@ -29,7 +32,12 @@ export async function GET({ fetch }) {
 				 ORDER BY created_at DESC`
 			)
 		);
-		return json({ reviewers: rows });
+		const reviewers = rows.map(({ pin, ...reviewer }) => ({
+			...reviewer,
+			has_pin: Boolean(pin),
+			pin_is_hashed: typeof pin === 'string' && pin.includes(':')
+		}));
+		return json({ reviewers });
 	} catch (error) {
 		return json(
 			{ error: error?.message ?? 'Failed to load reviewers' },
@@ -38,8 +46,9 @@ export async function GET({ fetch }) {
 	}
 }
 
-export async function POST({ request, fetch }) {
+export async function POST({ request, fetch, locals }) {
 	try {
+		requireTeacher(locals);
 		const body = await request.json();
 		const name = requireString(body?.name, 'name');
 		const email = requireString(body?.email, 'email');
@@ -49,17 +58,7 @@ export async function POST({ request, fetch }) {
 			return json({ error: 'PIN must be at least 4 digits' }, { status: 400 });
 		}
 
-		// Unique PIN check across all roles
-		const pinCheck = normaliseResult(
-			await runQuery(
-				fetch,
-				`SELECT 1 FROM teachers WHERE pin = '${escapeSql(pin)}'
-				 UNION SELECT 1 FROM students WHERE pin = '${escapeSql(pin)}'
-				 UNION SELECT 1 FROM reviewers WHERE pin = '${escapeSql(pin)}'
-				 LIMIT 1`
-			)
-		);
-		if (pinCheck.length > 0) {
+		if (await pinExists(fetch, pin)) {
 			return json({ error: 'PIN already exists. Choose a different PIN.' }, { status: 400 });
 		}
 
@@ -73,16 +72,31 @@ export async function POST({ request, fetch }) {
 			return json({ error: 'Email already exists. Choose a different email.' }, { status: 400 });
 		}
 
+		const hashedPin = hashPin(pin);
+
 		const rows = normaliseResult(
 			await runQuery(
 				fetch,
 				`INSERT INTO reviewers (name, email, pin, is_active)
-				 VALUES ('${escapeSql(name)}', '${escapeSql(email)}', '${escapeSql(pin)}', TRUE)
+				 VALUES ('${escapeSql(name)}', '${escapeSql(email)}', '${escapeSql(hashedPin)}', TRUE)
 				 RETURNING id, name, email, pin, is_active`
 			)
 		);
 
-		return json({ reviewer: rows[0] }, { status: 201 });
+		const reviewer = rows[0];
+		return json(
+			{
+				reviewer: {
+					id: reviewer.id,
+					name: reviewer.name,
+					email: reviewer.email,
+					is_active: reviewer.is_active,
+					has_pin: true,
+					pin_is_hashed: typeof reviewer.pin === 'string' && reviewer.pin.includes(':')
+				}
+			},
+			{ status: 201 }
+		);
 	} catch (error) {
 		return json(
 			{ error: error?.message ?? 'Failed to add reviewer' },

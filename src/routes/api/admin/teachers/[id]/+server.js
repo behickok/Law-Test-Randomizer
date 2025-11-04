@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { normaliseResult, runQuery } from '$lib/server/db';
+import { requireTeacher } from '$lib/server/authz';
 
 function requireNumericParam(param) {
 	if (!/^\d+$/.test(param ?? '')) {
@@ -10,8 +11,9 @@ function requireNumericParam(param) {
 	return Number(param);
 }
 
-export async function GET({ params, fetch }) {
+export async function GET({ params, fetch, locals }) {
 	try {
+		requireTeacher(locals);
 		const teacherId = requireNumericParam(params.id);
 		const rows = normaliseResult(
 			await runQuery(
@@ -24,7 +26,14 @@ export async function GET({ params, fetch }) {
 			return json({ error: 'Teacher not found' }, { status: 404 });
 		}
 
-		return json({ teacher: rows[0] });
+		const { pin, ...teacher } = rows[0];
+		return json({
+			teacher: {
+				...teacher,
+				has_pin: Boolean(pin),
+				pin_is_hashed: typeof pin === 'string' && pin.includes(':')
+			}
+		});
 	} catch (error) {
 		return json(
 			{ error: error?.message ?? 'Failed to load teacher' },

@@ -69,6 +69,21 @@
 	const allReviewers = writable([]);
 	let editingReviewer = $state(null);
 	let showEditReviewer = $state(false);
+	let reviewerNewPin = $state('');
+
+	function pinStatusLabel(hasPin, isHashed) {
+		if (!hasPin) return 'Not set';
+		return isHashed ? 'Set (hashed)' : 'Legacy (reset required)';
+	}
+
+	function pinStatusClass(hasPin, isHashed) {
+		if (!hasPin) return 'pin-status-missing';
+		return isHashed ? 'pin-status-secure' : 'pin-status-legacy';
+	}
+
+	const reviewerNewPinInvalid = $derived(
+		Boolean(reviewerNewPin.trim()) && !/^\d{4,}$/.test(reviewerNewPin.trim())
+	);
 
 	async function handleAddReviewer() {
 		if (!$user || $user.role !== 'teacher') {
@@ -87,7 +102,7 @@
 				email: reviewerEmail.trim(),
 				pin: reviewerPin.trim()
 			});
-			reviewerMsg = 'Reviewer added successfully';
+			reviewerMsg = 'Reviewer added successfully. Share the PIN securely with the reviewer.';
 			reviewerName = '';
 			reviewerEmail = '';
 			reviewerPin = '';
@@ -108,30 +123,39 @@
 
 	function editReviewer(reviewer) {
 		editingReviewer = { ...reviewer };
+		reviewerNewPin = '';
 		showEditReviewer = true;
 	}
 
 	async function saveReviewerEdit() {
-		if (
-			!editingReviewer ||
-			!editingReviewer.name.trim() ||
-			!editingReviewer.email.trim() ||
-			!editingReviewer.pin.trim()
-		) {
-			reviewerMsg = 'Please fill in all fields.';
+		if (!editingReviewer || !editingReviewer.name.trim() || !editingReviewer.email.trim()) {
+			reviewerMsg = 'Name and email are required.';
+			return;
+		}
+		if (reviewerNewPinInvalid) {
+			reviewerMsg = 'New PIN must be at least 4 digits.';
 			return;
 		}
 
+		const payload = {
+			id: editingReviewer.id,
+			name: editingReviewer.name.trim(),
+			email: editingReviewer.email.trim(),
+			isActive: editingReviewer.is_active
+		};
+
+		const trimmedNewPin = reviewerNewPin.trim();
+		if (trimmedNewPin) {
+			payload.pin = trimmedNewPin;
+		}
+
 		try {
-			await updateReviewer(fetch, {
-				id: editingReviewer.id,
-				name: editingReviewer.name.trim(),
-				email: editingReviewer.email.trim(),
-				pin: editingReviewer.pin.trim(),
-				isActive: editingReviewer.is_active
-			});
-			reviewerMsg = 'Reviewer updated successfully';
+			await updateReviewer(fetch, payload);
+			reviewerMsg = trimmedNewPin
+				? 'Reviewer updated and PIN reset successfully'
+				: 'Reviewer updated successfully';
 			showEditReviewer = false;
+			reviewerNewPin = '';
 			editingReviewer = null;
 			await loadReviewers();
 		} catch (err) {
@@ -298,12 +322,25 @@
 	const studentGroups = $derived(
 		$classAssignments.reduce((groups, assignment) => {
 			const key = assignment.student_id;
+			const legacyPinString = assignment.student_pin;
+			const pinFlag = assignment.student_has_pin ?? assignment.studentHasPin;
+			const hashFlag = assignment.student_pin_is_hashed ?? assignment.studentPinIsHashed;
+			const hasPin =
+				pinFlag !== undefined
+					? Boolean(pinFlag)
+					: typeof legacyPinString === 'string' && legacyPinString.trim().length > 0;
+			const pinIsHashed =
+				hashFlag !== undefined
+					? Boolean(hashFlag)
+					: typeof legacyPinString === 'string' && legacyPinString.includes(':');
+
 			if (!groups[key]) {
 				groups[key] = {
 					student: {
 						id: assignment.student_id,
 						name: assignment.student_name,
-						pin: assignment.student_pin
+						hasPin,
+						pinIsHashed
 					},
 					teachers: []
 				};
@@ -760,7 +797,17 @@
 									<div class="student-card">
 										<div class="student-info">
 											<div class="student-name">{group.student.name}</div>
-											<div class="student-pin">PIN: {group.student.pin}</div>
+											<div class="student-pin">
+												PIN Status:
+												<span
+													class={`pin-status ${pinStatusClass(
+														group.student.hasPin,
+														group.student.pinIsHashed
+													)}`}
+												>
+													{pinStatusLabel(group.student.hasPin, group.student.pinIsHashed)}
+												</span>
+											</div>
 										</div>
 										<div class="teacher-assignments">
 											{#if group.teachers.length > 0}
@@ -823,7 +870,17 @@
 										<div class="reviewer-info">
 											<div class="reviewer-name">{reviewer.name}</div>
 											<div class="reviewer-email">{reviewer.email}</div>
-											<div class="reviewer-pin">PIN: {reviewer.pin}</div>
+											<div class="reviewer-pin">
+												PIN Status:
+												<span
+													class={`pin-status ${pinStatusClass(
+														reviewer.hasPin,
+														reviewer.pinIsHashed
+													)}`}
+												>
+													{pinStatusLabel(reviewer.hasPin, reviewer.pinIsHashed)}
+												</span>
+											</div>
 											<div class="reviewer-status">
 												{reviewer.is_active ? '✅ Active' : '❌ Inactive'}
 											</div>
@@ -966,14 +1023,19 @@
 				</div>
 
 				<div class="form-group">
-					<label for="edit-reviewer-pin">PIN</label>
+					<label for="edit-reviewer-pin">New PIN (optional)</label>
 					<input
 						id="edit-reviewer-pin"
 						type="text"
-						bind:value={editingReviewer.pin}
-						placeholder="Reviewer PIN"
+						bind:value={reviewerNewPin}
+						placeholder="Enter new 4+ digit PIN to reset"
 						class="form-input"
 					/>
+					{#if reviewerNewPinInvalid}
+						<div class="form-hint error">PIN must be numeric and at least 4 digits.</div>
+					{:else}
+						<div class="form-hint">Leave blank to keep the current PIN.</div>
+					{/if}
 				</div>
 
 				<div class="form-group">
@@ -996,7 +1058,7 @@
 						on:click={saveReviewerEdit}
 						disabled={!editingReviewer.name.trim() ||
 							!editingReviewer.email.trim() ||
-							!editingReviewer.pin.trim()}
+							reviewerNewPinInvalid}
 					>
 						Save Changes
 					</button>
@@ -1189,6 +1251,17 @@
 		border-color: #1e3a8a;
 		box-shadow: 0 0 0 4px rgba(30, 58, 138, 0.1);
 		background: white;
+	}
+
+	.form-hint {
+		font-size: 0.85rem;
+		color: #6b7280;
+		margin-top: 0.35rem;
+	}
+
+	.form-hint.error {
+		color: #b91c1c;
+		font-weight: 500;
 	}
 
 	.query-input-wrapper {
@@ -1623,12 +1696,11 @@
 
 	.student-pin {
 		font-size: 0.875rem;
-		color: #6b7280;
-		font-family: 'JetBrains Mono', monospace;
-		background: rgba(0, 0, 0, 0.05);
-		padding: 0.25rem 0.5rem;
-		border-radius: 4px;
-		display: inline-block;
+		color: #4b5563;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-wrap: wrap;
 	}
 
 	.teacher-assignments {
@@ -1964,13 +2036,39 @@
 
 	.reviewer-pin {
 		font-size: 0.875rem;
-		color: #6b7280;
-		font-family: 'JetBrains Mono', monospace;
-		background: rgba(0, 0, 0, 0.05);
-		padding: 0.25rem 0.5rem;
-		border-radius: 4px;
-		display: inline-block;
+		color: #4b5563;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex-wrap: wrap;
 		margin-bottom: 0.5rem;
+	}
+
+	.pin-status {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.15rem 0.6rem;
+		border-radius: 999px;
+		font-size: 0.75rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+
+	.pin-status-secure {
+		background: #ecfdf3;
+		color: #047857;
+	}
+
+	.pin-status-legacy {
+		background: #fef3c7;
+		color: #b45309;
+	}
+
+	.pin-status-missing {
+		background: #fee2e2;
+		color: #b91c1c;
 	}
 
 	.reviewer-status {

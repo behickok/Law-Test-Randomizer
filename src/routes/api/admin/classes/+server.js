@@ -1,8 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { normaliseResult, runQuery } from '$lib/server/db';
+import { requireTeacher } from '$lib/server/authz';
 
-export async function GET({ fetch }) {
+export async function GET({ fetch, locals }) {
 	try {
+		requireTeacher(locals);
 		const rows = normaliseResult(
 			await runQuery(
 				fetch,
@@ -18,7 +20,12 @@ export async function GET({ fetch }) {
 				 ORDER BY s.name, t.name`
 			)
 		);
-		return json({ assignments: rows });
+		const assignments = rows.map(({ student_pin, ...rest }) => ({
+			...rest,
+			student_has_pin: Boolean(student_pin),
+			student_pin_is_hashed: typeof student_pin === 'string' && student_pin.includes(':')
+		}));
+		return json({ assignments });
 	} catch (error) {
 		return json(
 			{ error: error?.message ?? 'Failed to load class assignments' },

@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { runQuery } from '$lib/server/db';
+import { requireTeacher } from '$lib/server/authz';
 
 function requireNumeric(value, field) {
 	if (!/^\d+$/.test(String(value ?? ''))) {
@@ -10,8 +11,9 @@ function requireNumeric(value, field) {
 	return Number(value);
 }
 
-export async function POST({ request, fetch }) {
+export async function POST({ request, fetch, locals }) {
 	try {
+		requireTeacher(locals);
 		const body = await request.json();
 		const studentId = requireNumeric(body?.studentId, 'studentId');
 		const teacherId = requireNumeric(body?.teacherId, 'teacherId');

@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { escapeSql, normaliseResult, runQuery } from '$lib/server/db';
+import { requireTeacher } from '$lib/server/authz';
 
 function requireNumeric(value, field) {
 	if (!/^\d+$/.test(String(value ?? ''))) {
@@ -19,13 +20,17 @@ function requireString(value, field) {
 	return value.trim();
 }
 
-export async function GET({ request, fetch }) {
+export async function GET({ request, fetch, locals }) {
 	try {
+		const teacher = requireTeacher(locals);
 		const teacherIdHeader = request.headers.get('x-teacher-id');
-		if (!teacherIdHeader || !/^\d+$/.test(teacherIdHeader)) {
+		if (teacherIdHeader && !/^\d+$/.test(teacherIdHeader)) {
 			return json({ error: 'Missing or invalid x-teacher-id header' }, { status: 400 });
 		}
-		const teacherId = Number(teacherIdHeader);
+		const teacherId = teacherIdHeader ? Number(teacherIdHeader) : teacher.id;
+		if (teacherId !== teacher.id) {
+			return json({ error: 'Unauthorized' }, { status: 401 });
+		}
 
 		const rows = normaliseResult(
 			await runQuery(
@@ -46,13 +51,17 @@ export async function GET({ request, fetch }) {
 	}
 }
 
-export async function POST({ request, fetch }) {
+export async function POST({ request, fetch, locals }) {
 	try {
+		const teacher = requireTeacher(locals);
 		const body = await request.json();
 		const teacherId =
 			body?.teacherId !== undefined
 				? requireNumeric(body.teacherId, 'teacherId')
-				: requireNumeric(request.headers.get('x-teacher-id'), 'x-teacher-id');
+				: teacher.id;
+		if (teacherId !== teacher.id) {
+			return json({ error: 'Unauthorized' }, { status: 401 });
+		}
 
 		const name = requireString(body?.name, 'name');
 		const mimeType = requireString(body?.mimeType, 'mimeType');

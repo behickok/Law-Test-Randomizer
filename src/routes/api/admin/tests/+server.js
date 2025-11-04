@@ -1,8 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { normaliseResult, runQuery } from '$lib/server/db';
+import { requireTeacher } from '$lib/server/authz';
 
-export async function GET({ fetch }) {
+export async function GET({ fetch, locals }) {
 	try {
+		requireTeacher(locals);
 		const rows = normaliseResult(
 			await runQuery(
 				fetch,

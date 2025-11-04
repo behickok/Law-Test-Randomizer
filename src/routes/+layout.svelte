@@ -2,9 +2,19 @@
 	import { user } from '$lib/user';
 	import { goto } from '$app/navigation';
 
-	function logout() {
-		user.logout();
-		goto('/login');
+	export let data;
+
+	$: user.set(data?.user ?? null);
+
+	async function logout() {
+		try {
+			await fetch('/api/auth/logout', { method: 'POST' });
+		} catch (error) {
+			console.error('Failed to logout:', error);
+		} finally {
+			user.logout();
+			goto('/login');
+		}
 	}
 </script>
 
