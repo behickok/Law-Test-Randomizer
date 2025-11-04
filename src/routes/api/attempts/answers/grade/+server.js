@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { normaliseResult, runQuery } from '$lib/server/db';
+import { resolveTeacherId } from '$lib/server/authGuard';
 
 function requireNumeric(value, field) {
 	if (!/^\d+$/.test(String(value ?? ''))) {
@@ -30,11 +31,11 @@ function acceptNumericOrNull(value, field) {
 	return Number(value);
 }
 
-export async function POST({ request, fetch }) {
-	try {
-		const body = await request.json();
-		const teacherId = requireNumeric(body?.teacherId, 'teacherId');
-		const answerId = requireNumeric(body?.answerId, 'answerId');
+export async function POST({ request, fetch, locals }) {
+        try {
+                const body = await request.json();
+                const teacherId = resolveTeacherId(locals, body?.teacherId);
+                const answerId = requireNumeric(body?.answerId, 'answerId');
 		const isCorrect = acceptBooleanOrNull(body?.isCorrect, 'isCorrect');
 		const pointsAwarded = acceptNumericOrNull(body?.pointsAwarded, 'pointsAwarded');
 

@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { normaliseResult, runQuery } from '$lib/server/db';
+import { resolveTeacherId } from '$lib/server/authGuard';
 
 function requireNumeric(value, field) {
 	if (!/^\d+$/.test(String(value ?? ''))) {
@@ -10,11 +11,11 @@ function requireNumeric(value, field) {
 	return Number(value);
 }
 
-export async function POST({ params, request, fetch }) {
-	try {
-		const attemptId = requireNumeric(params.attemptId, 'attemptId');
-		const body = await request.json();
-		const teacherId = requireNumeric(body?.teacherId, 'teacherId');
+export async function POST({ params, request, fetch, locals }) {
+        try {
+                const attemptId = requireNumeric(params.attemptId, 'attemptId');
+                const body = await request.json();
+                const teacherId = resolveTeacherId(locals, body?.teacherId);
 
 		const ownership = normaliseResult(
 			await runQuery(
