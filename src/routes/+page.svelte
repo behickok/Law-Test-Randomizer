@@ -494,11 +494,11 @@
 			reviewAssignments = [];
 			return;
 		}
-		try {
-			const res = await getReviewAssignments(fetch, $user.id);
-			reviewAssignments = Array.isArray(res) ? res : [];
-		} catch (err) {
-			console.error('Error loading review assignments:', err);
+                try {
+                        const res = await getReviewAssignments(fetch);
+                        reviewAssignments = Array.isArray(res) ? res : [];
+                } catch (err) {
+                        console.error('Error loading review assignments:', err);
 			reviewAssignments = [];
 		}
 	}
@@ -530,13 +530,12 @@
 	async function saveReviewAssignmentEdit() {
 		if (!editingAssignment || !editTitle.trim()) return;
 		
-		try {
-			await updateReviewAssignment(fetch, {
-				assignmentId: editingAssignment.assignment_id,
-				teacherId: $user.id,
-				title: editTitle.trim(),
-				description: editDescription.trim()
-			});
+                try {
+                        await updateReviewAssignment(fetch, {
+                                assignmentId: editingAssignment.assignment_id,
+                                title: editTitle.trim(),
+                                description: editDescription.trim()
+                        });
 			
 			// Refresh the assignments list
 			await loadReviewAssignments();
@@ -557,11 +556,11 @@
 			return;
 		}
 		
-		try {
-			await deleteReviewAssignment(fetch, assignmentId, $user.id);
-			
-			// Refresh the assignments list
-			await loadReviewAssignments();
+                try {
+                        await deleteReviewAssignment(fetch, assignmentId);
+
+                        // Refresh the assignments list
+                        await loadReviewAssignments();
 		} catch (err) {
 			console.error('Error deleting review assignment:', err);
 			alert('Failed to delete assignment: ' + err.message);

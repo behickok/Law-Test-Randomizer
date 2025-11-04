@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { escapeSql, normaliseResult, runQuery } from '$lib/server/db';
+import { requireTeacher } from '$lib/server/authGuard';
 
 function requireNumeric(value, field) {
 	if (!/^\d+$/.test(String(value ?? ''))) {
@@ -19,56 +20,48 @@ function requireString(value, field) {
 	return value.trim();
 }
 
-export async function GET({ request, fetch }) {
-	try {
-		const url = new URL(request.url);
-		const teacherParam = url.searchParams.get('teacherId');
-		const includeAll = url.searchParams.get('all') === 'true';
+export async function GET({ request, fetch, locals }) {
+        try {
+                const teacher = requireTeacher(locals);
+                const url = new URL(request.url);
+                const includeAll = url.searchParams.get('all') === 'true';
 
-		let rows;
-		if (teacherParam) {
-			const teacherId = requireNumeric(teacherParam, 'teacherId');
-			rows = normaliseResult(
-				await runQuery(
-					fetch,
-					`SELECT *
-					 FROM review_summary
-					 WHERE assigner_id = ${teacherId}
-					 ORDER BY created_at DESC`
-				)
-			);
-		} else if (includeAll) {
-			rows = normaliseResult(
-				await runQuery(
-					fetch,
-					`SELECT *
-					 FROM review_summary
-					 ORDER BY created_at DESC`
-				)
-			);
-		} else {
-			return json({ error: 'teacherId query param is required' }, { status: 400 });
-		}
+                if (includeAll) {
+                        return json(
+                                { error: 'Global review assignment listing requires elevated access' },
+                                { status: 403 }
+                        );
+                }
 
-		return json({ assignments: rows });
-	} catch (error) {
-		return json(
+                const rows = normaliseResult(
+                        await runQuery(
+                                fetch,
+                                `SELECT *
+                                 FROM review_summary
+                                 WHERE assigner_id = ${teacher.id}
+                                 ORDER BY created_at DESC`
+                        )
+                );
+
+                return json({ assignments: rows });
+        } catch (error) {
+                return json(
 			{ error: error?.message ?? 'Failed to load review assignments' },
 			{ status: error?.status ?? 500 }
 		);
 	}
 }
 
-export async function POST({ request, fetch }) {
-	try {
-		const body = await request.json();
-		const testId = requireNumeric(body?.testId, 'testId');
-		const teacherId = requireNumeric(body?.teacherId, 'teacherId');
-		const title = requireString(body?.title, 'title');
-		const description = typeof body?.description === 'string' ? body.description.trim() : '';
-		const reviewers = Array.isArray(body?.reviewers) ? body.reviewers : [];
-		const questionsPerReviewer = requireNumeric(
-			body?.questionsPerReviewer ?? 40,
+export async function POST({ request, fetch, locals }) {
+        try {
+                const teacher = requireTeacher(locals);
+                const body = await request.json();
+                const testId = requireNumeric(body?.testId, 'testId');
+                const title = requireString(body?.title, 'title');
+                const description = typeof body?.description === 'string' ? body.description.trim() : '';
+                const reviewers = Array.isArray(body?.reviewers) ? body.reviewers : [];
+                const questionsPerReviewer = requireNumeric(
+                        body?.questionsPerReviewer ?? 40,
 			'questionsPerReviewer'
 		);
 		const overlapFactor = requireNumeric(body?.overlapFactor ?? 2, 'overlapFactor');
@@ -77,12 +70,25 @@ export async function POST({ request, fetch }) {
 			return json({ error: 'At least one reviewer must be selected' }, { status: 400 });
 		}
 
-		const reviewerIds = reviewers.map((id) => requireNumeric(id, 'reviewerId'));
+                const reviewerIds = reviewers.map((id) => requireNumeric(id, 'reviewerId'));
 
-		// Verify reviewers
-		const reviewerCheck = normaliseResult(
-			await runQuery(
-				fetch,
+                const testCheck = normaliseResult(
+                        await runQuery(
+                                fetch,
+                                `SELECT id
+                                 FROM tests
+                                 WHERE id = ${testId} AND teacher_id = ${teacher.id}
+                                 LIMIT 1`
+                        )
+                );
+                if (testCheck.length === 0) {
+                        return json({ error: 'Test not found or access denied' }, { status: 404 });
+                }
+
+                // Verify reviewers
+                const reviewerCheck = normaliseResult(
+                        await runQuery(
+                                fetch,
 				`SELECT id
 				 FROM reviewers
 				 WHERE id IN (${reviewerIds.join(',')})
@@ -94,14 +100,14 @@ export async function POST({ request, fetch }) {
 		}
 
 		// Create assignment
-		const assignmentRes = normaliseResult(
-			await runQuery(
-				fetch,
-				`INSERT INTO review_assignments (test_id, assigner_id, title, description, questions_per_reviewer, overlap_factor)
-				 VALUES (${testId}, ${teacherId}, '${escapeSql(title)}', '${escapeSql(description)}', ${questionsPerReviewer}, ${overlapFactor})
-				 RETURNING id`
-			)
-		);
+                const assignmentRes = normaliseResult(
+                        await runQuery(
+                                fetch,
+                                `INSERT INTO review_assignments (test_id, assigner_id, title, description, questions_per_reviewer, overlap_factor)
+                                 VALUES (${testId}, ${teacher.id}, '${escapeSql(title)}', '${escapeSql(description)}', ${questionsPerReviewer}, ${overlapFactor})
+                                 RETURNING id`
+                        )
+                );
 		const assignmentId = assignmentRes[0]?.id;
 		if (!assignmentId) {
 			return json({ error: 'Failed to create review assignment' }, { status: 500 });
