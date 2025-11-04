@@ -945,15 +945,14 @@ export async function getTestQuestions(fetch, { testId }) {
 // Review System API Functions
 
 export async function createReviewAssignment(
-	fetch,
-	{ testId, teacherId, reviewers, title, description, questionsPerReviewer = 40, overlapFactor = 2 }
+        fetch,
+        { testId, reviewers, title, description, questionsPerReviewer = 40, overlapFactor = 2 }
 ) {
-	const cleanTestId = validateNumeric(testId);
-	const cleanTeacherId = validateNumeric(teacherId);
-	const cleanTitle = validateString(title);
-	const cleanDescription = validateString(description || '');
-	const cleanQuestionsPerReviewer = validateNumeric(questionsPerReviewer);
-	const cleanOverlapFactor = validateNumeric(overlapFactor);
+        const cleanTestId = validateNumeric(testId);
+        const cleanTitle = validateString(title);
+        const cleanDescription = validateString(description || '');
+        const cleanQuestionsPerReviewer = validateNumeric(questionsPerReviewer);
+        const cleanOverlapFactor = validateNumeric(overlapFactor);
 
 	if (!Array.isArray(reviewers) || reviewers.length === 0) {
 		throw new Error('At least one reviewer must be selected');
@@ -961,17 +960,16 @@ export async function createReviewAssignment(
 
 	const cleanReviewers = reviewers.map((r) => validateNumeric(r));
 
-	const res = await fetch(`${BASE_URL}/review-assignments`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({
-			testId: cleanTestId,
-			teacherId: cleanTeacherId,
-			reviewers: cleanReviewers,
-			title: cleanTitle,
-			description: cleanDescription,
-			questionsPerReviewer: cleanQuestionsPerReviewer,
-			overlapFactor: cleanOverlapFactor
+        const res = await fetch(`${BASE_URL}/review-assignments`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                        testId: cleanTestId,
+                        reviewers: cleanReviewers,
+                        title: cleanTitle,
+                        description: cleanDescription,
+                        questionsPerReviewer: cleanQuestionsPerReviewer,
+                        overlapFactor: cleanOverlapFactor
 		})
 	});
 
@@ -982,23 +980,13 @@ export async function createReviewAssignment(
 	return res.json();
 }
 
-export async function getReviewAssignments(fetch, teacherId) {
-	const cleanTeacherId = validateNumeric(teacherId);
-	const res = await fetch(`${BASE_URL}/review-assignments?teacherId=${cleanTeacherId}`);
-	if (!res.ok) {
-		throw new Error(await res.text());
-	}
-	const data = await res.json();
-	return Array.isArray(data) ? data : data?.assignments ?? [];
-}
-
-export async function getAllReviewAssignments(fetch) {
-	const res = await fetch(`${BASE_URL}/review-assignments?all=true`);
-	if (!res.ok) {
-		throw new Error(await res.text());
-	}
-	const data = await res.json();
-	return Array.isArray(data) ? data : data?.assignments ?? [];
+export async function getReviewAssignments(fetch) {
+        const res = await fetch(`${BASE_URL}/review-assignments`);
+        if (!res.ok) {
+                throw new Error(await res.text());
+        }
+        const data = await res.json();
+        return Array.isArray(data) ? data : data?.assignments ?? [];
 }
 
 export async function getReviewerAssignments(fetch, reviewerId) {
@@ -1063,57 +1051,52 @@ export async function getReviewResults(fetch, assignmentId) {
 	return Array.isArray(data) ? data : data?.results ?? [];
 }
 
-export async function updateReviewAssignmentStatus(fetch, { assignmentId, teacherId, status }) {
-	const cleanAssignmentId = validateNumeric(assignmentId);
-	const cleanTeacherId = validateNumeric(teacherId);
-	const cleanStatus = validateString(status);
+export async function updateReviewAssignmentStatus(fetch, { assignmentId, status }) {
+        const cleanAssignmentId = validateNumeric(assignmentId);
+        const cleanStatus = validateString(status);
 
-	if (!['active', 'completed', 'cancelled'].includes(cleanStatus)) {
-		throw new Error('Invalid status. Must be active, completed, or cancelled');
-	}
+        if (!['active', 'completed', 'cancelled'].includes(cleanStatus)) {
+                throw new Error('Invalid status. Must be active, completed, or cancelled');
+        }
 
-	const res = await fetch(`${BASE_URL}/review-assignments/${cleanAssignmentId}`, {
-		method: 'PATCH',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ teacherId: cleanTeacherId, status: cleanStatus })
-	});
-	if (!res.ok) {
-		throw new Error(await res.text());
-	}
-	return res.json();
+        const res = await fetch(`${BASE_URL}/review-assignments/${cleanAssignmentId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: cleanStatus })
+        });
+        if (!res.ok) {
+                throw new Error(await res.text());
+        }
+        return res.json();
 }
 
-export async function deleteReviewAssignment(fetch, assignmentId, teacherId) {
-	const cleanAssignmentId = validateNumeric(assignmentId);
-	const cleanTeacherId = validateNumeric(teacherId);
+export async function deleteReviewAssignment(fetch, assignmentId) {
+        const cleanAssignmentId = validateNumeric(assignmentId);
 
-	const res = await fetch(`${BASE_URL}/review-assignments/${cleanAssignmentId}`, {
-		method: 'DELETE',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ teacherId: cleanTeacherId })
-	});
-	if (!res.ok) {
-		throw new Error(await res.text());
-	}
-	return res.json();
+        const res = await fetch(`${BASE_URL}/review-assignments/${cleanAssignmentId}`, {
+                method: 'DELETE'
+        });
+        if (!res.ok) {
+                throw new Error(await res.text());
+        }
+        return res.json();
 }
 
 export async function updateReviewAssignment(
-	fetch,
-	{ assignmentId, teacherId, title, description }
+        fetch,
+        { assignmentId, title, description }
 ) {
-	const cleanAssignmentId = validateNumeric(assignmentId);
-	const cleanTeacherId = validateNumeric(teacherId);
-	const cleanTitle = validateString(title);
-	const cleanDescription = validateString(description || '');
+        const cleanAssignmentId = validateNumeric(assignmentId);
+        const cleanTitle = validateString(title);
+        const cleanDescription = validateString(description || '');
 
-	const res = await fetch(`${BASE_URL}/review-assignments/${cleanAssignmentId}`, {
-		method: 'PUT',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ teacherId: cleanTeacherId, title: cleanTitle, description: cleanDescription })
-	});
-	if (!res.ok) {
-		throw new Error(await res.text());
-	}
-	return res.json();
+        const res = await fetch(`${BASE_URL}/review-assignments/${cleanAssignmentId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: cleanTitle, description: cleanDescription })
+        });
+        if (!res.ok) {
+                throw new Error(await res.text());
+        }
+        return res.json();
 }

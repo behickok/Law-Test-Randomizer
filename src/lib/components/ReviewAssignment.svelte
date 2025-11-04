@@ -81,14 +81,13 @@
 		message = '';
 
 		try {
-			const result = await createReviewAssignment(fetch, {
-				testId: selectedTestId,
-				teacherId: $user.id,
-				reviewers: selectedReviewers,
-				title: title.trim(),
-				description: description.trim(),
-				questionsPerReviewer,
-				overlapFactor
+                        const result = await createReviewAssignment(fetch, {
+                                testId: selectedTestId,
+                                reviewers: selectedReviewers,
+                                title: title.trim(),
+                                description: description.trim(),
+                                questionsPerReviewer,
+                                overlapFactor
 			});
 
 			message = result.message;

@@ -552,34 +552,32 @@ describe('$lib/api', () => {
                         expect(questions).toEqual([{ id: 1, choices: [] }]);
                 });
 
-		it('createReviewAssignment posts to server', async () => {
-			const fetchMock = vi
-				.fn()
-				.mockResolvedValue(
-					createFetchResponse({ ok: true, json: { success: true, assignmentId: 10 } })
-				);
+                it('createReviewAssignment posts to server', async () => {
+                        const fetchMock = vi
+                                .fn()
+                                .mockResolvedValue(
+                                        createFetchResponse({ ok: true, json: { success: true, assignmentId: 10 } })
+                                );
 
-			await api.createReviewAssignment(fetchMock, {
-				testId: '3',
-				teacherId: '5',
-				reviewers: ['7', '8'],
-				title: 'Midterm Review',
-				description: 'Focus on essay questions',
-				questionsPerReviewer: 20,
-				overlapFactor: 2
+                        await api.createReviewAssignment(fetchMock, {
+                                testId: '3',
+                                reviewers: ['7', '8'],
+                                title: 'Midterm Review',
+                                description: 'Focus on essay questions',
+                                questionsPerReviewer: 20,
+                                overlapFactor: 2
 			});
 
-			expect(fetchMock).toHaveBeenCalledWith('/api/review-assignments', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					testId: 3,
-					teacherId: 5,
-					reviewers: [7, 8],
-					title: 'Midterm Review',
-					description: 'Focus on essay questions',
-					questionsPerReviewer: 20,
-					overlapFactor: 2
+                        expect(fetchMock).toHaveBeenCalledWith('/api/review-assignments', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                        testId: 3,
+                                        reviewers: [7, 8],
+                                        title: 'Midterm Review',
+                                        description: 'Focus on essay questions',
+                                        questionsPerReviewer: 20,
+                                        overlapFactor: 2
 				})
 			});
 		});
