@@ -1,10 +1,5 @@
 const BASE_URL = '/api';
 
-function escapeSql(str) {
-	if (typeof str !== 'string') return str;
-	return str.replace(/'/g, "''");
-}
-
 function validateNumeric(value) {
 	if (!/^\d+$/.test(String(value))) {
 		throw new Error(`Invalid numeric value: ${value}`);
@@ -26,36 +21,9 @@ function validateString(value) {
 	return value;
 }
 
-export async function query(fetch, sql) {
-	const res = await fetch(`${BASE_URL}/query`, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ sql })
-	});
-	if (!res.ok) {
-		throw new Error(await res.text());
-	}
-	return res.json();
-}
-
-export async function uploadSQL(fetch, file) {
-	const form = new FormData();
-	form.append('sql_file', file);
-	const res = await fetch(`${BASE_URL}/query-file`, {
-		method: 'POST',
-		body: form
-	});
-	if (!res.ok) {
-		throw new Error(await res.text());
-	}
-	return res.json();
-}
-
 export async function uploadTestData(
-	fetch,
-	{ data, title, teacherId, testId, appendMode = false }
+        fetch,
+        { data, title, teacherId, testId, appendMode = false }
 ) {
 	if (!data || !data.trim()) {
 		throw new Error('Test data is required');
@@ -473,34 +441,22 @@ export async function signupReviewerWithInvite(fetch, { name, pin, inviteCode })
 }
 
 export async function deleteTest(fetch, { testId, teacherId }) {
-	const cleanTestId = validateNumeric(testId);
-	const cleanTeacherId = validateNumeric(teacherId);
+        const cleanTestId = validateNumeric(testId);
+        const cleanTeacherId = validateNumeric(teacherId);
 
-	// Verify ownership first
-	const ownershipCheck = await query(
-		fetch,
-		`SELECT id FROM tests WHERE id = ${cleanTestId} AND teacher_id = ${cleanTeacherId}`
-	);
+        const res = await fetch(`${BASE_URL}/tests/${cleanTestId}`, {
+                method: 'DELETE',
+                headers: {
+                        'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ teacherId: cleanTeacherId })
+        });
 
-	if (ownershipCheck.length === 0) {
-		throw new Error('Test not found or access denied');
-	}
+        if (!res.ok) {
+                throw new Error(await res.text());
+        }
 
-	// Delete in correct order: attempt_answers, choices, questions, sections, test_attempts, then test
-	await query(
-		fetch,
-		`DELETE FROM attempt_answers WHERE question_id IN (SELECT id FROM questions WHERE test_id = ${cleanTestId})`
-	);
-	await query(
-		fetch,
-		`DELETE FROM choices WHERE question_id IN (SELECT id FROM questions WHERE test_id = ${cleanTestId})`
-	);
-	await query(fetch, `DELETE FROM questions WHERE test_id = ${cleanTestId}`);
-	await query(fetch, `DELETE FROM sections WHERE test_id = ${cleanTestId}`);
-	await query(fetch, `DELETE FROM test_attempts WHERE test_id = ${cleanTestId}`);
-	await query(fetch, `DELETE FROM tests WHERE id = ${cleanTestId}`);
-
-	return { success: true };
+        return res.json();
 }
 
 export async function getTestsForTeacher(fetch, teacherId) {

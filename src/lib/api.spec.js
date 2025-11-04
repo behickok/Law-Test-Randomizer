@@ -26,65 +26,14 @@ const createFetchResponse = ({ ok, json, text }) => ({
 	text: text ? () => Promise.resolve(text) : undefined
 });
 
-const createSqlFetchMock = (handlers = []) => {
-	const calls = [];
-	const matchHandler = (sql) =>
-		handlers.find((handler) => {
-			if (typeof handler.when === 'function') return handler.when(sql);
-			if (handler.when instanceof RegExp) return handler.when.test(sql);
-			return false;
-		});
-
-	const mock = vi.fn().mockImplementation(async (_url, options = {}) => {
-		const body = options.body ? JSON.parse(options.body) : {};
-		const sql = body.sql || '';
-		calls.push(sql);
-
-		const handler = matchHandler(sql);
-		if (handler) {
-			const result = await handler.response(sql);
-			if (result && result.error) {
-				return { ok: false, text: async () => result.error };
-			}
-			return { ok: true, json: async () => result };
-		}
-
-		return { ok: true, json: async () => [] };
-	});
-
-	mock.getSqlCalls = () => calls;
-	return mock;
-};
-
 describe('$lib/api', () => {
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
+        afterEach(() => {
+                vi.restoreAllMocks();
+        });
 
-	describe('query', () => {
-		it('sends SQL payload and returns parsed JSON', async () => {
-			const fetchMock = vi.fn().mockResolvedValue(createFetchResponse({ ok: true, json: [{ id: 1 }] }));
-			const result = await api.query(fetchMock, 'SELECT 1');
-
-			expect(fetchMock).toHaveBeenCalledWith('/api/query', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ sql: 'SELECT 1' })
-			});
-			expect(result).toEqual([{ id: 1 }]);
-		});
-
-		it('throws when the API responds with an error', async () => {
-			const fetchMock = vi.fn().mockResolvedValue(
-				createFetchResponse({ ok: false, text: 'database connection failed' })
-			);
-			await expect(api.query(fetchMock, 'SELECT 1')).rejects.toThrow('database connection failed');
-		});
-	});
-
-	describe('uploadTestData', () => {
-		it('builds multipart payload with optional fields', async () => {
-			const fetchMock = vi.fn().mockResolvedValue(createFetchResponse({ ok: true, json: { id: 99 } }));
+        describe('uploadTestData', () => {
+                it('builds multipart payload with optional fields', async () => {
+                        const fetchMock = vi.fn().mockResolvedValue(createFetchResponse({ ok: true, json: { id: 99 } }));
 
 			const result = await api.uploadTestData(fetchMock, {
 				data: '   question data   ',
