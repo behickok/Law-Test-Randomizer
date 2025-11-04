@@ -23,24 +23,22 @@ function validateString(value) {
 
 export async function uploadTestData(
         fetch,
-        { data, title, teacherId, testId, appendMode = false }
+        { data, title, testId, appendMode = false }
 ) {
-	if (!data || !data.trim()) {
-		throw new Error('Test data is required');
-	}
+        if (!data || !data.trim()) {
+                throw new Error('Test data is required');
+        }
 
-	const cleanTitle = validateString(title);
-	const cleanTeacherId = validateNumeric(teacherId);
+        const cleanTitle = validateString(title);
 
-	const form = new FormData();
-	form.append('data', data.trim());
-	form.append('title', cleanTitle);
-	form.append('teacher_id', cleanTeacherId);
+        const form = new FormData();
+        form.append('data', data.trim());
+        form.append('title', cleanTitle);
 
-	// Add test_id if updating existing test
-	if (testId) {
-		form.append('test_id', validateNumeric(testId));
-	}
+        // Add test_id if updating existing test
+        if (testId) {
+                form.append('test_id', validateNumeric(testId));
+        }
 
 	// Add append_mode flag
 	if (appendMode) {
@@ -59,22 +57,20 @@ export async function uploadTestData(
 	return res.json();
 }
 
-export async function assignTest(fetch, { testId, teacherId, studentId, studentName }) {
-	const cleanTestId = validateNumeric(testId);
-	const cleanTeacherId = validateNumeric(teacherId);
-	const cleanStudentId = validateNumeric(studentId);
-	const cleanStudentName = validateString(studentName);
+export async function assignTest(fetch, { testId, studentId, studentName }) {
+        const cleanTestId = validateNumeric(testId);
+        const cleanStudentId = validateNumeric(studentId);
+        const cleanStudentName = validateString(studentName);
 
-	const res = await fetch(`${BASE_URL}/tests/assign`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({
-			testId: cleanTestId,
-			teacherId: cleanTeacherId,
-			studentId: cleanStudentId,
-			studentName: cleanStudentName
-		})
-	});
+        const res = await fetch(`${BASE_URL}/tests/assign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                        testId: cleanTestId,
+                        studentId: cleanStudentId,
+                        studentName: cleanStudentName
+                })
+        });
 
 	if (!res.ok) {
 		throw new Error(await res.text());
@@ -105,13 +101,8 @@ export async function setTestActive(fetch, { testId, teacherId, isActive }) {
 	return res.json();
 }
 
-export async function getTeacherResults(fetch, teacherId) {
-	const cleanTeacherId = validateNumeric(teacherId);
-	const res = await fetch(`${BASE_URL}/results/teacher`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ teacherId: cleanTeacherId })
-	});
+export async function getTeacherResults(fetch) {
+        const res = await fetch(`${BASE_URL}/results/teacher`, { method: 'POST' });
 
 	if (!res.ok) {
 		throw new Error(await res.text());
@@ -120,15 +111,12 @@ export async function getTeacherResults(fetch, teacherId) {
 	return res.json();
 }
 
-export async function getAttemptAnswers(fetch, { attemptId, teacherId }) {
-	const cleanAttemptId = validateNumeric(attemptId);
-	const cleanTeacherId = validateNumeric(teacherId);
+export async function getAttemptAnswers(fetch, { attemptId }) {
+        const cleanAttemptId = validateNumeric(attemptId);
 
-	const res = await fetch(`${BASE_URL}/attempts/${cleanAttemptId}/answers`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ teacherId: cleanTeacherId })
-	});
+        const res = await fetch(`${BASE_URL}/attempts/${cleanAttemptId}/answers`, {
+                method: 'POST'
+        });
 
 	if (!res.ok) {
 		throw new Error(await res.text());
@@ -137,28 +125,26 @@ export async function getAttemptAnswers(fetch, { attemptId, teacherId }) {
 	return res.json();
 }
 
-export async function gradeAttemptAnswer(fetch, { answerId, teacherId, isCorrect, pointsAwarded }) {
-	const cleanAnswerId = validateNumeric(answerId);
-	const cleanTeacherId = validateNumeric(teacherId);
+export async function gradeAttemptAnswer(fetch, { answerId, isCorrect, pointsAwarded }) {
+        const cleanAnswerId = validateNumeric(answerId);
 
-	let normalisedCorrect = null;
-	if (isCorrect !== null && isCorrect !== undefined) {
-		normalisedCorrect = validateBoolean(isCorrect);
+        let normalisedCorrect = null;
+        if (isCorrect !== null && isCorrect !== undefined) {
+                normalisedCorrect = validateBoolean(isCorrect);
 	}
 
 	const normalisedPoints =
 		pointsAwarded === null || pointsAwarded === undefined ? null : validateNumeric(pointsAwarded);
 
-	const res = await fetch(`${BASE_URL}/attempts/answers/grade`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({
-			answerId: cleanAnswerId,
-			teacherId: cleanTeacherId,
-			isCorrect: normalisedCorrect,
-			pointsAwarded: normalisedPoints
-		})
-	});
+        const res = await fetch(`${BASE_URL}/attempts/answers/grade`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                        answerId: cleanAnswerId,
+                        isCorrect: normalisedCorrect,
+                        pointsAwarded: normalisedPoints
+                })
+        });
 
 	if (!res.ok) {
 		throw new Error(await res.text());
@@ -439,16 +425,11 @@ export async function signupReviewerWithInvite(fetch, { name, pin, inviteCode })
 	return res.json();
 }
 
-export async function deleteTest(fetch, { testId, teacherId }) {
+export async function deleteTest(fetch, { testId }) {
         const cleanTestId = validateNumeric(testId);
-        const cleanTeacherId = validateNumeric(teacherId);
 
         const res = await fetch(`${BASE_URL}/tests/${cleanTestId}`, {
-                method: 'DELETE',
-                headers: {
-                        'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ teacherId: cleanTeacherId })
+                method: 'DELETE'
         });
 
         if (!res.ok) {
@@ -458,14 +439,13 @@ export async function deleteTest(fetch, { testId, teacherId }) {
         return res.json();
 }
 
-export async function getTestsForTeacher(fetch, teacherId) {
-	const cleanTeacherId = validateNumeric(teacherId);
-	const res = await fetch(`${BASE_URL}/tests/teacher/${cleanTeacherId}`);
-	if (!res.ok) {
-		throw new Error(await res.text());
-	}
-	const data = await res.json();
-	return Array.isArray(data) ? data : data?.tests ?? [];
+export async function getTestsForTeacher(fetch) {
+        const res = await fetch(`${BASE_URL}/tests/teacher`);
+        if (!res.ok) {
+                throw new Error(await res.text());
+        }
+        const data = await res.json();
+        return Array.isArray(data) ? data : data?.tests ?? [];
 }
 
 export async function getTeacher(fetch, teacherId) {
@@ -952,12 +932,9 @@ export async function copyTestToTeacher(fetch, { testId, fromTeacherId, toTeache
 	return res.json();
 }
 
-export async function getTestQuestions(fetch, { testId, teacherId }) {
-	const cleanTestId = validateNumeric(testId);
-	const cleanTeacherId = validateNumeric(teacherId);
-	const res = await fetch(
-		`${BASE_URL}/tests/${cleanTestId}/questions?teacherId=${cleanTeacherId}`
-	);
+export async function getTestQuestions(fetch, { testId }) {
+        const cleanTestId = validateNumeric(testId);
+        const res = await fetch(`${BASE_URL}/tests/${cleanTestId}/questions`);
 	if (!res.ok) {
 		throw new Error(await res.text());
 	}

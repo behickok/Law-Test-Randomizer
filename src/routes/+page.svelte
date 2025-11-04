@@ -94,15 +94,14 @@
 			}, 100);
 
 			const testId = updateMode && selectedTestId ? selectedTestId : undefined;
-			const actionWord = updateMode ? 'Updated' : 'Created';
+                        const actionWord = updateMode ? 'Updated' : 'Created';
 
-			await uploadTestData(fetch, {
-				data: testData,
-				title: title.trim(),
-				teacherId: $user.id,
-				testId,
-				appendMode
-			});
+                        await uploadTestData(fetch, {
+                                data: testData,
+                                title: title.trim(),
+                                testId,
+                                appendMode
+                        });
 
 			// Complete progress
 			clearInterval(progressInterval);
@@ -361,11 +360,10 @@
 			return;
 		}
 
-		try {
-			existingQuestions = await getTestQuestions(fetch, {
-				testId: selectedTestId,
-				teacherId: $user.id
-			});
+                try {
+                        existingQuestions = await getTestQuestions(fetch, {
+                                testId: selectedTestId
+                        });
 		} catch (err) {
 			existingQuestions = [];
 			console.error('Failed to load existing questions:', err);
@@ -433,11 +431,10 @@
 
 		if (!confirmed) return;
 
-		try {
-			await deleteTest(fetch, {
-				testId: t.id,
-				teacherId: $user.id
-			});
+                try {
+                        await deleteTest(fetch, {
+                                testId: t.id
+                        });
 			tests.update((ts) => ts.filter((x) => x.id !== t.id));
 		} catch (err) {
 			error = err.message || 'Failed to delete test';
@@ -467,8 +464,8 @@
 			return;
 		}
 		try {
-			const res =
-				$user.role === 'teacher' ? await getTestsForTeacher(fetch, $user.id) : await getActiveTests(fetch);
+                        const res =
+                                $user.role === 'teacher' ? await getTestsForTeacher(fetch) : await getActiveTests(fetch);
 			tests.set(Array.isArray(res) ? res : []);
 		} catch (err) {
 			error = err.message;
@@ -698,13 +695,12 @@
 			return;
 		}
 
-			try {
-				await assignTest(fetch, {
-					testId: assignTestId,
-					teacherId: $user.id,
-					studentId: selectedStudentId,
-					studentName: selectedStudent.name
-				});
+                try {
+                        await assignTest(fetch, {
+                                testId: assignTestId,
+                                studentId: selectedStudentId,
+                                studentName: selectedStudent.name
+                        });
 				assignMsg = 'Assigned';
 			} catch (e) {
 				assignMsg = e.message;
@@ -718,8 +714,8 @@
 		if (!$user || $user.role !== 'teacher') {
 			return;
 		}
-		try {
-			const res = await getTeacherResults(fetch, $user.id);
+                try {
+                        const res = await getTeacherResults(fetch);
 			const rows = Array.isArray(res) ? res : res?.results ?? res?.data ?? [];
 			teacherResults.set(rows);
 		} catch {
@@ -727,9 +723,9 @@
 		}
 	}
 
-	async function loadAttemptAnswers(id) {
-		try {
-			const res = await getAttemptAnswers(fetch, { attemptId: id, teacherId: $user.id });
+        async function loadAttemptAnswers(id) {
+                try {
+                        const res = await getAttemptAnswers(fetch, { attemptId: id });
 			const rows = Array.isArray(res) ? res : res?.answers ?? res?.data ?? [];
 			attemptAnswers.update((m) => ({
 				...m,
@@ -740,27 +736,25 @@
 		}
 	}
 
-	async function toggleCorrect(attemptId, answer) {
-		const newCorrect = !answer.is_correct;
-		const points = newCorrect ? answer.points : 0;
-		await gradeAttemptAnswer(fetch, {
-			answerId: answer.id,
-			teacherId: $user.id,
-			isCorrect: newCorrect,
-			pointsAwarded: points
-		});
+        async function toggleCorrect(attemptId, answer) {
+                const newCorrect = !answer.is_correct;
+                const points = newCorrect ? answer.points : 0;
+                await gradeAttemptAnswer(fetch, {
+                        answerId: answer.id,
+                        isCorrect: newCorrect,
+                        pointsAwarded: points
+                });
 		await loadTeacherResults();
 		await loadAttemptAnswers(attemptId);
 	}
 
-	async function saveFreeResponse(attemptId, answer) {
-		const pts = Number(answer.points_awarded || 0);
-		await gradeAttemptAnswer(fetch, {
-			answerId: answer.id,
-			teacherId: $user.id,
-			isCorrect: pts > 0,
-			pointsAwarded: pts
-		});
+        async function saveFreeResponse(attemptId, answer) {
+                const pts = Number(answer.points_awarded || 0);
+                await gradeAttemptAnswer(fetch, {
+                        answerId: answer.id,
+                        isCorrect: pts > 0,
+                        pointsAwarded: pts
+                });
 		await loadTeacherResults();
 		await loadAttemptAnswers(attemptId);
 	}

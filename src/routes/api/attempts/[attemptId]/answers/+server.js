@@ -14,7 +14,18 @@ function requireNumeric(value, field) {
 export async function POST({ params, request, fetch, locals }) {
         try {
                 const attemptId = requireNumeric(params.attemptId, 'attemptId');
-                const body = await request.json();
+                let body = {};
+                const contentType = request.headers.get('content-type') ?? '';
+                if (contentType.toLowerCase().includes('application/json')) {
+                        try {
+                                body = await request.json();
+                        } catch (error) {
+                                const err = new Error('Invalid JSON payload');
+                                err.status = 400;
+                                err.cause = error;
+                                throw err;
+                        }
+                }
                 const teacherId = resolveTeacherId(locals, body?.teacherId);
 
 		const ownership = normaliseResult(
