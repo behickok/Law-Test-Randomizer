@@ -83,6 +83,8 @@ curl -X POST -F "sql_file=@migrations/002_add_pins.sql" https://web-production-b
 
 This will create the tables used by the app for tests, questions and student attempts.
 
+> **Security note:** The SvelteKit app no longer exposes `/api/query` or `/api/query-file`; these endpoints are only reachable from trusted server code that forwards the private `BACKEND_SERVICE_TOKEN` (`src/routes/+page.server.js:1`, `src/lib/server/db.js:1`). Run the `curl` commands from a secure environment (or the backend service itself) so the token is never exposed to browsers or untrusted clients.
+
 ## Authentication
 
 API requests now require a bearer token. Set `BACKEND_SERVICE_TOKEN` in your environment before running the app:

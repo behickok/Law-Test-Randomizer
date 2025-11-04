@@ -1,4 +1,5 @@
-import { query, getTeacherImages, getImageById, parseQuestionTemplate } from '$lib/api';
+import { getTeacherImages, getImageById, parseQuestionTemplate } from '$lib/api';
+import { normaliseResult, runQuery } from '$lib/server/db';
 
 async function processQuestionsWithImagesOptimized(fetch, questions, teacherId) {
 	console.log(`🚀 Starting optimized image processing for ${questions.length} questions`);
@@ -119,36 +120,39 @@ export async function load({ params, fetch }) {
 	const MAX_PROCESSING_TIME = 25000; // 25 seconds to avoid gateway timeout
 	
 	try {
-		const tRes = await query(
-			fetch,
-			`select id, title, teacher_id from tests where id = ${params.id}`
-		);
-		const tData = Array.isArray(tRes) ? tRes : (tRes?.data ?? []);
-		const test = tData[0];
+                const tData = normaliseResult(
+                        await runQuery(
+                                fetch,
+                                `select id, title, teacher_id from tests where id = ${params.id}`
+                        )
+                );
+                const test = tData[0];
 
-		// Get sections for this test
-		const sectionsRes = await query(
-			fetch,
-			`select id, section_name, section_order, total_questions 
-			 from sections 
-			 where test_id = ${params.id} 
-			 order by section_order`
-		);
-		const sections = Array.isArray(sectionsRes) ? sectionsRes : (sectionsRes?.data ?? []);
+                // Get sections for this test
+                const sections = normaliseResult(
+                        await runQuery(
+                                fetch,
+                                `select id, section_name, section_order, total_questions
+                                 from sections
+                                 where test_id = ${params.id}
+                                 order by section_order`
+                        )
+                );
 
-		// Get all questions with their section information
-		const qRes = await query(
-			fetch,
-			`select q.id as question_id, q.question_text, q.points, q.section_id,
-					s.section_name, s.section_order, s.total_questions,
-					c.id as choice_id, c.choice_text, c.is_correct
-			 from questions q 
-			 left join sections s on q.section_id = s.id
-			 left join choices c on q.id = c.question_id
-			 where q.test_id = ${params.id}
-			 order by s.section_order, q.id`
-		);
-		const rows = Array.isArray(qRes) ? qRes : (qRes?.data ?? []);
+                // Get all questions with their section information
+                const rows = normaliseResult(
+                        await runQuery(
+                                fetch,
+                                `select q.id as question_id, q.question_text, q.points, q.section_id,
+                                                s.section_name, s.section_order, s.total_questions,
+                                                c.id as choice_id, c.choice_text, c.is_correct
+                                 from questions q
+                                 left join sections s on q.section_id = s.id
+                                 left join choices c on q.id = c.question_id
+                                 where q.test_id = ${params.id}
+                                 order by s.section_order, q.id`
+                        )
+                );
 
 		// Build questions map
 		const questionsMap = new Map();
