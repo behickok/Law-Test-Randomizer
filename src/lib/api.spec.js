@@ -384,16 +384,16 @@ describe('$lib/api', () => {
 			});
 		});
 
-		it('getClassStudents queries classes endpoint', async () => {
-			const fetchMock = vi
-				.fn()
-				.mockResolvedValue(createFetchResponse({ ok: true, json: { students: [{ id: 2 }] } }));
+                it('getClassStudents queries classes endpoint', async () => {
+                        const fetchMock = vi
+                                .fn()
+                                .mockResolvedValue(createFetchResponse({ ok: true, json: { students: [{ id: 2 }] } }));
 
-			const students = await api.getClassStudents(fetchMock, '3');
+                        const students = await api.getClassStudents(fetchMock);
 
-			expect(fetchMock).toHaveBeenCalledWith('/api/classes/students?teacherId=3');
-			expect(students).toEqual([{ id: 2 }]);
-		});
+                        expect(fetchMock).toHaveBeenCalledWith('/api/classes/students');
+                        expect(students).toEqual([{ id: 2 }]);
+                });
 
 		it('getStudentClassAssignments fetches student roster', async () => {
 			const fetchMock = vi

@@ -453,8 +453,8 @@
 		if (!$user || $user.role !== 'teacher') {
 			return;
 		}
-		try {
-			const res = await getClassStudents(fetch, $user.id);
+                try {
+                        const res = await getClassStudents(fetch);
 			students.set(Array.isArray(res) ? res : []);
 		} catch {
 			students.set([]);
