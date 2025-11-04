@@ -15,10 +15,7 @@ export async function GET({ params, url, fetch, locals }) {
         try {
                 const testId = requireNumeric(params.id, 'testId');
                 const teacherParam = url.searchParams.get('teacherId');
-                if (!teacherParam) {
-                        return json({ error: 'teacherId query parameter is required' }, { status: 400 });
-                }
-                const teacherId = resolveTeacherId(locals, teacherParam);
+                const teacherId = resolveTeacherId(locals, teacherParam ?? undefined);
 
 		const ownership = normaliseResult(
 			await runQuery(

@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { escapeSql, normaliseResult, runQuery } from '$lib/server/db';
+import { resolveTeacherId } from '$lib/server/authGuard';
 
 function requireNumeric(value, field) {
 	if (!/^\d+$/.test(String(value ?? ''))) {
@@ -28,11 +29,11 @@ function requireBoolean(value, field) {
 	return value;
 }
 
-export async function PUT({ params, request, fetch }) {
-	try {
-		const choiceId = requireNumeric(params.id, 'choiceId');
-		const body = await request.json();
-		const teacherId = requireNumeric(body?.teacherId, 'teacherId');
+export async function PUT({ params, request, fetch, locals }) {
+        try {
+                const choiceId = requireNumeric(params.id, 'choiceId');
+                const body = await request.json();
+                const teacherId = resolveTeacherId(locals, body?.teacherId);
 		const text = requireString(body?.text, 'text');
 		const isCorrect = requireBoolean(body?.isCorrect, 'isCorrect');
 

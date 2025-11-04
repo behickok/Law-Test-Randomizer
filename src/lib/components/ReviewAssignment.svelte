@@ -29,10 +29,10 @@
 		if (!$user || $user.role !== 'teacher') return;
 		
 		try {
-			const [testsRes, reviewersRes] = await Promise.all([
-				getTestsForTeacher(fetch, $user.id),
-				getAllReviewers(fetch)
-			]);
+                        const [testsRes, reviewersRes] = await Promise.all([
+                                getTestsForTeacher(fetch),
+                                getAllReviewers(fetch)
+                        ]);
 			
 			availableTests = Array.isArray(testsRes) ? testsRes : (testsRes?.data ?? []);
 			availableReviewers = Array.isArray(reviewersRes) ? reviewersRes : [];
@@ -49,8 +49,8 @@
 			return;
 		}
 		
-		try {
-			const questions = await getTestQuestions(fetch, { testId: selectedTestId, teacherId: $user.id });
+                try {
+                        const questions = await getTestQuestions(fetch, { testId: selectedTestId });
 			testQuestionCount = questions.length;
 			
 			// Auto-adjust questions per reviewer if needed

@@ -35,61 +35,57 @@ describe('$lib/api', () => {
                 it('builds multipart payload with optional fields', async () => {
                         const fetchMock = vi.fn().mockResolvedValue(createFetchResponse({ ok: true, json: { id: 99 } }));
 
-			const result = await api.uploadTestData(fetchMock, {
-				data: '   question data   ',
-				title: 'Criminal Law',
-				teacherId: '12',
-				testId: '34',
-				appendMode: true
-			});
+                        const result = await api.uploadTestData(fetchMock, {
+                                data: '   question data   ',
+                                title: 'Criminal Law',
+                                testId: '34',
+                                appendMode: true
+                        });
 
 			expect(result).toEqual({ id: 99 });
 			expect(fetchMock).toHaveBeenCalledTimes(1);
 			const [, options] = fetchMock.mock.calls[0];
-			expect(options.method).toBe('POST');
-			expect(options.body.get('data')).toBe('question data');
-			expect(options.body.get('title')).toBe('Criminal Law');
-			expect(options.body.get('teacher_id')).toBe('12');
-			expect(options.body.get('test_id')).toBe('34');
-			expect(options.body.get('append_mode')).toBe('true');
-		});
+                        expect(options.method).toBe('POST');
+                        expect(options.body.get('data')).toBe('question data');
+                        expect(options.body.get('title')).toBe('Criminal Law');
+                        expect(options.body.get('teacher_id')).toBe(null);
+                        expect(options.body.get('test_id')).toBe('34');
+                        expect(options.body.get('append_mode')).toBe('true');
+                });
 
-		it('requires trimmed data string', async () => {
-			const fetchMock = vi.fn();
-			await expect(
-				api.uploadTestData(fetchMock, {
-					data: '   ',
-					title: 'Contracts',
-					teacherId: '1'
-				})
-			).rejects.toThrow('Test data is required');
-			expect(fetchMock).not.toHaveBeenCalled();
-		});
+                it('requires trimmed data string', async () => {
+                        const fetchMock = vi.fn();
+                        await expect(
+                                api.uploadTestData(fetchMock, {
+                                        data: '   ',
+                                        title: 'Contracts'
+                                })
+                        ).rejects.toThrow('Test data is required');
+                        expect(fetchMock).not.toHaveBeenCalled();
+                });
 	});
 
 	describe('mutations', () => {
-		it('assignTest posts validated payload', async () => {
-			const fetchMock = vi.fn().mockResolvedValue(
-				createFetchResponse({ ok: true, json: { attemptId: 99 } })
-			);
+                it('assignTest posts validated payload', async () => {
+                        const fetchMock = vi.fn().mockResolvedValue(
+                                createFetchResponse({ ok: true, json: { attemptId: 99 } })
+                        );
 
-			const result = await api.assignTest(fetchMock, {
-				testId: '10',
-				teacherId: '3',
-				studentId: '25',
-				studentName: 'Maggie O\'Connor'
-			});
+                        const result = await api.assignTest(fetchMock, {
+                                testId: '10',
+                                studentId: '25',
+                                studentName: 'Maggie O\'Connor'
+                        });
 
-			expect(fetchMock).toHaveBeenCalledWith('/api/tests/assign', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					testId: 10,
-					teacherId: 3,
-					studentId: 25,
-					studentName: "Maggie O'Connor"
-				})
-			});
+                        expect(fetchMock).toHaveBeenCalledWith('/api/tests/assign', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                        testId: 10,
+                                        studentId: 25,
+                                        studentName: "Maggie O'Connor"
+                                })
+                        });
 			expect(result).toEqual({ attemptId: 99 });
 		});
 
@@ -543,18 +539,18 @@ describe('$lib/api', () => {
 			expect(tests).toEqual([{ id: 1 }]);
 		});
 
-		it('getTestQuestions fetches teacher scoped questions', async () => {
-			const fetchMock = vi
-				.fn()
-				.mockResolvedValue(
-					createFetchResponse({ ok: true, json: { questions: [{ id: 1, choices: [] }] } })
-				);
+                it('getTestQuestions fetches teacher scoped questions', async () => {
+                        const fetchMock = vi
+                                .fn()
+                                .mockResolvedValue(
+                                        createFetchResponse({ ok: true, json: { questions: [{ id: 1, choices: [] }] } })
+                                );
 
-			const questions = await api.getTestQuestions(fetchMock, { testId: '8', teacherId: '3' });
+                        const questions = await api.getTestQuestions(fetchMock, { testId: '8' });
 
-			expect(fetchMock).toHaveBeenCalledWith('/api/tests/8/questions?teacherId=3');
-			expect(questions).toEqual([{ id: 1, choices: [] }]);
-		});
+                        expect(fetchMock).toHaveBeenCalledWith('/api/tests/8/questions');
+                        expect(questions).toEqual([{ id: 1, choices: [] }]);
+                });
 
 		it('createReviewAssignment posts to server', async () => {
 			const fetchMock = vi
