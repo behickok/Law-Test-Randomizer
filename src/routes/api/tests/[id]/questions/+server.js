@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { normaliseResult, runQuery } from '$lib/server/db';
+import { resolveTeacherId } from '$lib/server/authGuard';
 
 function requireNumeric(value, field) {
 	if (!/^\d+$/.test(String(value ?? ''))) {
@@ -10,14 +11,14 @@ function requireNumeric(value, field) {
 	return Number(value);
 }
 
-export async function GET({ params, url, fetch }) {
-	try {
-		const testId = requireNumeric(params.id, 'testId');
-		const teacherParam = url.searchParams.get('teacherId');
-		if (!teacherParam) {
-			return json({ error: 'teacherId query parameter is required' }, { status: 400 });
-		}
-		const teacherId = requireNumeric(teacherParam, 'teacherId');
+export async function GET({ params, url, fetch, locals }) {
+        try {
+                const testId = requireNumeric(params.id, 'testId');
+                const teacherParam = url.searchParams.get('teacherId');
+                if (!teacherParam) {
+                        return json({ error: 'teacherId query parameter is required' }, { status: 400 });
+                }
+                const teacherId = resolveTeacherId(locals, teacherParam);
 
 		const ownership = normaliseResult(
 			await runQuery(

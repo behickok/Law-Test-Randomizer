@@ -1,4 +1,5 @@
 import { escapeSql, runQuery } from '$lib/server/db';
+import { resolveTeacherId } from '$lib/server/authGuard';
 
 // This function is designed to be more robust for Excel copy-paste.
 // It prioritizes tabs as delimiters, as that's common for Excel.
@@ -39,30 +40,34 @@ async function run(fetcher, sql) {
 	return runQuery(fetcher, sql);
 }
 
-export async function POST({ request, fetch }) {
-	const formData = await request.formData();
+export async function POST({ request, fetch, locals }) {
+        const formData = await request.formData();
 	const data = formData.get('data');
 	const test_id = formData.get('test_id');
-	const append_mode = formData.get('append_mode') === 'true'; // New parameter for adding questions
+        const append_mode = formData.get('append_mode') === 'true'; // New parameter for adding questions
 
-	let title = formData.get('title') || undefined;
-	let teacher_id = formData.get('teacher_id') || request.headers.get('x-teacher-id') || undefined;
+        let title = formData.get('title') || undefined;
+        const teacherField = formData.get('teacher_id') ?? request.headers.get('x-teacher-id') ?? undefined;
 
-	if (!data || !title || !teacher_id) {
-		const missingFields = [];
-		if (!data) missingFields.push('data');
-		if (!title) missingFields.push('title');
-		if (!teacher_id) missingFields.push('teacher_id');
-		return new Response(
-			`Missing required fields: ${missingFields.join(', ')}. Received teacher_id: ${teacher_id}`,
-			{ status: 400 }
-		);
-	}
-	if (!/^\d+$/.test(teacher_id)) {
-		return new Response('Invalid teacher_id format', { status: 400 });
-	}
+        let teacherId;
+        try {
+                teacherId = resolveTeacherId(locals, teacherField, 'teacher_id');
+        } catch (error) {
+                return new Response(error?.message ?? 'Authentication required', {
+                        status: error?.status ?? 500
+                });
+        }
 
-	// Validate test_id if provided (for updates)
+        if (!data || !title) {
+                const missingFields = [];
+                if (!data) missingFields.push('data');
+                if (!title) missingFields.push('title');
+                return new Response(`Missing required fields: ${missingFields.join(', ')}`, {
+                        status: 400
+                });
+        }
+
+        // Validate test_id if provided (for updates)
 	if (test_id && !/^\d+$/.test(test_id)) {
 		return new Response('Invalid test_id format', { status: 400 });
 	}
@@ -82,9 +87,9 @@ export async function POST({ request, fetch }) {
 
 		if (test_id) {
 			// Update existing test - verify ownership first
-			const ownershipCheck = await run(fetch,
-				`SELECT id FROM tests WHERE id = ${test_id} AND teacher_id = ${teacher_id}`
-			);
+                        const ownershipCheck = await run(fetch,
+                                `SELECT id FROM tests WHERE id = ${test_id} AND teacher_id = ${teacherId}`
+                        );
 
 			if (ownershipCheck.length === 0) {
 				return new Response('Test not found or access denied', { status: 403 });
@@ -107,9 +112,9 @@ export async function POST({ request, fetch }) {
 			final_test_id = test_id;
 		} else {
 			// Create new test
-			const testRow = await run(fetch,
-				`INSERT INTO tests (title, teacher_id) VALUES ('${escapeSql(title)}', ${teacher_id}) RETURNING id`
-			);
+                        const testRow = await run(fetch,
+                                `INSERT INTO tests (title, teacher_id) VALUES ('${escapeSql(title)}', ${teacherId}) RETURNING id`
+                        );
 			final_test_id = testRow[0].id;
 		}
 
@@ -305,7 +310,9 @@ export async function POST({ request, fetch }) {
 
 		// Respond with success
 		return new Response(JSON.stringify({ ok: true }), { status: 200 });
-	} catch (err) {
-		return new Response(`Import failed: ${err.message || String(err)}`, { status: 500 });
-	}
+        } catch (err) {
+                return new Response(`Import failed: ${err?.message || String(err)}`, {
+                        status: err?.status ?? 500
+                });
+        }
 }

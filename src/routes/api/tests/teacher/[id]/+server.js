@@ -1,18 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { normaliseResult, runQuery } from '$lib/server/db';
+import { resolveTeacherId } from '$lib/server/authGuard';
 
-function requireNumeric(value) {
-	if (!/^\d+$/.test(String(value ?? ''))) {
-		const error = new Error('teacherId must be numeric');
-		error.status = 400;
-		throw error;
-	}
-	return Number(value);
-}
-
-export async function GET({ params, fetch }) {
-	try {
-		const teacherId = requireNumeric(params.id);
+export async function GET({ params, fetch, locals }) {
+        try {
+                const teacherId = resolveTeacherId(locals, params.id);
 
 		const rows = normaliseResult(
 			await runQuery(
