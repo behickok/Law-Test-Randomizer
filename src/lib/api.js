@@ -215,14 +215,13 @@ export async function addStudent(fetch, { name, pin, teacherId }) {
 	return res.json();
 }
 
-export async function getClassStudents(fetch, teacherId) {
-	const cleanTeacherId = validateNumeric(teacherId);
-	const res = await fetch(`${BASE_URL}/classes/students?teacherId=${cleanTeacherId}`);
-	if (!res.ok) {
-		throw new Error(await res.text());
-	}
-	const data = await res.json();
-	return Array.isArray(data) ? data : data?.students ?? [];
+export async function getClassStudents(fetch) {
+        const res = await fetch(`${BASE_URL}/classes/students`);
+        if (!res.ok) {
+                throw new Error(await res.text());
+        }
+        const data = await res.json();
+        return Array.isArray(data) ? data : data?.students ?? [];
 }
 
 export async function joinClassWithInviteCode(fetch, { studentId, inviteCode }) {
