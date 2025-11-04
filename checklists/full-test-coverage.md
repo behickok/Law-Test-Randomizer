@@ -33,7 +33,7 @@ This checklist guides the team toward confident, maintainable test coverage acro
 
 ## 5. End-to-End (Playwright)
 - [ ] List all user journeys (including edge-case flows) and ensure each has at least one Playwright spec.
-- [ ] Configure deterministic seeds/environment variables (`PUBLIC_PASSPHRASE`, etc.) for reproducible runs.
+- [ ] Configure deterministic seeds/environment variables (`BACKEND_SERVICE_TOKEN`, etc.) for reproducible runs.
 - [ ] Cover authentication, error pages, and permission boundaries; include assertions for redirects and protected routes.
 - [ ] Validate responsiveness by running tests at multiple viewport sizes representative of target devices.
 - [ ] Capture screenshots/videos for failing specs; archive them in CI artifacts for quick triage.
@@ -64,4 +64,3 @@ This checklist guides the team toward confident, maintainable test coverage acro
 - [ ] All critical paths (user-facing and background jobs) report ≥ 90% coverage or have justified exclusions.
 - [ ] No open high-severity bugs attributed to untested logic.
 - [ ] CI green for unit, integration, and e2e suites across supported platforms.
-

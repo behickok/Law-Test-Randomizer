@@ -3,7 +3,6 @@
 	import {
 		addTeacher,
 		addStudent,
-		query,
 		getTeacher,
 		getAllTeachers,
 		getAllTestsWithTeachers,
@@ -37,6 +36,7 @@
 			teacherMsg = 'Teacher added';
 			teacherName = '';
 			teacherPin = '';
+			await loadTeachersAndTests();
 		} catch {
 			teacherMsg = 'Failed to add teacher';
 		}
@@ -55,6 +55,7 @@
 			studentMsg = 'Student added';
 			studentName = '';
 			studentPin = '';
+			await loadStudentsAndAssignments();
 		} catch {
 			studentMsg = 'Failed to add student';
 		}
@@ -90,7 +91,7 @@
 			reviewerName = '';
 			reviewerEmail = '';
 			reviewerPin = '';
-			loadReviewers();
+			await loadReviewers();
 		} catch (err) {
 			reviewerMsg = err.message || 'Failed to add reviewer';
 		}
@@ -99,7 +100,7 @@
 	async function loadReviewers() {
 		try {
 			const reviewers = await getAllReviewersForAdmin(fetch);
-			allReviewers.set(Array.isArray(reviewers) ? reviewers : (reviewers?.data ?? []));
+			allReviewers.set(Array.isArray(reviewers) ? reviewers : []);
 		} catch (err) {
 			console.error('Error loading reviewers:', err);
 		}
@@ -132,7 +133,7 @@
 			reviewerMsg = 'Reviewer updated successfully';
 			showEditReviewer = false;
 			editingReviewer = null;
-			loadReviewers();
+			await loadReviewers();
 		} catch (err) {
 			reviewerMsg = err.message || 'Failed to update reviewer';
 		}
@@ -150,34 +151,10 @@
 		try {
 			await deleteReviewer(fetch, reviewerId);
 			reviewerMsg = `Reviewer "${reviewerName}" has been deactivated.`;
-			loadReviewers();
+			await loadReviewers();
 		} catch (err) {
 			reviewerMsg = err.message || 'Failed to deactivate reviewer';
 		}
-	}
-
-	let sql = $state('');
-	const queryOutput = writable('');
-	let isQueryRunning = $state(false);
-	async function handleQuery() {
-		if (!$user || $user.role !== 'teacher') {
-			queryOutput.set('You must be logged in as a teacher to run queries.');
-			return;
-		}
-		isQueryRunning = true;
-		try {
-			const res = await query(fetch, sql);
-			queryOutput.set(JSON.stringify(res, null, 2));
-		} catch (err) {
-			queryOutput.set(err.message);
-		} finally {
-			isQueryRunning = false;
-		}
-	}
-
-	function clearQuery() {
-		sql = '';
-		queryOutput.set('');
 	}
 
 	// Test copying variables
@@ -194,8 +171,8 @@
 		try {
 			const teachersRes = await getAllTeachers(fetch);
 			const testsRes = await getAllTestsWithTeachers(fetch);
-			teachers.set(Array.isArray(teachersRes) ? teachersRes : (teachersRes?.data ?? []));
-			allTests.set(Array.isArray(testsRes) ? testsRes : (testsRes?.data ?? []));
+			teachers.set(Array.isArray(teachersRes) ? teachersRes : []);
+			allTests.set(Array.isArray(testsRes) ? testsRes : []);
 		} catch (err) {
 			console.error('Error loading teachers and tests:', err);
 		}
@@ -259,10 +236,8 @@
 		try {
 			const studentsRes = await getAllStudents(fetch);
 			const assignmentsRes = await getClassAssignmentOverview(fetch);
-			allStudents.set(Array.isArray(studentsRes) ? studentsRes : (studentsRes?.data ?? []));
-			classAssignments.set(
-				Array.isArray(assignmentsRes) ? assignmentsRes : (assignmentsRes?.data ?? [])
-			);
+			allStudents.set(Array.isArray(studentsRes) ? studentsRes : []);
+			classAssignments.set(Array.isArray(assignmentsRes) ? assignmentsRes : []);
 		} catch (err) {
 			console.error('Error loading students and assignments:', err);
 		}
@@ -352,7 +327,7 @@
 		if (!$user || !$user.id) return;
 		try {
 			const images = await getTeacherImages(fetch, $user.id);
-			teacherImages.set(Array.isArray(images) ? images : (images?.data ?? []));
+			teacherImages.set(Array.isArray(images) ? images : []);
 		} catch (err) {
 			console.error('Error loading teacher images:', err);
 		}
@@ -382,7 +357,7 @@
 					<span class="admin-icon">⚙️</span>
 					Admin Panel
 				</h1>
-				<p class="admin-subtitle">Manage users and run system queries</p>
+				<p class="admin-subtitle">Manage teachers, students, reviewers, and resources</p>
 			</div>
 			<nav class="header-nav">
 				<a href="/" class="nav-link">
@@ -876,83 +851,6 @@
 							<div class="empty-state">
 								<span class="empty-icon">👨‍💼</span>
 								No reviewers found. Add reviewers to get started with the review system.
-							</div>
-						{/if}
-					</div>
-				</div>
-			</section>
-
-			<!-- Query Panel Section -->
-			<section class="admin-card query-card">
-				<div class="card-header">
-					<h2 class="card-title">
-						<span class="section-icon">🔍</span>
-						Database Query Panel
-					</h2>
-					<div class="query-actions">
-						<button
-							on:click={clearQuery}
-							class="btn btn-secondary btn-sm"
-							disabled={!sql && !$queryOutput}
-						>
-							<span class="btn-icon">🗑️</span>
-							Clear
-						</button>
-					</div>
-				</div>
-				<div class="card-content">
-					<div class="query-section">
-						<div class="form-group">
-							<label for="sql-query">SQL Query</label>
-							<div class="query-input-wrapper">
-								<textarea
-									id="sql-query"
-									rows="6"
-									bind:value={sql}
-									placeholder="SELECT * FROM users WHERE role = 'student';"
-									class="query-textarea"
-									disabled={isQueryRunning}
-								></textarea>
-								<div class="query-toolbar">
-									<div class="query-info">
-										<span class="query-tip"> 💡 Tip: Use LIMIT to avoid large result sets </span>
-									</div>
-									<button
-										on:click={handleQuery}
-										class="btn btn-accent"
-										disabled={!sql.trim() || isQueryRunning}
-									>
-										{#if isQueryRunning}
-											<span class="btn-spinner">⏳</span>
-											Running...
-										{:else}
-											<span class="btn-icon">▶️</span>
-											Execute Query
-										{/if}
-									</button>
-								</div>
-							</div>
-						</div>
-
-						{#if $queryOutput}
-							<div class="query-results">
-								<div class="results-header">
-									<h3 class="results-title">
-										<span class="results-icon">📊</span>
-										Query Results
-									</h3>
-									<button
-										on:click={() => navigator.clipboard.writeText($queryOutput)}
-										class="btn btn-outline btn-sm"
-										title="Copy to clipboard"
-									>
-										<span class="btn-icon">📋</span>
-										Copy
-									</button>
-								</div>
-								<div class="results-content">
-									<pre class="results-output">{$queryOutput}</pre>
-								</div>
 							</div>
 						{/if}
 					</div>

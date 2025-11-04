@@ -30,7 +30,7 @@
 		isLoading = true;
 		try {
 			const result = await getReviewerAssignments(fetch, $user.id);
-			assignments = Array.isArray(result) ? result : (result?.data ?? []);
+			assignments = Array.isArray(result) ? result : [];
 			console.log('Loaded assignments:', assignments);
 		} catch (err) {
 			console.error('Error loading assignments:', err);
@@ -48,7 +48,7 @@
 		
 		try {
 			const result = await getQuestionsForReview(fetch, $user.id, assignment.id);
-			questionsToReview = Array.isArray(result) ? result : (result?.data ?? []);
+			questionsToReview = Array.isArray(result) ? result : [];
 			currentQuestionIndex = 0;
 			loadCurrentQuestionData();
 		} catch (err) {

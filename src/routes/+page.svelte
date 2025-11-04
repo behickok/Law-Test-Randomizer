@@ -455,7 +455,7 @@
 		}
 		try {
 			const res = await getClassStudents(fetch, $user.id);
-			students.set(Array.isArray(res) ? res : (res?.data ?? []));
+			students.set(Array.isArray(res) ? res : []);
 		} catch {
 			students.set([]);
 		}
@@ -467,13 +467,9 @@
 			return;
 		}
 		try {
-			let res;
-			if ($user.role === 'teacher') {
-				res = await getTestsForTeacher(fetch, $user.id);
-			} else {
-				res = await getActiveTests(fetch);
-			}
-			tests.set(Array.isArray(res) ? res : (res?.data ?? []));
+			const res =
+				$user.role === 'teacher' ? await getTestsForTeacher(fetch, $user.id) : await getActiveTests(fetch);
+			tests.set(Array.isArray(res) ? res : []);
 		} catch (err) {
 			error = err.message;
 			tests.set([]);
@@ -488,7 +484,7 @@
 		}
 		try {
 			const res = await getTeacherImages(fetch, $user.id);
-			teacherImages = Array.isArray(res) ? res : (res?.data ?? []);
+			teacherImages = Array.isArray(res) ? res : [];
 		} catch (err) {
 			console.error('Error loading images:', err);
 			teacherImages = [];
@@ -503,7 +499,7 @@
 		}
 		try {
 			const res = await getReviewAssignments(fetch, $user.id);
-			reviewAssignments = Array.isArray(res) ? res : (res?.data ?? []);
+			reviewAssignments = Array.isArray(res) ? res : [];
 		} catch (err) {
 			console.error('Error loading review assignments:', err);
 			reviewAssignments = [];
@@ -515,7 +511,7 @@
 		
 		try {
 			const res = await getReviewResults(fetch, assignmentId);
-			reviewResults = Array.isArray(res) ? res : (res?.data ?? []);
+			reviewResults = Array.isArray(res) ? res : [];
 		} catch (err) {
 			console.error('Error loading review results:', err);
 			reviewResults = [];
@@ -702,17 +698,18 @@
 			return;
 		}
 
-		try {
-			await assignTest(fetch, {
-				testId: assignTestId,
-				studentId: selectedStudentId,
-				studentName: selectedStudent.name
-			});
-			assignMsg = 'Assigned';
-		} catch (e) {
-			assignMsg = e.message;
+			try {
+				await assignTest(fetch, {
+					testId: assignTestId,
+					teacherId: $user.id,
+					studentId: selectedStudentId,
+					studentName: selectedStudent.name
+				});
+				assignMsg = 'Assigned';
+			} catch (e) {
+				assignMsg = e.message;
+			}
 		}
-	}
 
 	const teacherResults = writable([]);
 	const attemptAnswers = writable({});
@@ -723,7 +720,8 @@
 		}
 		try {
 			const res = await getTeacherResults(fetch, $user.id);
-			teacherResults.set(Array.isArray(res) ? res : (res?.data ?? []));
+			const rows = Array.isArray(res) ? res : res?.results ?? res?.data ?? [];
+			teacherResults.set(rows);
 		} catch {
 			teacherResults.set([]);
 		}
@@ -731,10 +729,11 @@
 
 	async function loadAttemptAnswers(id) {
 		try {
-			const res = await getAttemptAnswers(fetch, id);
+			const res = await getAttemptAnswers(fetch, { attemptId: id, teacherId: $user.id });
+			const rows = Array.isArray(res) ? res : res?.answers ?? res?.data ?? [];
 			attemptAnswers.update((m) => ({
 				...m,
-				[id]: Array.isArray(res) ? res : (res?.data ?? [])
+				[id]: rows
 			}));
 		} catch {
 			attemptAnswers.update((m) => ({ ...m, [id]: [] }));
@@ -746,6 +745,7 @@
 		const points = newCorrect ? answer.points : 0;
 		await gradeAttemptAnswer(fetch, {
 			answerId: answer.id,
+			teacherId: $user.id,
 			isCorrect: newCorrect,
 			pointsAwarded: points
 		});
@@ -757,6 +757,7 @@
 		const pts = Number(answer.points_awarded || 0);
 		await gradeAttemptAnswer(fetch, {
 			answerId: answer.id,
+			teacherId: $user.id,
 			isCorrect: pts > 0,
 			pointsAwarded: pts
 		});
@@ -772,7 +773,8 @@
 		}
 		try {
 			const res = await getStudentResults(fetch, $user.id);
-			studentResults.set(Array.isArray(res) ? res : (res?.data ?? []));
+			const rows = Array.isArray(res) ? res : res?.results ?? res?.data ?? [];
+			studentResults.set(rows);
 		} catch {
 			studentResults.set([]);
 		}

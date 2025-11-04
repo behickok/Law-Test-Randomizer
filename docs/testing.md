@@ -38,7 +38,7 @@ What’s covered:
 ## 3. Playwright end-to-end tests
 
 ```bash
-PUBLIC_PASSPHRASE=dummy-passphrase npm run test:e2e
+BACKEND_SERVICE_TOKEN=dummy-passphrase npm run test:e2e
 ```
 
 Scenarios include:
@@ -54,7 +54,7 @@ Tips:
 ## 4. Troubleshooting
 
 - **Channel closed / tinypool errors**: the script already runs in a single worker; if you need to override manually, use `npx vitest run --config vitest.config.js --maxWorkers=1`.
-- **Missing PASS**: ensure `PUBLIC_PASSPHRASE` matches your backend or stub responses in Vitest using `vi.mock`.
+- **Missing PASS**: ensure `BACKEND_SERVICE_TOKEN` matches your backend or stub responses in Vitest using `vi.mock`.
 - **Playwright browser missing**: rerun `npx playwright install`.
 
 Keep this document updated when adding new suites or changing tooling defaults.

@@ -43,10 +43,10 @@ async function processQuestionsWithImagesOptimized(fetch, questions, teacherId) 
 
 		// Batch load full image data for needed images
 		const imageLoadPromises = Array.from(neededImageNames)
-			.filter(name => imageNameToId[name])
+			.filter((name) => imageNameToId[name])
 			.map(async (imageName) => {
 				try {
-					const fullImage = await getImageById(fetch, imageNameToId[imageName]);
+					const fullImage = await getImageById(fetch, imageNameToId[imageName], teacherId);
 					if (fullImage) {
 						imageMap[imageName] = fullImage;
 					}

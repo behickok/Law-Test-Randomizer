@@ -35,8 +35,7 @@
 			]);
 			
 			availableTests = Array.isArray(testsRes) ? testsRes : (testsRes?.data ?? []);
-			// All active reviewers are available
-			availableReviewers = Array.isArray(reviewersRes) ? reviewersRes : (reviewersRes?.data ?? []);
+			availableReviewers = Array.isArray(reviewersRes) ? reviewersRes : [];
 		} catch (err) {
 			console.error('Error loading data:', err);
 			message = 'Failed to load tests and reviewers';

@@ -1,8 +1,6 @@
 <script>
 	import { goto } from '$app/navigation';
 	import { user } from '$lib/user';
-	import { query, signupTeacher, signupStudent, signupReviewer } from '$lib/api';
-	import { PUBLIC_PASSPHRASE } from '$env/static/public';
 
 	let pin = $state('');
 	let name = $state('');
@@ -30,39 +28,26 @@
 		}
 
 		try {
-			const authedFetch = (input, init = {}) => {
-				init.headers = {
-					...(init.headers || {}),
-					Authorization: `Bearer ${PUBLIC_PASSPHRASE}`
-				};
-				return fetch(input, init);
-			};
+			const response = await fetch('/api/auth/login', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					pin,
+					role: loginRole
+				})
+			});
 
-			let result;
-			if (loginRole === 'teacher') {
-				result = await query(
-					authedFetch,
-					`SELECT id, name, 'teacher' as role FROM teachers WHERE pin = '${pin}'`
-				);
-			} else if (loginRole === 'student') {
-				result = await query(
-					authedFetch,
-					`SELECT id, name, 'student' as role FROM students WHERE pin = '${pin}'`
-				);
-			} else if (loginRole === 'reviewer') {
-				result = await query(
-					authedFetch,
-					`SELECT id, name, email, 'reviewer' as role FROM reviewers WHERE pin = '${pin}' AND is_active = TRUE`
-				);
-			}
+			const payload = await response.json();
 
-			if (result && result.length > 0) {
-				$user = result[0];
+			if (response.ok && payload?.user) {
+				$user = payload.user;
 				goto('/');
 				return;
 			}
 
-			error = `Invalid PIN for ${loginRole}`;
+			error = payload?.error || `Invalid PIN for ${loginRole}`;
 		} catch (e) {
 			error = e.message;
 		} finally {
@@ -99,30 +84,28 @@
 		}
 
 		try {
-			const authedFetch = (input, init = {}) => {
-				init.headers = {
-					...(init.headers || {}),
-					Authorization: `Bearer ${PUBLIC_PASSPHRASE}`
-				};
-				return fetch(input, init);
-			};
+			const response = await fetch('/api/auth/signup', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					name: name.trim(),
+					email: signupRole === 'reviewer' ? email.trim() : undefined,
+					pin,
+					role: signupRole
+				})
+			});
 
-			let result;
-			if (signupRole === 'teacher') {
-				result = await signupTeacher(authedFetch, { name: name.trim(), pin });
-			} else if (signupRole === 'reviewer') {
-				result = await signupReviewer(authedFetch, { name: name.trim(), email: email.trim(), pin });
-			} else {
-				result = await signupStudent(authedFetch, { name: name.trim(), pin });
-			}
+			const payload = await response.json();
 
-			if (result.length > 0) {
-				$user = result[0];
+			if (response.ok && payload?.user) {
+				$user = payload.user;
 				goto('/');
 				return;
 			}
 
-			error = 'Signup failed';
+			error = payload?.error || 'Signup failed';
 		} catch (e) {
 			error = e.message;
 		} finally {

@@ -1,11 +1,4 @@
-import { PUBLIC_PASSPHRASE } from '$lib/server/env';
-
-const BASE_URL = 'https://web-production-b1513.up.railway.app';
-
-function escapeSql(str) {
-	// Basic single-quote escape for SQL string literals
-	return str.replace(/'/g, "''");
-}
+import { escapeSql, runQuery } from '$lib/server/db';
 
 // This function is designed to be more robust for Excel copy-paste.
 // It prioritizes tabs as delimiters, as that's common for Excel.
@@ -42,22 +35,11 @@ function parseLine(line) {
 	return result;
 }
 
-async function run(sql) {
-	const res = await fetch(`${BASE_URL}/query`, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			...(PUBLIC_PASSPHRASE ? { Authorization: `Bearer ${PUBLIC_PASSPHRASE}` } : {})
-		},
-		body: JSON.stringify({ sql, source: 'duckdb' })
-	});
-	if (!res.ok) {
-		throw new Error(await res.text());
-	}
-	return res.json();
+async function run(fetcher, sql) {
+	return runQuery(fetcher, sql);
 }
 
-export async function POST({ request }) {
+export async function POST({ request, fetch }) {
 	const formData = await request.formData();
 	const data = formData.get('data');
 	const test_id = formData.get('test_id');
@@ -100,7 +82,7 @@ export async function POST({ request }) {
 
 		if (test_id) {
 			// Update existing test - verify ownership first
-			const ownershipCheck = await run(
+			const ownershipCheck = await run(fetch,
 				`SELECT id FROM tests WHERE id = ${test_id} AND teacher_id = ${teacher_id}`
 			);
 
@@ -110,22 +92,22 @@ export async function POST({ request }) {
 
 			// Update test title (only if not in append mode)
 			if (!append_mode) {
-				await run(`UPDATE tests SET title = '${escapeSql(title)}' WHERE id = ${test_id}`);
+				await run(fetch, `UPDATE tests SET title = '${escapeSql(title)}' WHERE id = ${test_id}`);
 			}
 
 			if (!append_mode) {
 				// Full replacement mode - delete existing data (in correct order due to foreign key constraints)
-				await run(
+				await run(fetch,
 					`DELETE FROM choices WHERE question_id IN (SELECT id FROM questions WHERE test_id = ${test_id})`
 				);
-				await run(`DELETE FROM questions WHERE test_id = ${test_id}`);
-				await run(`DELETE FROM sections WHERE test_id = ${test_id}`);
+				await run(fetch, `DELETE FROM questions WHERE test_id = ${test_id}`);
+				await run(fetch, `DELETE FROM sections WHERE test_id = ${test_id}`);
 			}
 
 			final_test_id = test_id;
 		} else {
 			// Create new test
-			const testRow = await run(
+			const testRow = await run(fetch,
 				`INSERT INTO tests (title, teacher_id) VALUES ('${escapeSql(title)}', ${teacher_id}) RETURNING id`
 			);
 			final_test_id = testRow[0].id;
@@ -236,7 +218,7 @@ export async function POST({ request }) {
 
 			if (append_mode) {
 				// In append mode, find existing section or create if it doesn't exist
-				const existingSections = await run(
+				const existingSections = await run(fetch,
 					`SELECT id FROM sections WHERE test_id = ${final_test_id} AND section_name = '${escapeSql(sectionName)}'`
 				);
 
@@ -244,12 +226,12 @@ export async function POST({ request }) {
 					sectionId = existingSections[0].id;
 				} else {
 					// Get the maximum order for new sections
-					const maxOrderResult = await run(
+					const maxOrderResult = await run(fetch,
 						`SELECT COALESCE(MAX(section_order), 0) as max_order FROM sections WHERE test_id = ${final_test_id}`
 					);
 					const nextOrder = (maxOrderResult[0]?.max_order || 0) + 1;
 
-					const sectionRow = await run(
+					const sectionRow = await run(fetch,
 						`INSERT INTO sections (test_id, section_name, section_order, total_questions) 
 						 VALUES (${final_test_id}, '${escapeSql(sectionName)}', ${nextOrder}, ${sectionData.total_questions}) 
 						 RETURNING id`
@@ -258,7 +240,7 @@ export async function POST({ request }) {
 				}
 			} else {
 				// Full replacement mode - insert new section
-				const sectionRow = await run(
+				const sectionRow = await run(fetch,
 					`INSERT INTO sections (test_id, section_name, section_order, total_questions) 
 					 VALUES (${final_test_id}, '${escapeSql(sectionName)}', ${sectionData.order}, ${sectionData.total_questions}) 
 					 RETURNING id`
@@ -272,23 +254,23 @@ export async function POST({ request }) {
 
 				if (append_mode) {
 					// In append mode, check if question with this question_id already exists
-					const existingQuestions = await run(
+					const existingQuestions = await run(fetch,
 						`SELECT id FROM questions WHERE test_id = ${final_test_id} AND question_id = '${questionData.question_id}'`
 					);
 
 					if (existingQuestions.length > 0) {
 						// Update existing question
 						question_pk_id = existingQuestions[0].id;
-						await run(
+						await run(fetch,
 							`UPDATE questions SET question_text = '${questionData.question_text}', section_id = ${sectionId} 
 							 WHERE id = ${question_pk_id}`
 						);
 
 						// Delete existing choices for this question
-						await run(`DELETE FROM choices WHERE question_id = ${question_pk_id}`);
+						await run(fetch, `DELETE FROM choices WHERE question_id = ${question_pk_id}`);
 					} else {
 						// Insert new question
-						const qRow = await run(
+						const qRow = await run(fetch,
 							`INSERT INTO questions (test_id, question_text, question_id, points, section_id) 
 							 VALUES (${final_test_id}, '${questionData.question_text}', '${questionData.question_id}', 1, ${sectionId}) 
 							 RETURNING id`
@@ -297,7 +279,7 @@ export async function POST({ request }) {
 					}
 				} else {
 					// Full replacement mode - insert new question
-					const qRow = await run(
+					const qRow = await run(fetch,
 						`INSERT INTO questions (test_id, question_text, question_id, points, section_id) 
 						 VALUES (${final_test_id}, '${questionData.question_text}', '${questionData.question_id}', 1, ${sectionId}) 
 						 RETURNING id`
@@ -311,7 +293,7 @@ export async function POST({ request }) {
 						const choice = questionData.choices[i];
 						if (choice.text) {
 							const isCorrect = choice.isCorrect ? 'TRUE' : 'FALSE';
-							await run(
+							await run(fetch,
 								`INSERT INTO choices (question_id, choice_text, is_correct) 
 								 VALUES (${question_pk_id}, '${choice.text}', ${isCorrect})`
 							);

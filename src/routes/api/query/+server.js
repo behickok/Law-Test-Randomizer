@@ -1,20 +1,14 @@
-import { PUBLIC_PASSPHRASE } from '$lib/server/env';
+import { json } from '@sveltejs/kit';
+import { runQuery } from '$lib/server/db';
 
-const BASE_URL = 'https://web-production-b1513.up.railway.app';
-
-export async function POST({ request }) {
+export async function POST({ request, fetch }) {
 	const body = await request.json();
-	const res = await fetch(`${BASE_URL}/query`, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			...(PUBLIC_PASSPHRASE ? { Authorization: `Bearer ${PUBLIC_PASSPHRASE}` } : {})
-		},
-		body: JSON.stringify({ sql: body.sql, source: 'duckdb' })
-	});
-	const text = await res.text();
-	return new Response(text, {
-		status: res.status,
-		headers: { 'Content-Type': 'application/json' }
-	});
+	try {
+		const data = await runQuery(fetch, body.sql, { source: body.source ?? 'duckdb' });
+		return json(data);
+	} catch (error) {
+		return new Response(error.message ?? 'Query failed', {
+			status: error.status ?? 500
+		});
+	}
 }

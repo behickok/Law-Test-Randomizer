@@ -1,19 +1,14 @@
-import { PUBLIC_PASSPHRASE } from '$lib/server/env';
+import { json } from '@sveltejs/kit';
+import { runQueryFile } from '$lib/server/db';
 
-const BASE_URL = 'https://web-production-b1513.up.railway.app';
-
-export async function POST({ request }) {
+export async function POST({ request, fetch }) {
 	const formData = await request.formData();
-	const res = await fetch(`${BASE_URL}/query-file`, {
-		method: 'POST',
-		headers: {
-			...(PUBLIC_PASSPHRASE ? { Authorization: `Bearer ${PUBLIC_PASSPHRASE}` } : {})
-		},
-		body: formData
-	});
-	const text = await res.text();
-	return new Response(text, {
-		status: res.status,
-		headers: { 'Content-Type': 'application/json' }
-	});
+	try {
+		const data = await runQueryFile(fetch, formData);
+		return json(data);
+	} catch (error) {
+		return new Response(error.message ?? 'Query file upload failed', {
+			status: error.status ?? 500
+		});
+	}
 }
