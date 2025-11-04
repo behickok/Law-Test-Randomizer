@@ -1,6 +1,6 @@
-# Law-Test-Randomizer Application Audit (2025-11-04)
+# Law-Test-Randomizer Application Audit (2025-11-05)
 
-- **Overall Score:** 38 / 100  
+- **Overall Score:** 45 / 100
 - **Reviewer:** Codex (GPT-5)  
 - **Scope:** SvelteKit frontend, API proxy routes, lib utilities, data migrations, automated tests.
 
@@ -8,19 +8,20 @@
 - **Notable strengths**
   - Core teacher/student/reviewer flows are implemented end-to-end with previews, assignment, grading, and reviewing supported in the UI (`src/routes/+page.svelte:1`).
   - Client-side validation helpers reduce accidental bad input and are covered by unit tests (`src/lib/api.js:8`, `src/lib/api.spec.js:1`).
+  - Server-backed sessions with http-only cookies and login rate limiting reduce credential exposure compared to the previous localStorage model (`src/lib/server/session.js:1`, `src/routes/api/auth/login/+server.js:1`, `src/lib/server/loginRateLimit.js:1`).
   - Unit test suite runs quickly and passes (`npm run test:unit -- --run`).
 - **Top risks**
-  - Client-side SQL execution and exposed bearer token allow any user to run arbitrary reads/writes against production data (`src/lib/api.js:29`, `src/routes/api/query/+server.js:5`).
-  - Legacy plaintext PINs linger for dormant accounts, and there is still no rate limiting or session management, so account takeover remains easy (`src/routes/api/auth/login/+server.js:1`, `src/lib/user.js:33`).
-  - Administrative UI gives every logged-in teacher direct SQL access, enabling privilege escalation and data loss (`src/routes/admin/+page.svelte:159`).
+  - Client-side SQL execution continues to expose the database: critical flows still build raw SQL in the browser and call `/api/query` (`src/lib/api.js:29`, `src/routes/api/query/+server.js:5`).
+  - Session adoption is incomplete: most protected endpoints still trust `teacherId` provided in request bodies instead of deriving identity from the authenticated session, enabling privilege escalation (`src/routes/api/tests/assign/+server.js:22`, `src/routes/api/tests/upload/+server.js:66`).
+  - Dormant accounts remain unhashed until re-login and no password policies exist, so stolen dumps are still valuable despite hashing and rate limiting (`src/routes/api/auth/login/+server.js:1`, `src/lib/server/pin.js:1`).
 
 ## Security (critical risks)
 - **Client-managed SQL with exposed credentials.** All data access happens in the browser by building raw SQL strings before proxying them verbatim to the backend (`src/lib/api.js:29`, `src/routes/api/query/+server.js:5`). Attackers can craft any SQL (including destructive statements) without restriction. *Action:* Move to authenticated server-side endpoints with parameterised queries; drop the generic `/api/query` proxy.
-- **Public bearer token.** The bearer token that protects the Railway backend is injected via `$env/static/public`, so it is bundled into the client and visible in DevTools and the repo (`src/routes/login/+page.svelte:33`, `src/routes/api/query/+server.js:11`). Anyone can replay it against production. *Action:* Treat the token as a server secret (`$env/static/private`), terminate all current tokens, and replace with real authentication.
+- **Backend token fallback.** The env helper still accepts `PUBLIC_PASSPHRASE` as a fallback for the service token (`src/lib/server/env.js:5`), so a misconfigured deployment can silently expose database credentials again. *Action:* remove the fallback and fail fast when the private token is missing.
 - **No server-side ownership checks.** Critical mutations trust `teacher_id` supplied by the client (`src/routes/api/tests/upload/+server.js:66`), so any attacker can create, overwrite, or delete tests for other teachers. *Action:* Derive teacher identity from a secure session on the server and enforce row-level ownership.
 - **Arbitrary SQL console.** The admin page exposes a raw SQL console to any teacher (`src/routes/admin/+page.svelte:159`). Combined with exposed credentials, this is equivalent to full database compromise. *Action:* Remove or heavily restrict this console, limiting it to vetted read-only diagnostics behind admin-only auth.
-- **Weak credentials & storage (partially addressed).** New auth/admin endpoints hash PINs and stop returning secrets (`src/routes/api/admin/students/+server.js:3`, `src/routes/api/auth/login/+server.js:1`), and legacy plaintext values are auto-upgraded on login. Dormant accounts remain unhashed until they authenticate, and there is still no rate limiting or server-backed session. *Action:* backfill hashes for inactive accounts, add brute-force protection, and migrate to full password + session management.
-- **Untrusted local storage session.** User identity is stored entirely in `localStorage` and can be edited by the browser (`src/lib/user.js:33`). There is no server session or signature, so role escalation is as simple as editing the stored JSON. *Action:* Implement server-issued JWTs or HTTP-only cookies with signature checks.
+- **Weak credentials & storage (partially addressed).** Auth endpoints hash PINs, auto-upgrade legacy values, and now enforce brute-force throttling plus http-only cookie sessions (`src/routes/api/auth/login/+server.js:1`, `src/lib/server/loginRateLimit.js:1`, `src/lib/server/session.js:1`, `migrations/013_add_auth_security.sql:1`). Dormant accounts remain unhashed until activity, there are no password strength requirements, and most APIs still trust client-supplied IDs. *Action:* backfill hashes for inactive accounts, migrate to stronger credentials, and require session-derived identity on every server mutation.
+- **Client identity parameters linger.** Frontend helpers still pass explicit teacher and student IDs to sensitive endpoints (`src/lib/api.js:94`, `src/lib/api.js:480`), so compromising the browser lets attackers impersonate other accounts even with server sessions. *Action:* remove identity parameters from client requests and derive authorisation exclusively from the session on the server.
 
 ## Usability
 - **Overloaded home dashboard.** All teacher, student, assignment, review, and image workflows live on one giant page with dozens of toggles (`src/routes/+page.svelte:1`). This produces cognitive overload and makes discoverability poor. *Recommendation:* Split flows into focused routes (e.g., “Upload Tests”, “Assign Students”, “Review Submissions”) with guided navigation.
@@ -46,7 +47,7 @@
 
 ## Recommended Next Steps
 1. **Shut down the client-side SQL proxy immediately.** Replace `/api/query` and friends with authenticated server endpoints that enforce ACLs and parameterised queries.
-2. **Introduce real authentication.** Hash credentials, add password policies, and issue signed server sessions; remove public bearer tokens.
+2. **Complete the authentication hardening.** Backfill hashes for dormant users, add password policies, and make every API derive identity/authorisation from the server session instead of trusting request bodies.
 3. **Refactor the UI into dedicated flows.** Break the monolithic dashboard apart, prioritising clarity for teachers, students, and reviewers.
 4. **Stabilise tooling.** Fix lint/format drift, add CI, and expand automated tests around the highest-risk paths.
 5. **Plan a security hardening sprint.** Run threat modelling, add monitoring, and conduct penetration testing before onboarding more users.
@@ -62,6 +63,7 @@
 - 2025-11-04 — Teacher test/question management now uses scoped endpoints for class rosters, invites, active tests, and inline question editing (`src/routes/api/classes/students/+server.js:1`, `src/routes/api/classes/join/+server.js:1`, `src/routes/api/tests/active/+server.js:1`, `src/routes/api/tests/[id]/questions/+server.js:1`, `src/routes/api/questions/[id]/+server.js:1`, `src/routes/api/choices/[id]/+server.js:1`, `src/routes/api/tests/teacher/[id]/+server.js:1`). The dashboard and editor call these APIs (`src/routes/+page.svelte:440`, `src/routes/tests/[id]/+page.svelte:112`), and unit tests cover the new contracts (`src/lib/api.spec.js:240`).
 - 2025-11-04 — Public signup and login now flow exclusively through `/api/auth` with invitation handling, removing client-side SQL for account creation (`src/routes/api/auth/signup/+server.js:1`, `src/routes/api/auth/login/+server.js:1`). Client helpers and the login page submit to the REST API (`src/lib/api.js:520`, `src/routes/login/+page.svelte:1`), and new Vitest cases assert the payloads (`src/lib/api.spec.js:360`).
 - 2025-11-04 — Student attempt lifecycle moved to server routes for start/save/submit, preventing tampering with SQL (`src/routes/api/attempts/start/+server.js:1`, `src/routes/api/attempts/[id]/answer/+server.js:1`, `src/routes/api/attempts/[id]/submit/+server.js:1`). Client code now hits these endpoints (`src/lib/api.js:380`, `src/routes/tests/[id]/+page.svelte:58`), with unit coverage verifying the new contracts (`src/lib/api.spec.js:180`).
+- 2025-11-05 — Added `auth_sessions` and `auth_login_limits` tables to support server-issued sessions and lockouts (`migrations/013_add_auth_security.sql:1`). Login flow now sets signed http-only cookies, records session usage, and clears failures on success (`src/routes/api/auth/login/+server.js:1`, `src/lib/server/session.js:1`). Logout endpoint and hooks clear cookies and tear down server state (`src/routes/api/auth/logout/+server.js:1`, `src/hooks.server.js:1`).
 
 ## Appendix: Commands Run
 - `npm run lint` (fails: prettier issues in 12 files)  
