@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { randomUUID } from 'node:crypto';
 import { escapeSql, normaliseResult, runQuery } from '$lib/server/db';
 import { requireTeacher } from '$lib/server/authz';
+import { randomUUID } from '$lib/server/crypto-utils';
 
 function requireNumeric(value, field) {
 	if (!/^\d+$/.test(String(value ?? ''))) {

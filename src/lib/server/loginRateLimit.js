@@ -1,11 +1,11 @@
-import { createHash } from 'node:crypto';
 import { escapeSql, normaliseResult, runQuery } from '$lib/server/db';
+import { sha256Hex } from '$lib/server/crypto-utils';
 
 const MAX_ATTEMPTS = 5;
 const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
 export function deriveLoginIdentifier(role, pin) {
-	return createHash('sha256').update(`${role}|${pin}`).digest('hex');
+	return sha256Hex(`${role}|${pin}`);
 }
 
 export async function getLock(db, identifierHash) {

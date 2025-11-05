@@ -1,11 +1,11 @@
-import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { escapeSql, normaliseResult, runQuery } from '$lib/server/db';
+import { randomUUID, randomBytesHex, sha256Hex } from '$lib/server/crypto-utils';
 
 const SESSION_COOKIE = 'ltr_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
 function hashToken(token) {
-	return createHash('sha256').update(token).digest('hex');
+	return sha256Hex(token);
 }
 
 function now() {
@@ -27,7 +27,7 @@ function sanitiseUserPayload(user) {
 
 export async function createSession(db, user) {
 	const sessionId = randomUUID();
-	const token = randomBytes(32).toString('hex');
+	const token = randomBytesHex(32);
 	const tokenHash = hashToken(token);
 	const expiresAt = new Date(now().getTime() + SESSION_TTL_SECONDS * 1000);
 	const payload = sanitiseUserPayload(user);

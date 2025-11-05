@@ -1,4 +1,10 @@
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import {
+	constantTimeEqual,
+	deriveScryptKey,
+	hexToUint8Array,
+	randomBytesHex,
+	toHex
+} from '$lib/server/crypto-utils';
 import { normaliseCredential } from '$lib/credentials';
 import { normaliseResult, runQuery } from '$lib/server/db';
 
@@ -6,13 +12,13 @@ const SALT_LENGTH = 16;
 const KEY_LENGTH = 32;
 
 function deriveKey(pin, salt) {
-	return scryptSync(pin, salt, KEY_LENGTH);
+	return deriveScryptKey(pin, salt, KEY_LENGTH);
 }
 
 export function hashPin(pin) {
         const credential = normaliseCredential(pin);
-        const salt = randomBytes(SALT_LENGTH).toString('hex');
-        const key = deriveKey(credential, salt).toString('hex');
+        const salt = randomBytesHex(SALT_LENGTH);
+        const key = toHex(deriveKey(credential, salt));
         return `${salt}:${key}`;
 }
 
@@ -25,11 +31,11 @@ export function verifyPin(pin, stored) {
         const [salt, key] = stored.split(':');
         if (!salt || !key) return false;
         const derived = deriveKey(credential, salt);
-	const storedKey = Buffer.from(key, 'hex');
+	const storedKey = hexToUint8Array(key);
 	if (derived.length !== storedKey.length) {
 		return false;
 	}
-	return timingSafeEqual(derived, storedKey);
+	return constantTimeEqual(derived, storedKey);
 }
 
 const PIN_TABLES = [

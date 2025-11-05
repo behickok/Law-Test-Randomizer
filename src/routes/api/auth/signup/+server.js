@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { randomUUID } from 'node:crypto';
 import { runQuery, normaliseResult } from '$lib/server/db';
 import { hashPin, pinExists } from '$lib/server/pin';
 import { validateCredential } from '$lib/credentials';
@@ -9,6 +8,7 @@ import {
 	getSessionCookieOptions,
 	makeSessionCookieValue
 } from '$lib/server/session';
+import { randomUUID } from '$lib/server/crypto-utils';
 
 async function ensureUniqueReviewerEmail(db, email) {
         const checks = normaliseResult(

@@ -37,6 +37,7 @@
 		"vitest-browser-svelte": "^0.1.0"
 	},
 	"dependencies": {
+		"@noble/hashes": "^2.0.1",
 		"cross-env": "^10.0.0",
 		"dotenv": "^17.2.1"
 	}
