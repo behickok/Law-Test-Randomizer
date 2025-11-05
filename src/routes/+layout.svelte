@@ -20,10 +20,13 @@
 
 <header>
 	<nav>
-		<ul class="nav-left">
-			<li><a href="/" class="home-link">Home</a></li>
-			<li><a href="/help" class="help-link">Help</a></li>
-		</ul>
+                <ul class="nav-left">
+                        <li><a href="/" class="home-link">Home</a></li>
+                        {#if $user?.role === 'teacher'}
+                                <li><a href="/teacher/upload" class="workspace-link">Teacher workspace</a></li>
+                        {/if}
+                        <li><a href="/help" class="help-link">Help</a></li>
+                </ul>
 		<ul class="nav-right">
 			{#if $user}
 				<li>
@@ -144,18 +147,31 @@
 		color: #2563eb;
 	}
 
-	.help-link {
-		background: transparent;
-		border: 1px solid #d1d5db;
-		font-weight: 500;
-		color: #6b7280;
-	}
+        .help-link {
+                background: transparent;
+                border: 1px solid #d1d5db;
+                font-weight: 500;
+                color: #6b7280;
+        }
 
-	.help-link:hover {
-		background: rgba(16, 185, 129, 0.05);
-		border-color: #059669;
-		color: #059669;
-	}
+        .help-link:hover {
+                background: rgba(16, 185, 129, 0.05);
+                border-color: #059669;
+                color: #059669;
+        }
+
+        .workspace-link {
+                background: transparent;
+                border: 1px solid rgba(37, 99, 235, 0.3);
+                font-weight: 500;
+                color: #2563eb;
+        }
+
+        .workspace-link:hover {
+                background: rgba(37, 99, 235, 0.08);
+                border-color: #1d4ed8;
+                color: #1d4ed8;
+        }
 
 	/* Welcome Text */
 	.welcome-text {
