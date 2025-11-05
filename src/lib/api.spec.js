@@ -21,10 +21,14 @@ if (typeof FormData === 'undefined') {
 }
 
 const createFetchResponse = ({ ok, json, text }) => ({
-	ok,
-	json: json ? () => Promise.resolve(json) : undefined,
-	text: text ? () => Promise.resolve(text) : undefined
+        ok,
+        json: json ? () => Promise.resolve(json) : undefined,
+        text: text ? () => Promise.resolve(text) : undefined
 });
+
+const STRONG_PASSPHRASE = 'SecurePass123';
+const ALT_STRONG_PASSPHRASE = 'AnotherPass456';
+const THIRD_STRONG_PASSPHRASE = 'ReviewPass789';
 
 describe('$lib/api', () => {
         afterEach(() => {
@@ -113,13 +117,17 @@ describe('$lib/api', () => {
 				.fn()
 				.mockResolvedValue(createFetchResponse({ ok: true, json: { student: { id: 42 } } }));
 
-			await api.addStudent(fetchMock, { name: 'Student', pin: '1234', teacherId: '7' });
+                        await api.addStudent(fetchMock, {
+                                name: 'Student',
+                                pin: STRONG_PASSPHRASE,
+                                teacherId: '7'
+                        });
 
-			expect(fetchMock).toHaveBeenCalledWith('/api/admin/students', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ name: 'Student', pin: '1234', teacherId: '7' })
-			});
+                        expect(fetchMock).toHaveBeenCalledWith('/api/admin/students', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ name: 'Student', pin: STRONG_PASSPHRASE, teacherId: '7' })
+                        });
 		});
 
 		it('saveAttemptAnswer clears grading state when persisting response', async () => {
@@ -167,13 +175,13 @@ describe('$lib/api', () => {
 				.fn()
 				.mockResolvedValue(createFetchResponse({ ok: true, json: { teacher: { id: 1 } } }));
 
-			await api.addTeacher(fetchMock, { name: 'New Teacher', pin: '4321' });
+                        await api.addTeacher(fetchMock, { name: 'New Teacher', pin: STRONG_PASSPHRASE });
 
 			expect(fetchMock).toHaveBeenCalledWith('/api/admin/teachers', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ name: 'New Teacher', pin: '4321' })
-			});
+                                body: JSON.stringify({ name: 'New Teacher', pin: STRONG_PASSPHRASE })
+                        });
 		});
 
 		it('getAllTeachers unwraps JSON payload', async () => {
@@ -284,13 +292,13 @@ describe('$lib/api', () => {
 				.fn()
 				.mockResolvedValue(createFetchResponse({ ok: true, json: { success: true } }));
 
-			await api.updateReviewer(fetchMock, {
-				id: '4',
-				name: 'Alex',
-				email: 'alex@example.com',
-				isActive: false,
-				pin: '5678'
-			});
+                        await api.updateReviewer(fetchMock, {
+                                id: '4',
+                                name: 'Alex',
+                                email: 'alex@example.com',
+                                isActive: false,
+                                pin: ALT_STRONG_PASSPHRASE
+                        });
 
 			expect(fetchMock).toHaveBeenCalledWith('/api/admin/reviewers/4', {
 				method: 'PUT',
@@ -299,9 +307,9 @@ describe('$lib/api', () => {
 					name: 'Alex',
 					email: 'alex@example.com',
 					isActive: false,
-					pin: '5678'
-				})
-			});
+                                        pin: ALT_STRONG_PASSPHRASE
+                                })
+                        });
 		});
 
 		it('assignStudentToClass posts to classes endpoint', async () => {
@@ -423,13 +431,13 @@ describe('$lib/api', () => {
 				.fn()
 				.mockResolvedValue(createFetchResponse({ ok: true, json: { user: { id: 1 } } }));
 
-			await api.signupTeacher(fetchMock, { name: 'Alex', pin: '1234' });
+                        await api.signupTeacher(fetchMock, { name: 'Alex', pin: STRONG_PASSPHRASE });
 
 			expect(fetchMock).toHaveBeenCalledWith('/api/auth/signup', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ role: 'teacher', name: 'Alex', pin: '1234' })
-			});
+                                body: JSON.stringify({ role: 'teacher', name: 'Alex', pin: STRONG_PASSPHRASE })
+                        });
 		});
 
 		it('signupStudent posts to auth signup endpoint', async () => {
@@ -437,13 +445,17 @@ describe('$lib/api', () => {
 				.fn()
 				.mockResolvedValue(createFetchResponse({ ok: true, json: { user: { id: 5 } } }));
 
-			await api.signupStudent(fetchMock, { name: 'Jamie', pin: '4321' });
+                        await api.signupStudent(fetchMock, { name: 'Jamie', pin: ALT_STRONG_PASSPHRASE });
 
 			expect(fetchMock).toHaveBeenCalledWith('/api/auth/signup', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ role: 'student', name: 'Jamie', pin: '4321' })
-			});
+                                body: JSON.stringify({
+                                        role: 'student',
+                                        name: 'Jamie',
+                                        pin: ALT_STRONG_PASSPHRASE
+                                })
+                        });
 		});
 
 		it('signupReviewer posts reviewer payload', async () => {
@@ -453,22 +465,22 @@ describe('$lib/api', () => {
 					createFetchResponse({ ok: true, json: { user: { id: 7, email: 'pat@example.com' } } })
 				);
 
-			await api.signupReviewer(fetchMock, {
-				name: 'Pat',
-				email: 'pat@example.com',
-				pin: '9876'
-			});
+                        await api.signupReviewer(fetchMock, {
+                                name: 'Pat',
+                                email: 'pat@example.com',
+                                pin: THIRD_STRONG_PASSPHRASE
+                        });
 
 			expect(fetchMock).toHaveBeenCalledWith('/api/auth/signup', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					role: 'reviewer',
-					name: 'Pat',
-					email: 'pat@example.com',
-					pin: '9876'
-				})
-			});
+                                        role: 'reviewer',
+                                        name: 'Pat',
+                                        email: 'pat@example.com',
+                                        pin: THIRD_STRONG_PASSPHRASE
+                                })
+                        });
 		});
 
 		it('signupReviewerWithInvite posts invite code', async () => {
@@ -476,18 +488,22 @@ describe('$lib/api', () => {
 				.fn()
 				.mockResolvedValue(createFetchResponse({ ok: true, json: { user: { id: 9 } } }));
 
-			await api.signupReviewerWithInvite(fetchMock, { name: 'Quinn', pin: '2468', inviteCode: 'CODE123' });
+                        await api.signupReviewerWithInvite(fetchMock, {
+                                name: 'Quinn',
+                                pin: STRONG_PASSPHRASE,
+                                inviteCode: 'CODE123'
+                        });
 
 			expect(fetchMock).toHaveBeenCalledWith('/api/auth/signup', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					role: 'reviewer',
-					name: 'Quinn',
-					pin: '2468',
-					inviteCode: 'CODE123'
-				})
-			});
+                                        role: 'reviewer',
+                                        name: 'Quinn',
+                                        pin: STRONG_PASSPHRASE,
+                                        inviteCode: 'CODE123'
+                                })
+                        });
 		});
 
 		it('updateQuestion posts to question endpoint', async () => {
@@ -745,9 +761,13 @@ describe('$lib/api', () => {
 					})
 				);
 
-			await expect(
-				api.signupReviewer(fetchMock, { name: 'Morgan', email: 'taken@example.com', pin: '1234' })
-			).rejects.toThrow('Email already exists. Please choose a different email.');
+                        await expect(
+                                api.signupReviewer(fetchMock, {
+                                        name: 'Morgan',
+                                        email: 'taken@example.com',
+                                        pin: THIRD_STRONG_PASSPHRASE
+                                })
+                        ).rejects.toThrow('Email already exists. Please choose a different email.');
 		});
 
 		it('creates reviewer when validation passes', async () => {
@@ -762,11 +782,11 @@ describe('$lib/api', () => {
 					})
 				);
 
-			const result = await api.signupReviewer(fetchMock, {
-				name: "Morgan O'Neil",
-				email: 'morgan@example.com',
-				pin: '5678'
-			});
+                        const result = await api.signupReviewer(fetchMock, {
+                                name: "Morgan O'Neil",
+                                email: 'morgan@example.com',
+                                pin: STRONG_PASSPHRASE
+                        });
 
 			expect(fetchMock).toHaveBeenCalledWith('/api/auth/signup', expect.any(Object));
 			expect(result).toEqual({

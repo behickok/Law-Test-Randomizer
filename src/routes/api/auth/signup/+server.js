@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { randomUUID } from 'node:crypto';
 import { runQuery, normaliseResult } from '$lib/server/db';
 import { hashPin, pinExists } from '$lib/server/pin';
+import { validateCredential } from '$lib/credentials';
 import {
 	createSession,
 	getSessionCookieName,
@@ -29,9 +30,14 @@ export async function POST({ request, fetch, cookies }) {
 		const role = body?.role;
 		const name = typeof body?.name === 'string' ? body.name.trim() : '';
 		const email = typeof body?.email === 'string' ? body.email.trim() : '';
-		const pin = typeof body?.pin === 'string' ? body.pin.trim() : '';
-		const inviteCode =
-			typeof body?.inviteCode === 'string' ? body.inviteCode.trim() : '';
+                let pin;
+                try {
+                        pin = validateCredential(body?.pin);
+                } catch (validationError) {
+                        return json({ error: validationError.message }, { status: 400 });
+                }
+                const inviteCode =
+                        typeof body?.inviteCode === 'string' ? body.inviteCode.trim() : '';
 
 		if (!role || !['teacher', 'student', 'reviewer'].includes(role)) {
 			return json({ error: 'Unsupported role' }, { status: 400 });
@@ -41,17 +47,12 @@ export async function POST({ request, fetch, cookies }) {
 			return json({ error: 'Name is required' }, { status: 400 });
 		}
 
-		if (!/^\d+$/.test(pin)) {
-			return json({ error: 'PIN must be numeric' }, { status: 400 });
-		}
-
-		if (pin.length < 4) {
-			return json({ error: 'PIN must be at least 4 digits' }, { status: 400 });
-		}
-
-		if (await pinExists(fetch, pin)) {
-			return json({ error: 'PIN already exists. Please choose a different PIN.' }, { status: 400 });
-		}
+                if (await pinExists(fetch, pin)) {
+                        return json(
+                                { error: 'Passphrase already exists. Please choose a different value.' },
+                                { status: 400 }
+                        );
+                }
 
 		let rows = [];
 		let inviteDetails = null;

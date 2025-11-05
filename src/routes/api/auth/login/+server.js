@@ -2,6 +2,13 @@ import { json } from '@sveltejs/kit';
 import { escapeSql, runQuery, normaliseResult } from '$lib/server/db';
 import { hashPin, verifyPin } from '$lib/server/pin';
 import {
+        MAX_CREDENTIAL_LENGTH,
+        MIN_CREDENTIAL_LENGTH,
+        isLegacyPin,
+        isStrongCredential,
+        normaliseCredential
+} from '$lib/credentials';
+import {
 	createSession,
 	getSessionCookieName,
 	getSessionCookieOptions,
@@ -44,17 +51,50 @@ export async function POST({ request, fetch, cookies }) {
 	try {
 		const body = await request.json();
 		const role = body?.role;
-		const pin = typeof body?.pin === 'string' ? body.pin.trim() : '';
+                const pin = normaliseCredential(body?.pin);
 
-		if (!ROLE_CONFIG[role]) {
-			return json({ error: 'Unsupported role' }, { status: 400 });
-		}
+                if (!ROLE_CONFIG[role]) {
+                        return json({ error: 'Unsupported role' }, { status: 400 });
+                }
 
-		if (!/^\d+$/.test(pin)) {
-			return json({ error: 'PIN must be numeric' }, { status: 400 });
-		}
+                if (!pin) {
+                        return json({ error: 'Credential is required' }, { status: 400 });
+                }
 
-		const identifierHash = deriveLoginIdentifier(role, pin);
+                if (pin.length > MAX_CREDENTIAL_LENGTH) {
+                        return json(
+                                {
+                                        error: `Credential must be at most ${MAX_CREDENTIAL_LENGTH} characters long`
+                                },
+                                { status: 400 }
+                        );
+                }
+
+                if (/\s/.test(pin)) {
+                        return json({ error: 'Credential cannot include whitespace characters' }, { status: 400 });
+                }
+
+                if (!isLegacyPin(pin)) {
+                        if (pin.length < MIN_CREDENTIAL_LENGTH) {
+                                return json(
+                                        {
+                                                error: `Credential must be at least ${MIN_CREDENTIAL_LENGTH} characters long`
+                                        },
+                                        { status: 400 }
+                                );
+                        }
+
+                        if (!isStrongCredential(pin)) {
+                                return json(
+                                        {
+                                                error: 'Credential must include at least one letter and one number'
+                                        },
+                                        { status: 400 }
+                                );
+                        }
+                }
+
+                const identifierHash = deriveLoginIdentifier(role, pin);
 		const lock = await getLock(fetch, identifierHash);
 		if (lock?.lockedUntil && lock.lockedUntil.getTime() > Date.now()) {
 			const headers = {};

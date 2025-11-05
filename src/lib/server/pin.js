@@ -1,4 +1,5 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { normaliseCredential } from '$lib/credentials';
 import { normaliseResult, runQuery } from '$lib/server/db';
 
 const SALT_LENGTH = 16;
@@ -9,19 +10,21 @@ function deriveKey(pin, salt) {
 }
 
 export function hashPin(pin) {
-	const salt = randomBytes(SALT_LENGTH).toString('hex');
-	const key = deriveKey(pin, salt).toString('hex');
-	return `${salt}:${key}`;
+        const credential = normaliseCredential(pin);
+        const salt = randomBytes(SALT_LENGTH).toString('hex');
+        const key = deriveKey(credential, salt).toString('hex');
+        return `${salt}:${key}`;
 }
 
 export function verifyPin(pin, stored) {
-	if (!stored) return false;
-	if (!stored.includes(':')) {
-		return stored === pin;
-	}
-	const [salt, key] = stored.split(':');
-	if (!salt || !key) return false;
-	const derived = deriveKey(pin, salt);
+        const credential = normaliseCredential(pin);
+        if (!stored) return false;
+        if (!stored.includes(':')) {
+                return stored === credential;
+        }
+        const [salt, key] = stored.split(':');
+        if (!salt || !key) return false;
+        const derived = deriveKey(credential, salt);
 	const storedKey = Buffer.from(key, 'hex');
 	if (derived.length !== storedKey.length) {
 		return false;
@@ -36,18 +39,20 @@ const PIN_TABLES = [
 ];
 
 export async function pinExists(fetch, pin, exclude) {
-	for (const table of PIN_TABLES) {
-		const rows = normaliseResult(
-			await runQuery(fetch, `SELECT ${table.idColumn} AS id, pin FROM ${table.name}`)
-		);
-		for (const row of rows) {
+        for (const table of PIN_TABLES) {
+                const rows = normaliseResult(
+                        await runQuery(fetch, `SELECT ${table.idColumn} AS id, pin FROM ${table.name}`)
+                );
+                for (const row of rows) {
 			if (exclude && exclude.table === table.name && exclude.id === row.id) {
 				continue;
 			}
-			if (verifyPin(pin, row.pin)) {
-				return true;
-			}
-		}
-	}
-	return false;
+                        if (verifyPin(pin, row.pin)) {
+                                return true;
+                        }
+                }
+        }
+        return false;
 }
+
+export { isLegacyPin, validateCredential } from '$lib/credentials';

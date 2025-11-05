@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { escapeSql, normaliseResult, runQuery } from '$lib/server/db';
 import { hashPin, pinExists } from '$lib/server/pin';
+import { validateCredential } from '$lib/credentials';
 import { requireTeacher } from '$lib/server/authz';
 
 function requireNumericParam(value) {
@@ -21,15 +22,6 @@ function requireString(value, field) {
 	return value.trim();
 }
 
-function requireNumericString(value, field) {
-	if (!/^\d+$/.test(String(value ?? ''))) {
-		const error = new Error(`${field} must be numeric`);
-		error.status = 400;
-		throw error;
-	}
-	return String(value).trim();
-}
-
 export async function PUT({ params, request, fetch, locals }) {
 	try {
 		requireTeacher(locals);
@@ -41,17 +33,19 @@ export async function PUT({ params, request, fetch, locals }) {
 		const pinProvided = body?.pin !== undefined && body?.pin !== null;
 		let hashedPinSql = '';
 
-		if (pinProvided) {
-			const pin = requireNumericString(body?.pin, 'pin');
-			if (pin.length < 4) {
-				return json({ error: 'PIN must be at least 4 digits' }, { status: 400 });
-			}
-			if (await pinExists(fetch, pin, { table: 'reviewers', id })) {
-				return json({ error: 'PIN already exists. Choose a different PIN.' }, { status: 400 });
-			}
-			const hashedPin = hashPin(pin);
-			hashedPinSql = `, pin = '${escapeSql(hashedPin)}'`;
-		}
+                if (pinProvided) {
+                        let pin;
+                        try {
+                                pin = validateCredential(body?.pin);
+                        } catch (validationError) {
+                                return json({ error: validationError.message }, { status: 400 });
+                        }
+                        if (await pinExists(fetch, pin, { table: 'reviewers', id })) {
+                                return json({ error: 'Credential already exists. Choose a different value.' }, { status: 400 });
+                        }
+                        const hashedPin = hashPin(pin);
+                        hashedPinSql = `, pin = '${escapeSql(hashedPin)}'`;
+                }
 
 		const emailCheck = normaliseResult(
 			await runQuery(

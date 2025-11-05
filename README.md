@@ -39,7 +39,7 @@ You can preview the production build with `npm run preview`.
 
 ## User flows
 
-The app now uses simple PIN codes rather than full authentication. A teacher PIN is stored with each test and a student PIN is stored with each test attempt.
+The app now uses session-backed passphrases for authentication. Teachers, students, and reviewers log in with a secure passphrase, and the server derives their identity for every action.
 
 ### Create or update a test by pasting from a spreadsheet
 
@@ -51,21 +51,21 @@ The app now uses simple PIN codes rather than full authentication. A teacher PIN
 
 ### Manage tests
 
-- In **Manage Tests**, enter your teacher PIN to reveal controls.
+- In **Manage Tests**, review the controls that appear once you're logged in.
 - Use the **Activate/Deactivate** buttons next to each test to control availability.
-- Click a test title to edit questions and answers. After entering your teacher PIN on the test page you can modify text, mark the correct choice and save.
+- Click a test title to edit questions and answers directly from the dashboard.
 
 ### Review test responses
 
-- Enter your teacher PIN in **Review Test Responses** and click **Load Results** to see student scores for your tests.
+- Open **Review Test Responses** and click **Load Results** to see student scores for your tests.
 
 ### Assign a test to a student
 
-- Use **Assign Test to Student** to pick a test, enter the student's name and a unique student PIN, then click **Assign**.
+- Use **Assign Test to Student** to pick a test, select the student, and click **Assign**.
 
 ### Student review of results
 
-- Students can open **Student Results**, provide their PIN and click **Load** to view their scores and completion times.
+- Students can open **Student Results** and click **Load** to view their scores and completion times.
 
 ## Database migrations
 
@@ -75,7 +75,7 @@ This project includes SQL migrations for the DuckDB backend. The scripts live in
 curl -X POST -F "sql_file=@migrations/001_init.sql" https://web-production-b1513.up.railway.app/query-file
 ```
 
-To add support for PIN codes and test activation, apply the additional migration:
+To add support for passphrases and test activation, apply the additional migration:
 
 ```sh
 curl -X POST -F "sql_file=@migrations/002_add_pins.sql" https://web-production-b1513.up.railway.app/query-file
