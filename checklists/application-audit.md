@@ -29,6 +29,7 @@
 - **High-friction data entry.** Teachers must paste CSV-like text into a textarea (`src/routes/+page.svelte:213`) with limited inline validation or error surfacing. When parsing fails, errors are logged to the console rather than surfaced clearly. *Recommendation:* Provide drag-and-drop CSV upload with real-time validation summaries.
 - **Admin workflows lack affordances.** The admin page expects teachers to remember IDs and PINs (`src/routes/admin/+page.svelte:26`) and exposes destructive actions without confirmation beyond `confirm()`. *Recommendation:* Add search, sorting, and explicit confirmation modals with contextual help.
 - **Accessibility gaps.** Custom controls lack ARIA labelling and keyboard focus management in several components (e.g., modal toggles in `src/routes/+page.svelte:325`). *Recommendation:* Audit with axe or Lighthouse and add semantic roles/labels.
+- **Remediation status.** UX remediation workstream has been planned; see "App UX Workstream" in the remediation log for sequenced tasks covering navigation, CSV uploads, admin affordances, and accessibility gates. Navigation IA drafting is underway with the first-pass structure captured for review, and the new teacher upload workspace now lives at `/teacher/upload` with a guarded layout and sidebar nav while the legacy dashboard remains available for fallback.
 
 ## Code Quality & Maintainability
 - **Monolithic client API.** `src/lib/api.js` carries 600+ lines of mixed concerns (validation, SQL construction, business rules, randomisation). This impairs reuse and review. *Recommendation:* Split into domain-focused modules (tests, attempts, reviews) and push SQL construction server-side.
@@ -50,6 +51,10 @@
 1. **Harden server-side SQL execution.** Add parameter binding to `runQuery`/`runQueryFile`, refactor the highest-risk endpoints away from string interpolation, and add tests to guard against regression. *Status:* Helper now binds `{ text, values }` payloads and the major routes (cascade deletes, uploads, signup, attempt answers, grading) have been migrated (`src/lib/server/db.js:1`, `src/routes/api/tests/[id]/+server.js:1`, `src/routes/api/tests/upload/+server.js:1`, `src/routes/api/auth/signup/+server.js:1`, `src/routes/api/attempts/[attemptId]/answers/+server.js:1`, `src/routes/api/attempts/answers/grade/+server.js:1`). Continue auditing ancillary admin/reporting SQL and add automated coverage for the new bindings.
 2. **Operationalise the new passphrase policy.** Run the credential migration sweep for dormant accounts, prompt users to rotate weak secrets, and finish removing any client-supplied identifiers from residual admin tooling.
 3. **Refactor the UI into dedicated flows.** Break the monolithic dashboard apart, prioritising clarity for teachers, students, and reviewers.
+   - Draft information architecture for Upload, Assignment, Attempt Management, Review, and Admin utilities. *(In progress – first-pass IA documented, navigation shell shipped at `/teacher/upload`, stakeholder sign-off pending.)*
+   - Carve out teacher upload/assignment routes first, introducing shared CSV import components with inline validation summaries.
+   - Promote the assignment workspace spec and migrate the shared stores required for `/teacher/assign`.
+   - Layer in admin safeguards (search, confirmation modals) and accessibility reviews as each new page ships.
 4. **Stabilise tooling.** Fix lint/format drift, add CI, and expand automated tests around the highest-risk paths.
 5. **Plan a security hardening sprint.** Run threat modelling, add monitoring, and conduct penetration testing before onboarding more users.
 
@@ -74,6 +79,8 @@
 - 2025-11-12 — Added `{ text, values }` parameter binding to `runQuery` and migrated the `/api/tests/[id]` cascade delete flow to the new helper (`src/lib/server/db.js:1`, `src/routes/api/tests/[id]/+server.js:1`). Upload, signup, and grading routes still build SQL manually and remain on the remediation list.
 - 2025-11-13 — Finished migrating high-risk endpoints to the bound helper: uploads, signup, attempt answer retrieval, and grading now call `runQuery` with `{ text, values }`, removing manual SQL concatenation from those flows (`src/routes/api/tests/upload/+server.js:1`, `src/routes/api/auth/signup/+server.js:1`, `src/routes/api/attempts/[attemptId]/answers/+server.js:1`, `src/routes/api/attempts/answers/grade/+server.js:1`). Added progress notes to track remaining low-risk admin queries.
 - 2025-11-14 — Enforced a strong passphrase policy across signup, login, and admin resets with shared validation and UI updates (`src/lib/credentials.js:1`, `src/routes/api/auth/login/+server.js:1`, `src/routes/api/auth/signup/+server.js:1`, `src/routes/admin/+page.svelte:1`, `src/routes/login/+page.svelte:1`). Updated docs and tooling to sweep legacy PINs via the credential migration script (`scripts/migrate-pins.js:1`, `docs/credential-hardening.md:1`, `README.md:1`, `checklists/remediation-progress.md:1`).
+- 2025-11-15 — Initiated App UX restructure planning: catalogued dashboard flows, prioritised usability pain points, and defined upcoming tasks for navigation redesign, CSV improvements, admin guardrails, and accessibility validation (`checklists/remediation-progress.md:1`).
+- 2025-11-16 — Drafted initial navigation IA for the App UX workstream, outlining role-based pillars and teacher sidebar structure, and documented follow-up review/checklist tasks (`checklists/remediation-progress.md:1`).
 
 ## Appendix: Commands Run
 - `npm run lint` (fails: prettier issues in 12 files)
