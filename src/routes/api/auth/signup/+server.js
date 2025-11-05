@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { randomUUID } from 'node:crypto';
-import { escapeSql, runQuery, normaliseResult } from '$lib/server/db';
+import { runQuery, normaliseResult } from '$lib/server/db';
 import { hashPin, pinExists } from '$lib/server/pin';
 import {
 	createSession,
@@ -10,9 +10,12 @@ import {
 } from '$lib/server/session';
 
 async function ensureUniqueReviewerEmail(fetch, email) {
-	const checks = normaliseResult(
-		await runQuery(fetch, `SELECT 1 FROM reviewers WHERE email = '${escapeSql(email)}' LIMIT 1`)
-	);
+        const checks = normaliseResult(
+                await runQuery(fetch, {
+                        text: `SELECT 1 FROM reviewers WHERE email = $1 LIMIT 1`,
+                        values: [email]
+                })
+        );
 	if (checks.length > 0) {
 		const error = new Error('Email already exists. Please choose a different email.');
 		error.status = 400;
@@ -53,16 +56,16 @@ export async function POST({ request, fetch, cookies }) {
 		let rows = [];
 		let inviteDetails = null;
 		if (role === 'reviewer' && inviteCode) {
-			const inviteRows = normaliseResult(
-				await runQuery(
-					fetch,
-					`SELECT reviewer_email, reviewer_name
-					 FROM reviewer_invitations
-					 WHERE invite_code = '${escapeSql(inviteCode)}'
-					   AND status = 'pending'
-					 LIMIT 1`
-				)
-			);
+                        const inviteRows = normaliseResult(
+                                await runQuery(fetch, {
+                                        text: `SELECT reviewer_email, reviewer_name
+                                         FROM reviewer_invitations
+                                         WHERE invite_code = $1
+                                           AND status = 'pending'
+                                         LIMIT 1`,
+                                        values: [inviteCode]
+                                })
+                        );
 			if (inviteRows.length === 0) {
 				return json({ error: 'Invalid or expired invitation code.' }, { status: 400 });
 			}
@@ -70,55 +73,55 @@ export async function POST({ request, fetch, cookies }) {
 		}
 
 		if (role === 'teacher') {
-			const hashedPin = hashPin(pin);
-			rows = normaliseResult(
-				await runQuery(
-					fetch,
-					`INSERT INTO teachers (name, pin, invite_code)
-					 VALUES ('${escapeSql(name)}', '${escapeSql(hashedPin)}', '${randomUUID()}')
-					 RETURNING id, name, 'teacher' as role`
-				)
-			);
-		} else if (role === 'student') {
-			const hashedPin = hashPin(pin);
-			rows = normaliseResult(
-				await runQuery(
-					fetch,
-					`INSERT INTO students (name, pin)
-					 VALUES ('${escapeSql(name)}', '${escapeSql(hashedPin)}')
-					 RETURNING id, name, 'student' as role`
-				)
-			);
-		} else if (role === 'reviewer') {
-			if (!inviteDetails && !email) {
-				return json({ error: 'Email is required for reviewers' }, { status: 400 });
-			}
+                        const hashedPin = hashPin(pin);
+                        const invite = randomUUID();
+                        rows = normaliseResult(
+                                await runQuery(fetch, {
+                                        text: `INSERT INTO teachers (name, pin, invite_code)
+                                         VALUES ($1, $2, $3)
+                                         RETURNING id, name, 'teacher' as role`,
+                                        values: [name, hashedPin, invite]
+                                })
+                        );
+                } else if (role === 'student') {
+                        const hashedPin = hashPin(pin);
+                        rows = normaliseResult(
+                                await runQuery(fetch, {
+                                        text: `INSERT INTO students (name, pin)
+                                         VALUES ($1, $2)
+                                         RETURNING id, name, 'student' as role`,
+                                        values: [name, hashedPin]
+                                })
+                        );
+                } else if (role === 'reviewer') {
+                        if (!inviteDetails && !email) {
+                                return json({ error: 'Email is required for reviewers' }, { status: 400 });
+                        }
 
-			const reviewerEmail = inviteDetails ? inviteDetails.reviewer_email : email;
+                        const reviewerEmail = inviteDetails ? inviteDetails.reviewer_email : email;
 
-			await ensureUniqueReviewerEmail(fetch, reviewerEmail);
+                        await ensureUniqueReviewerEmail(fetch, reviewerEmail);
 
-			const hashedPin = hashPin(pin);
-			rows = normaliseResult(
-				await runQuery(
-					fetch,
-					`INSERT INTO reviewers (name, email, pin, invite_code, is_active)
-					 VALUES ('${escapeSql(name)}', '${escapeSql(reviewerEmail)}', '${escapeSql(hashedPin)}', '${
-						inviteDetails ? inviteCode : randomUUID()
-					}', TRUE)
-					 RETURNING id, name, email, 'reviewer' as role`
-				)
-			);
+                        const hashedPin = hashPin(pin);
+                        const reviewerInviteCode = inviteDetails ? inviteCode : randomUUID();
+                        rows = normaliseResult(
+                                await runQuery(fetch, {
+                                        text: `INSERT INTO reviewers (name, email, pin, invite_code, is_active)
+                                         VALUES ($1, $2, $3, $4, TRUE)
+                                         RETURNING id, name, email, 'reviewer' as role`,
+                                        values: [name, reviewerEmail, hashedPin, reviewerInviteCode]
+                                })
+                        );
 
-			if (inviteDetails) {
-				await runQuery(
-					fetch,
-					`UPDATE reviewer_invitations
-					 SET status = 'accepted', accepted_at = CURRENT_TIMESTAMP
-					 WHERE invite_code = '${escapeSql(inviteCode)}'`
-				);
-			}
-		}
+                        if (inviteDetails) {
+                                await runQuery(fetch, {
+                                        text: `UPDATE reviewer_invitations
+                                         SET status = 'accepted', accepted_at = CURRENT_TIMESTAMP
+                                         WHERE invite_code = $1`,
+                                        values: [inviteCode]
+                                });
+                        }
+                }
 
 		if (rows.length === 0) {
 			return json({ error: 'Signup failed' }, { status: 500 });
