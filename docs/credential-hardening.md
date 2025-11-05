@@ -1,12 +1,12 @@
 # Credential Hardening Playbook
 
 ## Current Status (2025-11-04)
-- Admin creation/update endpoints now hash PINs and never echo secrets back to the client (`src/routes/api/admin/students/+server.js`, `src/routes/api/admin/reviewers/[id]/+server.js`).
-- The admin dashboard displays credential status instead of raw PIN values and supports optional resets (`src/routes/admin/+page.svelte`).
+- Admin creation/update endpoints now hash passphrases and never echo secrets back to the client (`src/routes/api/admin/students/+server.js`, `src/routes/api/admin/reviewers/[id]/+server.js`).
+- The admin dashboard displays credential status and supports optional passphrase resets (`src/routes/admin/+page.svelte`).
 - Successful logins automatically upgrade legacy plaintext records to hashed values without user-visible changes (`src/routes/api/auth/login/+server.js`).
 
 ## Migration Backfill Guidance
-Some dormant users may still have plaintext PINs until they authenticate. To proactively re-hash every account:
+Some dormant users may still have legacy numeric PINs until they authenticate. To proactively re-hash every account:
 
 1. Export the current credential set for each role:
    ```sql
@@ -30,5 +30,5 @@ Some dormant users may still have plaintext PINs until they authenticate. To pro
 ## Next Security Steps
 - Add brute-force protection and account lockouts to `/api/auth/login`.
 - Replace client-managed local storage with server-issued sessions (HTTP-only cookies or signed JWT + refresh).
-- Introduce password/PIN rotation policies and administrative reset tooling with audit logs.
+- Introduce passphrase rotation policies and administrative reset tooling with audit logs.
 - Add automated tests that cover credential provisioning, reuse detection, and failed login throttling.

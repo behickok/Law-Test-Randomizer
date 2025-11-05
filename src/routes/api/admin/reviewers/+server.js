@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { escapeSql, normaliseResult, runQuery } from '$lib/server/db';
 import { hashPin, pinExists } from '$lib/server/pin';
+import { validateCredential } from '$lib/credentials';
 import { requireTeacher } from '$lib/server/authz';
 
 function requireString(value, field) {
@@ -10,15 +11,6 @@ function requireString(value, field) {
 		throw error;
 	}
 	return value.trim();
-}
-
-function requireNumericString(value, field) {
-	if (!/^\d+$/.test(String(value ?? ''))) {
-		const error = new Error(`${field} must be numeric`);
-		error.status = 400;
-		throw error;
-	}
-	return String(value).trim();
 }
 
 export async function GET({ fetch, locals }) {
@@ -52,15 +44,16 @@ export async function POST({ request, fetch, locals }) {
 		const body = await request.json();
 		const name = requireString(body?.name, 'name');
 		const email = requireString(body?.email, 'email');
-		const pin = requireNumericString(body?.pin, 'pin');
+                let pin;
+                try {
+                        pin = validateCredential(body?.pin);
+                } catch (validationError) {
+                        return json({ error: validationError.message }, { status: 400 });
+                }
 
-		if (pin.length < 4) {
-			return json({ error: 'PIN must be at least 4 digits' }, { status: 400 });
-		}
-
-		if (await pinExists(fetch, pin)) {
-			return json({ error: 'PIN already exists. Choose a different PIN.' }, { status: 400 });
-		}
+                if (await pinExists(fetch, pin)) {
+                        return json({ error: 'Credential already exists. Choose a different value.' }, { status: 400 });
+                }
 
 		const emailCheck = normaliseResult(
 			await runQuery(

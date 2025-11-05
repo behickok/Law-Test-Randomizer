@@ -1,133 +1,170 @@
 <script>
-	import { goto } from '$app/navigation';
-	import { user } from '$lib/user';
+        import { goto } from '$app/navigation';
+        import { user } from '$lib/user';
+        import {
+                MAX_CREDENTIAL_LENGTH,
+                MIN_CREDENTIAL_LENGTH,
+                credentialRequirements,
+                isLegacyPin,
+                isStrongCredential,
+                normaliseCredential,
+                validateCredential
+        } from '$lib/credentials';
 
-	let pin = $state('');
-	let name = $state('');
-	let email = $state('');
-	let error = $state('');
-	let isLoading = $state(false);
-	let mode = $state('login'); // 'login', 'signup'
-	let signupRole = $state('student'); // 'student', 'teacher', 'reviewer'
-	let loginRole = $state(''); // Required role selection for login
+        let pin = $state('');
+        let name = $state('');
+        let email = $state('');
+        let error = $state('');
+        let isLoading = $state(false);
+        let mode = $state('login'); // 'login', 'signup'
+        let signupRole = $state('student'); // 'student', 'teacher', 'reviewer'
+        let loginRole = $state(''); // Required role selection for login
 
-	async function login() {
-		error = '';
-		isLoading = true;
+        function validateLoginCredential(value) {
+                const credential = normaliseCredential(value);
 
-		if (!loginRole) {
-			error = 'Please select your role';
-			isLoading = false;
-			return;
-		}
+                if (!credential) {
+                        throw new Error('Credential is required');
+                }
 
-		if (!/^\d+$/.test(pin)) {
-			error = 'PIN must be numeric';
-			isLoading = false;
-			return;
-		}
+                if (credential.length > MAX_CREDENTIAL_LENGTH) {
+                        throw new Error(`Credential must be at most ${MAX_CREDENTIAL_LENGTH} characters long`);
+                }
 
-		try {
-			const response = await fetch('/api/auth/login', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					pin,
-					role: loginRole
-				})
-			});
+                if (/\s/.test(credential)) {
+                        throw new Error('Credential cannot include whitespace characters');
+                }
 
-			const payload = await response.json();
+                if (!isLegacyPin(credential)) {
+                        if (credential.length < MIN_CREDENTIAL_LENGTH) {
+                                throw new Error(`Credential must be at least ${MIN_CREDENTIAL_LENGTH} characters long`);
+                        }
 
-			if (response.ok && payload?.user) {
-				$user = payload.user;
-				goto('/');
-				return;
-			}
+                        if (!isStrongCredential(credential)) {
+                                throw new Error(credentialRequirements.description);
+                        }
+                }
 
-			error = payload?.error || `Invalid PIN for ${loginRole}`;
-		} catch (e) {
-			error = e.message;
-		} finally {
-			isLoading = false;
-		}
-	}
+                return credential;
+        }
 
-	async function signup() {
-		error = '';
-		isLoading = true;
+        async function login() {
+                error = '';
+                isLoading = true;
 
-		if (!name.trim()) {
-			error = 'Name is required';
-			isLoading = false;
-			return;
-		}
+                if (!loginRole) {
+                        error = 'Please select your role';
+                        isLoading = false;
+                        return;
+                }
 
-		if (signupRole === 'reviewer' && !email.trim()) {
-			error = 'Email is required for reviewers';
-			isLoading = false;
-			return;
-		}
+                let credential;
+                try {
+                        credential = validateLoginCredential(pin);
+                } catch (validationError) {
+                        error = validationError.message;
+                        isLoading = false;
+                        return;
+                }
 
-		if (!/^\d+$/.test(pin)) {
-			error = 'PIN must be numeric';
-			isLoading = false;
-			return;
-		}
+                try {
+                        const response = await fetch('/api/auth/login', {
+                                method: 'POST',
+                                headers: {
+                                        'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                        pin: credential,
+                                        role: loginRole
+                                })
+                        });
 
-		if (pin.length < 4) {
-			error = 'PIN must be at least 4 digits';
-			isLoading = false;
-			return;
-		}
+                        const payload = await response.json();
 
-		try {
-			const response = await fetch('/api/auth/signup', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					name: name.trim(),
-					email: signupRole === 'reviewer' ? email.trim() : undefined,
-					pin,
-					role: signupRole
-				})
-			});
+                        if (response.ok && payload?.user) {
+                                $user = payload.user;
+                                goto('/');
+                                return;
+                        }
 
-			const payload = await response.json();
+                        error = payload?.error || `Invalid credential for ${loginRole}`;
+                } catch (e) {
+                        error = e.message;
+                } finally {
+                        isLoading = false;
+                }
+        }
 
-			if (response.ok && payload?.user) {
-				$user = payload.user;
-				goto('/');
-				return;
-			}
+        async function signup() {
+                error = '';
+                isLoading = true;
 
-			error = payload?.error || 'Signup failed';
-		} catch (e) {
-			error = e.message;
-		} finally {
-			isLoading = false;
-		}
-	}
+                if (!name.trim()) {
+                        error = 'Name is required';
+                        isLoading = false;
+                        return;
+                }
 
-	function handleInputChange() {
-		if (error) {
-			error = '';
-		}
-	}
+                if (signupRole === 'reviewer' && !email.trim()) {
+                        error = 'Email is required for reviewers';
+                        isLoading = false;
+                        return;
+                }
 
-	function switchMode() {
-		mode = mode === 'login' ? 'signup' : 'login';
-		error = '';
-		pin = '';
-		name = '';
-		email = '';
-		loginRole = '';
-		signupRole = 'student';
-	}
+                let credential;
+                try {
+                        credential = validateCredential(pin);
+                } catch (validationError) {
+                        error = validationError.message;
+                        isLoading = false;
+                        return;
+                }
+
+                try {
+                        const response = await fetch('/api/auth/signup', {
+                                method: 'POST',
+                                headers: {
+                                        'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                        name: name.trim(),
+                                        email: signupRole === 'reviewer' ? email.trim() : undefined,
+                                        pin: credential,
+                                        role: signupRole
+                                })
+                        });
+
+                        const payload = await response.json();
+
+                        if (response.ok && payload?.user) {
+                                $user = payload.user;
+                                goto('/');
+                                return;
+                        }
+
+                        error = payload?.error || 'Signup failed';
+                } catch (e) {
+                        error = e.message;
+                } finally {
+                        isLoading = false;
+                }
+        }
+
+        function handleInputChange() {
+                if (error) {
+                        error = '';
+                }
+        }
+
+        function switchMode() {
+                mode = mode === 'login' ? 'signup' : 'login';
+                error = '';
+                pin = '';
+                name = '';
+                email = '';
+                loginRole = '';
+                signupRole = 'student';
+        }
 </script>
 
 <main class="container">
@@ -161,9 +198,11 @@
 				{/if}
 			</div>
 			<h1>{mode === 'login' ? 'Welcome Back' : 'Create Account'}</h1>
-			<p class="subtitle">
-				{mode === 'login' ? 'Enter your PIN to access your account' : 'Sign up to get started'}
-			</p>
+                        <p class="subtitle">
+                                {mode === 'login'
+                                        ? 'Enter your passphrase to access your account'
+                                        : 'Sign up to get started'}
+                        </p>
 		</div>
 
 		<form on:submit|preventDefault={mode === 'login' ? login : signup} class="auth-form">
@@ -265,24 +304,28 @@
 			{/if}
 
 			<div class="input-group">
-				<label for="pin-input">{mode === 'signup' ? 'Create PIN' : 'PIN'}</label>
+                            <label for="pin-input">{mode === 'signup' ? 'Create Passphrase' : 'Passphrase'}</label>
 				<div class="input-wrapper">
 					<input
 						id="pin-input"
 						type="password"
 						bind:value={pin}
 						on:input={handleInputChange}
-						placeholder={mode === 'signup' ? 'Create a 4+ digit PIN' : 'Enter your PIN'}
+                                            placeholder={
+                                                    mode === 'signup'
+                                                            ? 'Create a secure passphrase'
+                                                            : 'Enter your passphrase'
+                                            }
 						class:error
 						disabled={isLoading}
-						autocomplete="off"
-						maxlength="10"
+                                                autocomplete="off"
+                                                maxlength={MAX_CREDENTIAL_LENGTH}
 					/>
 					<div class="input-underline"></div>
 				</div>
 				{#if mode === 'signup'}
-					<p class="pin-hint">Your PIN must be at least 4 digits and contain only numbers</p>
-				{/if}
+                                <p class="pin-hint">{credentialRequirements.description}</p>
+                        {/if}
 			</div>
 
 			{#if error}

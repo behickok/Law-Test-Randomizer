@@ -46,20 +46,20 @@ async function upgradeTable(table) {
 }
 
 async function main() {
-	console.log('🔐 Starting PIN migration...');
+        console.log('🔐 Starting credential migration sweep...');
 	const summary = [];
 	for (const table of TABLES) {
 		const result = await upgradeTable(table);
 		summary.push(result);
 		console.log(
-			` - ${result.table}: scanned ${result.scanned} rows, upgraded ${result.upgraded} legacy PINs`
-		);
-	}
-	console.log('✅ Migration sweep complete.');
-	return summary;
+                        ` - ${result.table}: scanned ${result.scanned} rows, upgraded ${result.upgraded} legacy credentials`
+                );
+        }
+        console.log('✅ Credential migration sweep complete.');
+        return summary;
 }
 
 main().catch((error) => {
-	console.error('❌ PIN migration failed:', error);
-	process.exit(1);
+        console.error('❌ Credential migration failed:', error);
+        process.exit(1);
 });

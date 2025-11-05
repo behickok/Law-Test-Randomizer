@@ -1,3 +1,5 @@
+import { validateCredential } from './credentials';
+
 const BASE_URL = '/api';
 
 function validateNumeric(value) {
@@ -169,30 +171,30 @@ export async function getStudentResults(fetch, studentId) {
 }
 
 export async function addTeacher(fetch, { name, pin }) {
-	const cleanName = validateString(name);
-	const cleanPin = validateNumeric(pin);
-	const res = await fetch(`${BASE_URL}/admin/teachers`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ name: cleanName, pin: String(cleanPin) })
-	});
-	if (!res.ok) {
-		throw new Error(await res.text());
-	}
-	return res.json();
+        const cleanName = validateString(name).trim();
+        const cleanPin = validateCredential(pin);
+        const res = await fetch(`${BASE_URL}/admin/teachers`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: cleanName, pin: cleanPin })
+        });
+        if (!res.ok) {
+                throw new Error(await res.text());
+        }
+        return res.json();
 }
 
 export async function addStudent(fetch, { name, pin, teacherId }) {
-	const cleanName = validateString(name);
-	const cleanPin = validateNumeric(pin);
-	const payload = {
-		name: cleanName,
-		pin: String(cleanPin),
-		...(teacherId !== undefined ? { teacherId: String(validateNumeric(teacherId)) } : {})
-	};
-	const res = await fetch(`${BASE_URL}/admin/students`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+        const cleanName = validateString(name).trim();
+        const cleanPin = validateCredential(pin);
+        const payload = {
+                name: cleanName,
+                pin: cleanPin,
+                ...(teacherId !== undefined ? { teacherId: String(validateNumeric(teacherId)) } : {})
+        };
+        const res = await fetch(`${BASE_URL}/admin/students`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(payload)
 	});
 	if (!res.ok) {
@@ -342,16 +344,13 @@ export async function submitAttempt(fetch, { attemptId }) {
 
 // Public signup functions (no authentication required)
 export async function signupTeacher(fetch, { name, pin }) {
-	const cleanName = validateString(name).trim();
-	const cleanPin = String(pin).trim();
-	if (!/^\d+$/.test(cleanPin)) {
-		throw new Error('PIN must be numeric');
-	}
+        const cleanName = validateString(name).trim();
+        const cleanPin = validateCredential(pin);
 
-	const res = await fetch(`${BASE_URL}/auth/signup`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ role: 'teacher', name: cleanName, pin: cleanPin })
+        const res = await fetch(`${BASE_URL}/auth/signup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role: 'teacher', name: cleanName, pin: cleanPin })
 	});
 	if (!res.ok) {
 		throw new Error(await res.text());
@@ -360,15 +359,12 @@ export async function signupTeacher(fetch, { name, pin }) {
 }
 
 export async function signupStudent(fetch, { name, pin }) {
-	const cleanName = validateString(name).trim();
-	const cleanPin = String(pin).trim();
-	if (!/^\d+$/.test(cleanPin)) {
-		throw new Error('PIN must be numeric');
-	}
+        const cleanName = validateString(name).trim();
+        const cleanPin = validateCredential(pin);
 
-	const res = await fetch(`${BASE_URL}/auth/signup`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+        const res = await fetch(`${BASE_URL}/auth/signup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ role: 'student', name: cleanName, pin: cleanPin })
 	});
 	if (!res.ok) {
@@ -378,12 +374,9 @@ export async function signupStudent(fetch, { name, pin }) {
 }
 
 export async function signupReviewer(fetch, { name, email, pin }) {
-	const cleanName = validateString(name).trim();
-	const cleanEmail = validateString(email).trim();
-	const cleanPin = String(pin).trim();
-	if (!/^\d+$/.test(cleanPin)) {
-		throw new Error('PIN must be numeric');
-	}
+        const cleanName = validateString(name).trim();
+        const cleanEmail = validateString(email).trim();
+        const cleanPin = validateCredential(pin);
 
 	const res = await fetch(`${BASE_URL}/auth/signup`, {
 		method: 'POST',
@@ -402,14 +395,11 @@ export async function signupReviewer(fetch, { name, email, pin }) {
 }
 
 export async function signupReviewerWithInvite(fetch, { name, pin, inviteCode }) {
-	const cleanName = validateString(name).trim();
-	const cleanPin = String(pin).trim();
-	const cleanInviteCode = validateString(inviteCode).trim();
-	if (!/^\d+$/.test(cleanPin)) {
-		throw new Error('PIN must be numeric');
-	}
+        const cleanName = validateString(name).trim();
+        const cleanPin = validateCredential(pin);
+        const cleanInviteCode = validateString(inviteCode).trim();
 
-	const res = await fetch(`${BASE_URL}/auth/signup`, {
+        const res = await fetch(`${BASE_URL}/auth/signup`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({
@@ -529,40 +519,40 @@ export async function getAllReviewersForAdmin(fetch) {
 }
 
 export async function addReviewer(fetch, { name, email, pin }) {
-	const cleanName = validateString(name);
-	const cleanEmail = validateString(email);
-	const cleanPin = validateNumeric(pin);
+        const cleanName = validateString(name).trim();
+        const cleanEmail = validateString(email).trim();
+        const cleanPin = validateCredential(pin);
 
-	const res = await fetch(`${BASE_URL}/admin/reviewers`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({
-			name: cleanName,
-			email: cleanEmail,
-			pin: String(cleanPin)
-		})
-	});
-	if (!res.ok) {
-		throw new Error(await res.text());
-	}
-	return res.json();
+        const res = await fetch(`${BASE_URL}/admin/reviewers`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                        name: cleanName,
+                        email: cleanEmail,
+                        pin: cleanPin
+                })
+        });
+        if (!res.ok) {
+                throw new Error(await res.text());
+        }
+        return res.json();
 }
 
 export async function updateReviewer(fetch, { id, name, email, pin, isActive }) {
-	const cleanId = validateNumeric(id);
-	const cleanName = validateString(name);
-	const cleanEmail = validateString(email);
-	const cleanIsActive = validateBoolean(isActive);
-	const payload = {
-		name: cleanName,
-		email: cleanEmail,
-		isActive: cleanIsActive
-	};
+        const cleanId = validateNumeric(id);
+        const cleanName = validateString(name).trim();
+        const cleanEmail = validateString(email).trim();
+        const cleanIsActive = validateBoolean(isActive);
+        const payload = {
+                name: cleanName,
+                email: cleanEmail,
+                isActive: cleanIsActive
+        };
 
-	if (pin !== undefined && pin !== null && String(pin).trim() !== '') {
-		const cleanPin = validateNumeric(pin);
-		payload.pin = String(cleanPin);
-	}
+        if (pin !== undefined && pin !== null && String(pin).trim() !== '') {
+                const cleanPin = validateCredential(pin);
+                payload.pin = cleanPin;
+        }
 
 	const res = await fetch(`${BASE_URL}/admin/reviewers/${cleanId}`, {
 		method: 'PUT',

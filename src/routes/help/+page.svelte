@@ -37,7 +37,7 @@
 							<div class="step-number">1</div>
 							<div class="step-content">
 								<h3>Sign Up or Log In</h3>
-								<p>Create a new account or log in with your existing PIN</p>
+                                                                <p>Create a new account or log in with your existing passphrase</p>
 							</div>
 						</div>
 						<div class="step-item">
@@ -112,7 +112,7 @@
 					<div class="feature-list">
 						<div class="feature-item">
 							<h4>🏫 Join a Class</h4>
-							<p>Enter your teacher's PIN to request access to their class. Wait for approval.</p>
+                                                        <p>Enter your teacher's invite code to request access to their class. Wait for approval.</p>
 						</div>
 						<div class="feature-item">
 							<h4>📝 Take Tests</h4>
@@ -179,41 +179,41 @@
 
 						<div class="instruction-section">
 							<h3>🔐 Account Management</h3>
-							<div class="account-info">
-								<div class="info-item">
-									<h4>Creating an Account</h4>
-									<p>
-										New users can create accounts directly from the login page. Click "Don't have an
-										account? Sign up" to get started. Choose your role (Student or Teacher) and
-										create a secure numeric PIN.
-									</p>
-								</div>
-								<div class="info-item">
-									<h4>Login</h4>
-									<p>
-										Use your assigned or created PIN to log in. PINs are numeric and must be unique
-										across the system.
-									</p>
-								</div>
-								<div class="info-item">
-									<h4>PIN Requirements</h4>
-									<p>
-										PINs must be at least 4 digits long, contain only numbers, and be unique across
-										all users.
-									</p>
-								</div>
-								<div class="info-item">
-									<h4>Role-Based Access</h4>
-									<p>
-										Your role (Teacher or Student) determines which features you can access. This is
-										set during account creation.
-									</p>
-								</div>
-								<div class="info-item">
-									<h4>Logout</h4>
-									<p>Always log out when finished to protect your account security.</p>
-								</div>
-							</div>
+                                                        <div class="account-info">
+                                                                <div class="info-item">
+                                                                        <h4>Creating an Account</h4>
+                                                                        <p>
+                                                                                New users can create accounts directly from the login page. Click "Don't have an
+                                                                                account? Sign up" to get started. Choose your role (Student, Teacher, or Reviewer)
+                                                                                and create a strong passphrase that you do not share publicly.
+                                                                        </p>
+                                                                </div>
+                                                                <div class="info-item">
+                                                                        <h4>Login</h4>
+                                                                        <p>
+                                                                                Use your passphrase to log in. Legacy numeric PINs still work, but we encourage
+                                                                                you to adopt a stronger passphrase the next time you sign in.
+                                                                        </p>
+                                                                </div>
+                                                                <div class="info-item">
+                                                                        <h4>Passphrase Requirements</h4>
+                                                                        <p>
+                                                                                Passphrases must be between 10 and 128 characters, include at least one letter
+                                                                                and one number, avoid spaces, and stay unique to each user.
+                                                                        </p>
+                                                                </div>
+                                                                <div class="info-item">
+                                                                        <h4>Role-Based Access</h4>
+                                                                        <p>
+                                                                                Your role (Teacher, Student, or Reviewer) determines which features you can access.
+                                                                                This is set during account creation.
+                                                                        </p>
+                                                                </div>
+                                                                <div class="info-item">
+                                                                        <h4>Logout</h4>
+                                                                        <p>Always log out when finished to protect your account security.</p>
+                                                                </div>
+                                                        </div>
 						</div>
 
 						<div class="instruction-section">
@@ -264,12 +264,12 @@
 					<details class="faq-item">
 						<summary class="faq-question">How do I create an account?</summary>
 						<div class="faq-answer">
-							<p>
-								From the login page, click "Don't have an account? Sign up". Fill in your full name,
-								choose your role (Student or Teacher), and create a numeric PIN of at least 4
-								digits. Your PIN must be unique - if someone already uses that PIN, you'll need to
-								choose a different one.
-							</p>
+                                                        <p>
+                                                                From the login page, click "Don't have an account? Sign up". Fill in your full name,
+                                                                choose your role, and create a strong passphrase (10+ characters with at least one
+                                                                letter and one number, no spaces). Each passphrase must be unique—if the one you
+                                                                pick is already in use, choose a different combination.
+                                                        </p>
 						</div>
 					</details>
 
@@ -299,11 +299,11 @@
 					<details class="faq-item">
 						<summary class="faq-question">How do students join my class?</summary>
 						<div class="faq-answer">
-							<p>
-								Students enter your teacher PIN in the "Join Teacher's Class" section. You'll see
-								their request in "Pending Requests" and can approve them. Your teacher PIN is the
-								same PIN you use to log in.
-							</p>
+                                                        <p>
+                                                                Students enter your teacher invite code in the "Join Teacher's Class" section. You'll
+                                                                see their request in "Pending Requests" and can approve or deny access. Invite codes
+                                                                are visible in your dashboard—keep your personal passphrase private.
+                                                        </p>
 						</div>
 					</details>
 
@@ -328,28 +328,27 @@
 						</div>
 					</details>
 
-					<details class="faq-item">
-						<summary class="faq-question">I forgot my PIN. How do I recover it?</summary>
-						<div class="faq-answer">
-							<p>
-								PINs cannot be recovered through the application. If you created your account
-								recently, you may need to create a new account with a different PIN. For older
-								accounts, contact your system administrator who can reset your PIN with database
-								access.
-							</p>
-						</div>
-					</details>
+                                        <details class="faq-item">
+                                                <summary class="faq-question">I forgot my passphrase. How do I recover it?</summary>
+                                                <div class="faq-answer">
+                                                        <p>
+                                                                Passphrases are stored securely and cannot be retrieved. Ask your teacher or an
+                                                                administrator to reset your passphrase from the Admin dashboard. They can issue a
+                                                                temporary passphrase that you should change after logging in.
+                                                        </p>
+                                                </div>
+                                        </details>
 
-					<details class="faq-item">
-						<summary class="faq-question">My PIN is already taken. What should I do?</summary>
-						<div class="faq-answer">
-							<p>
-								All PINs must be unique across the system. If you get an error saying your PIN
-								already exists, try a different number combination. Consider using a longer PIN
-								(more than 4 digits) for better uniqueness.
-							</p>
-						</div>
-					</details>
+                                        <details class="faq-item">
+                                                <summary class="faq-question">My passphrase is already taken. What should I do?</summary>
+                                                <div class="faq-answer">
+                                                        <p>
+                                                                Passphrases must be unique across the system. If you receive a duplicate warning,
+                                                                choose a new combination that includes both letters and numbers—longer phrases are
+                                                                more secure and less likely to clash with other users.
+                                                        </p>
+                                                </div>
+                                        </details>
 
 					<details class="faq-item">
 						<summary class="faq-question">What file formats are supported for tests?</summary>

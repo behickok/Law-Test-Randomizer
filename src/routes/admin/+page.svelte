@@ -1,10 +1,10 @@
 <script>
-	import { user } from '$lib/user';
-	import {
-		addTeacher,
-		addStudent,
-		getTeacher,
-		getAllTeachers,
+        import { user } from '$lib/user';
+        import {
+                addTeacher,
+                addStudent,
+                getTeacher,
+                getAllTeachers,
 		getAllTestsWithTeachers,
 		copyTestToTeacher,
 		getAllStudents,
@@ -14,52 +14,71 @@
 		getTeacherImages,
 		getAllReviewersForAdmin,
 		addReviewer,
-		updateReviewer,
-		deleteReviewer
-	} from '$lib/api';
-	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { writable } from 'svelte/store';
-	import ImageManager from '$lib/components/ImageManager.svelte';
+                updateReviewer,
+                deleteReviewer
+        } from '$lib/api';
+        import { onMount } from 'svelte';
+        import { goto } from '$app/navigation';
+        import { writable } from 'svelte/store';
+        import ImageManager from '$lib/components/ImageManager.svelte';
+        import { credentialRequirements, isStrongCredential } from '$lib/credentials';
+
+        function parseApiError(err, fallback) {
+                const raw = err?.message ?? (typeof err === 'string' ? err : null);
+                if (!raw) {
+                        return fallback;
+                }
+
+                try {
+                        const parsed = JSON.parse(raw);
+                        if (parsed && typeof parsed.error === 'string') {
+                                return parsed.error;
+                        }
+                } catch (parseError) {
+                        // ignore JSON parse errors and fall back to string handling
+                }
+
+                return raw || fallback;
+        }
 
 	let teacherInviteCode = $state('');
 	let teacherName = $state('');
 	let teacherPin = $state('');
 	let teacherMsg = $state('');
-	async function handleAddTeacher() {
-		if (!$user || $user.role !== 'teacher') {
-			teacherMsg = 'You must be logged in as a teacher to add teachers.';
-			return;
-		}
-		try {
-			await addTeacher(fetch, { name: teacherName, pin: teacherPin });
-			teacherMsg = 'Teacher added';
-			teacherName = '';
-			teacherPin = '';
-			await loadTeachersAndTests();
-		} catch {
-			teacherMsg = 'Failed to add teacher';
-		}
-	}
+        async function handleAddTeacher() {
+                if (!$user || $user.role !== 'teacher') {
+                        teacherMsg = 'You must be logged in as a teacher to add teachers.';
+                        return;
+                }
+                try {
+                        await addTeacher(fetch, { name: teacherName, pin: teacherPin });
+                        teacherMsg = 'Teacher added';
+                        teacherName = '';
+                        teacherPin = '';
+                        await loadTeachersAndTests();
+                } catch (err) {
+                        teacherMsg = parseApiError(err, 'Failed to add teacher');
+                }
+        }
 
 	let studentName = $state('');
 	let studentPin = $state('');
 	let studentMsg = $state('');
-	async function handleAddStudent() {
-		if (!$user || $user.role !== 'teacher') {
-			studentMsg = 'You must be logged in as a teacher to add students.';
-			return;
-		}
-		try {
-			await addStudent(fetch, { name: studentName, pin: studentPin, teacherId: $user.id });
-			studentMsg = 'Student added';
-			studentName = '';
-			studentPin = '';
-			await loadStudentsAndAssignments();
-		} catch {
-			studentMsg = 'Failed to add student';
-		}
-	}
+        async function handleAddStudent() {
+                if (!$user || $user.role !== 'teacher') {
+                        studentMsg = 'You must be logged in as a teacher to add students.';
+                        return;
+                }
+                try {
+                        await addStudent(fetch, { name: studentName, pin: studentPin, teacherId: $user.id });
+                        studentMsg = 'Student added';
+                        studentName = '';
+                        studentPin = '';
+                        await loadStudentsAndAssignments();
+                } catch (err) {
+                        studentMsg = parseApiError(err, 'Failed to add student');
+                }
+        }
 
 	// Reviewer management variables
 	let reviewerName = $state('');
@@ -81,9 +100,9 @@
 		return isHashed ? 'pin-status-secure' : 'pin-status-legacy';
 	}
 
-	const reviewerNewPinInvalid = $derived(
-		Boolean(reviewerNewPin.trim()) && !/^\d{4,}$/.test(reviewerNewPin.trim())
-	);
+        const reviewerNewPinInvalid = $derived(
+                Boolean(reviewerNewPin.trim()) && !isStrongCredential(reviewerNewPin)
+        );
 
 	async function handleAddReviewer() {
 		if (!$user || $user.role !== 'teacher') {
@@ -97,20 +116,20 @@
 		}
 
 		try {
-			await addReviewer(fetch, {
-				name: reviewerName.trim(),
-				email: reviewerEmail.trim(),
-				pin: reviewerPin.trim()
-			});
-			reviewerMsg = 'Reviewer added successfully. Share the PIN securely with the reviewer.';
-			reviewerName = '';
-			reviewerEmail = '';
-			reviewerPin = '';
-			await loadReviewers();
-		} catch (err) {
-			reviewerMsg = err.message || 'Failed to add reviewer';
-		}
-	}
+                        await addReviewer(fetch, {
+                                name: reviewerName.trim(),
+                                email: reviewerEmail.trim(),
+                                pin: reviewerPin.trim()
+                        });
+                        reviewerMsg = 'Reviewer added successfully. Share the passphrase securely with the reviewer.';
+                        reviewerName = '';
+                        reviewerEmail = '';
+                        reviewerPin = '';
+                        await loadReviewers();
+                } catch (err) {
+                        reviewerMsg = parseApiError(err, 'Failed to add reviewer');
+                }
+        }
 
 	async function loadReviewers() {
 		try {
@@ -132,10 +151,10 @@
 			reviewerMsg = 'Name and email are required.';
 			return;
 		}
-		if (reviewerNewPinInvalid) {
-			reviewerMsg = 'New PIN must be at least 4 digits.';
-			return;
-		}
+                if (reviewerNewPinInvalid) {
+                        reviewerMsg = credentialRequirements.description;
+                        return;
+                }
 
 		const payload = {
 			id: editingReviewer.id,
@@ -149,19 +168,19 @@
 			payload.pin = trimmedNewPin;
 		}
 
-		try {
-			await updateReviewer(fetch, payload);
-			reviewerMsg = trimmedNewPin
-				? 'Reviewer updated and PIN reset successfully'
-				: 'Reviewer updated successfully';
-			showEditReviewer = false;
-			reviewerNewPin = '';
-			editingReviewer = null;
-			await loadReviewers();
-		} catch (err) {
-			reviewerMsg = err.message || 'Failed to update reviewer';
-		}
-	}
+                try {
+                        await updateReviewer(fetch, payload);
+                        reviewerMsg = trimmedNewPin
+                                ? 'Reviewer updated and passphrase reset successfully'
+                                : 'Reviewer updated successfully';
+                        showEditReviewer = false;
+                        reviewerNewPin = '';
+                        editingReviewer = null;
+                        await loadReviewers();
+                } catch (err) {
+                        reviewerMsg = parseApiError(err, 'Failed to update reviewer');
+                }
+        }
 
 	async function deleteReviewerHandler(reviewerId, reviewerName) {
 		if (
@@ -463,11 +482,11 @@
 							/>
 						</div>
 						<div class="form-group">
-							<label for="teacher-pin">Teacher PIN</label>
+                                                        <label for="teacher-pin">Teacher Passphrase</label>
 							<input
 								id="teacher-pin"
 								type="text"
-								placeholder="Create a secure PIN..."
+                                                                placeholder="Create a secure passphrase..."
 								bind:value={teacherPin}
 								class="form-input"
 							/>
@@ -511,11 +530,11 @@
 							/>
 						</div>
 						<div class="form-group">
-							<label for="student-pin">Student PIN</label>
+                                                        <label for="student-pin">Student Passphrase</label>
 							<input
 								id="student-pin"
 								type="text"
-								placeholder="Create a secure PIN..."
+                                                                placeholder="Create a secure passphrase..."
 								bind:value={studentPin}
 								class="form-input"
 							/>
@@ -569,11 +588,11 @@
 							/>
 						</div>
 						<div class="form-group">
-							<label for="reviewer-pin">Reviewer PIN</label>
+                                                        <label for="reviewer-pin">Reviewer Passphrase</label>
 							<input
 								id="reviewer-pin"
 								type="text"
-								placeholder="Create a secure PIN..."
+                                                                placeholder="Create a secure passphrase..."
 								bind:value={reviewerPin}
 								class="form-input"
 							/>
@@ -798,7 +817,7 @@
 										<div class="student-info">
 											<div class="student-name">{group.student.name}</div>
 											<div class="student-pin">
-												PIN Status:
+                                                                                            Credential Status:
 												<span
 													class={`pin-status ${pinStatusClass(
 														group.student.hasPin,
@@ -871,7 +890,7 @@
 											<div class="reviewer-name">{reviewer.name}</div>
 											<div class="reviewer-email">{reviewer.email}</div>
 											<div class="reviewer-pin">
-												PIN Status:
+                                                                                            Credential Status:
 												<span
 													class={`pin-status ${pinStatusClass(
 														reviewer.hasPin,
@@ -1022,21 +1041,21 @@
 					/>
 				</div>
 
-				<div class="form-group">
-					<label for="edit-reviewer-pin">New PIN (optional)</label>
-					<input
-						id="edit-reviewer-pin"
-						type="text"
-						bind:value={reviewerNewPin}
-						placeholder="Enter new 4+ digit PIN to reset"
-						class="form-input"
-					/>
-					{#if reviewerNewPinInvalid}
-						<div class="form-hint error">PIN must be numeric and at least 4 digits.</div>
-					{:else}
-						<div class="form-hint">Leave blank to keep the current PIN.</div>
-					{/if}
-				</div>
+                                <div class="form-group">
+                                        <label for="edit-reviewer-pin">New Passphrase (optional)</label>
+                                        <input
+                                                id="edit-reviewer-pin"
+                                                type="text"
+                                                bind:value={reviewerNewPin}
+                                                placeholder="Enter a new passphrase to reset"
+                                                class="form-input"
+                                        />
+                                        {#if reviewerNewPinInvalid}
+                                                <div class="form-hint error">{credentialRequirements.description}</div>
+                                        {:else}
+                                                <div class="form-hint">Leave blank to keep the current passphrase.</div>
+                                        {/if}
+                                </div>
 
 				<div class="form-group">
 					<label class="checkbox-label">
