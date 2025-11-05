@@ -3,7 +3,7 @@
         import { page } from '$app/stores';
         import { derived } from 'svelte/store';
 
-        export let data;
+        let { data, children } = $props();
 
         const pageTitle = derived(page, ($page) => {
                 const [_, section] = $page.url.pathname.split('/teacher/');
@@ -30,7 +30,7 @@
                 </div>
         </aside>
         <section class="workspace-content" aria-live="polite">
-                <slot />
+                {@render children?.()}
         </section>
 </div>
 

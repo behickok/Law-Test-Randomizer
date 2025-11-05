@@ -54,12 +54,31 @@
 	let showReviewerDashboard = $state(false);
 	let reviewAssignments = $state([]);
 	let selectedReviewAssignment = $state(null);
-	let reviewResults = $state([]);
-	let showEditReviewAssignment = $state(false);
-	let editingAssignment = $state(null);
-	let editTitle = $state('');
-	let editDescription = $state('');
-	let expandedReviewResults = $state(new Set()); // Track expanded review result rows
+let reviewResults = $state([]);
+let showEditReviewAssignment = $state(false);
+let editingAssignment = $state(null);
+let editTitle = $state('');
+let editDescription = $state('');
+let expandedReviewResults = $state(new Set()); // Track expanded review result rows
+
+function handleOverlayKeydown(event, onClose) {
+	if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
+		event.preventDefault();
+		onClose();
+	}
+}
+
+function closeEditReviewAssignmentModal() {
+	showEditReviewAssignment = false;
+}
+
+function closeReviewerDashboardModal() {
+	showReviewerDashboard = false;
+}
+
+function closeReviewResultsModal() {
+	reviewResults = [];
+}
 
 	async function handleUpload() {
 		if (!$user || $user.role !== 'teacher') {
@@ -1318,18 +1337,29 @@
 {#if showTemplateModal}
 	<div
 		class="modal-overlay"
-		role="dialog"
-		aria-modal="true"
-		onclick={hideTemplateModal}
-		onkeydown={(e) => e.key === 'Escape' && hideTemplateModal()}
+		role="button"
+		tabindex="0"
+		aria-label="Close template modal"
+		onclick={(event) => {
+			if (event.target === event.currentTarget) {
+				hideTemplateModal();
+			}
+		}}
+		onkeydown={(event) => handleOverlayKeydown(event, hideTemplateModal)}
 	>
-		<div class="modal-content" role="document" onclick={(e) => e.stopPropagation()}>
+		<div
+			class="modal-content"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="template-modal-title"
+			tabindex="-1"
+		>
 			<div class="modal-header">
-				<h3 class="modal-title">
+				<h3 id="template-modal-title" class="modal-title">
 					<span class="modal-icon">📋</span>
 					Law Test Template
 				</h3>
-				<button onclick={hideTemplateModal} class="modal-close">
+				<button type="button" onclick={hideTemplateModal} class="modal-close">
 					<span class="close-icon">✕</span>
 				</button>
 			</div>
@@ -1346,7 +1376,7 @@
 						<span class="btn-icon">📥</span>
 						Download Template
 					</button>
-					<button onclick={hideTemplateModal} class="btn btn-secondary"> Close </button>
+					<button type="button" onclick={hideTemplateModal} class="btn btn-secondary"> Close </button>
 				</div>
 			</div>
 		</div>
@@ -1355,11 +1385,28 @@
 
 <!-- Image Manager Modal -->
 {#if showImageManager}
-	<div class="modal-overlay" onclick={hideImageManager}>
-		<div class="modal image-manager-modal" onclick={(e) => e.stopPropagation()}>
+	<div
+		class="modal-overlay"
+		role="button"
+		tabindex="0"
+		aria-label="Close image manager"
+		onclick={(event) => {
+			if (event.target === event.currentTarget) {
+				hideImageManager();
+			}
+		}}
+		onkeydown={(event) => handleOverlayKeydown(event, hideImageManager)}
+	>
+		<div
+			class="modal image-manager-modal"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="image-manager-heading"
+			tabindex="-1"
+		>
 			<div class="modal-header">
-				<h2>Image Manager</h2>
-				<button class="modal-close" onclick={hideImageManager}>
+				<h2 id="image-manager-heading">Image Manager</h2>
+				<button type="button" class="modal-close" onclick={hideImageManager}>
 					<span class="close-icon">&times;</span>
 				</button>
 			</div>
@@ -1385,11 +1432,28 @@
 
 <!-- Edit Review Assignment Modal -->
 {#if showEditReviewAssignment}
-	<div class="modal-overlay" onclick={() => showEditReviewAssignment = false}>
-		<div class="modal edit-assignment-modal" onclick={(e) => e.stopPropagation()}>
+	<div
+		class="modal-overlay"
+		role="button"
+		tabindex="0"
+		aria-label="Close edit review assignment modal"
+		onclick={(event) => {
+			if (event.target === event.currentTarget) {
+				closeEditReviewAssignmentModal();
+			}
+		}}
+		onkeydown={(event) => handleOverlayKeydown(event, closeEditReviewAssignmentModal)}
+	>
+		<div
+			class="modal edit-assignment-modal"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="edit-review-assignment-heading"
+			tabindex="-1"
+		>
 			<div class="modal-header">
-				<h2>Edit Review Assignment</h2>
-				<button class="modal-close" onclick={() => showEditReviewAssignment = false}>
+				<h2 id="edit-review-assignment-heading">Edit Review Assignment</h2>
+				<button type="button" class="modal-close" onclick={closeEditReviewAssignmentModal}>
 					<span class="close-icon">&times;</span>
 				</button>
 			</div>
@@ -1419,12 +1483,14 @@
 				<div class="modal-actions">
 					<button 
 						class="btn btn-secondary" 
-						onclick={() => showEditReviewAssignment = false}
+						type="button"
+						onclick={closeEditReviewAssignmentModal}
 					>
 						Cancel
 					</button>
 					<button 
 						class="btn btn-primary" 
+						type="button"
 						onclick={saveReviewAssignmentEdit}
 						disabled={!editTitle.trim()}
 					>
@@ -1438,11 +1504,28 @@
 
 <!-- Reviewer Dashboard Modal -->
 {#if showReviewerDashboard}
-	<div class="modal-overlay" onclick={() => showReviewerDashboard = false}>
-		<div class="modal reviewer-dashboard-modal" onclick={(e) => e.stopPropagation()}>
+	<div
+		class="modal-overlay"
+		role="button"
+		tabindex="0"
+		aria-label="Close reviewer dashboard"
+		onclick={(event) => {
+			if (event.target === event.currentTarget) {
+				closeReviewerDashboardModal();
+			}
+		}}
+		onkeydown={(event) => handleOverlayKeydown(event, closeReviewerDashboardModal)}
+	>
+		<div
+			class="modal reviewer-dashboard-modal"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="reviewer-dashboard-heading"
+			tabindex="-1"
+		>
 			<div class="modal-header">
-				<h2>Review Questions</h2>
-				<button class="modal-close" onclick={() => showReviewerDashboard = false}>
+				<h2 id="reviewer-dashboard-heading">Review Questions</h2>
+				<button type="button" class="modal-close" onclick={closeReviewerDashboardModal}>
 					<span class="close-icon">&times;</span>
 				</button>
 			</div>
@@ -1455,11 +1538,28 @@
 
 <!-- Review Results Modal -->
 {#if reviewResults.length > 0}
-	<div class="modal-overlay" onclick={() => reviewResults = []}>
-		<div class="modal review-results-modal" onclick={(e) => e.stopPropagation()}>
+	<div
+		class="modal-overlay"
+		role="button"
+		tabindex="0"
+		aria-label="Close review results"
+		onclick={(event) => {
+			if (event.target === event.currentTarget) {
+				closeReviewResultsModal();
+			}
+		}}
+		onkeydown={(event) => handleOverlayKeydown(event, closeReviewResultsModal)}
+	>
+		<div
+			class="modal review-results-modal"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="review-results-heading"
+			tabindex="-1"
+		>
 			<div class="modal-header">
-				<h2>Review Results</h2>
-				<button class="modal-close" onclick={() => reviewResults = []}>
+				<h2 id="review-results-heading">Review Results</h2>
+				<button type="button" class="modal-close" onclick={closeReviewResultsModal}>
 					<span class="close-icon">&times;</span>
 				</button>
 			</div>
@@ -3596,48 +3696,6 @@
 		font-weight: 500;
 	}
 
-	.results-table {
-		overflow-x: auto;
-	}
-
-	.results-table table {
-		width: 100%;
-		border-collapse: collapse;
-		background: white;
-		border-radius: 8px;
-		overflow: hidden;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-	}
-
-	.results-table th {
-		background: #f8fafc;
-		padding: 1rem;
-		text-align: left;
-		font-weight: 600;
-		color: #374151;
-		border-bottom: 1px solid #e5e7eb;
-	}
-
-	.results-table td {
-		padding: 1rem;
-		border-bottom: 1px solid #f3f4f6;
-		vertical-align: top;
-	}
-
-	.results-table tr:hover {
-		background: #f9fafb;
-	}
-
-	.results-table tr.low-rating {
-		background: rgba(239, 68, 68, 0.05);
-		border-left: 4px solid #ef4444;
-	}
-
-	.results-table tr.high-rating {
-		background: rgba(34, 197, 94, 0.05);
-		border-left: 4px solid #22c55e;
-	}
-
 	.question-cell {
 		max-width: 300px;
 	}
@@ -3691,15 +3749,6 @@
 		.review-results-modal {
 			width: 95vw;
 			margin: 1rem;
-		}
-
-		.results-table {
-			font-size: 0.875rem;
-		}
-
-		.results-table th,
-		.results-table td {
-			padding: 0.5rem;
 		}
 
 		.question-cell {

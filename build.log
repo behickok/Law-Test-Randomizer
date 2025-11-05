@@ -1,0 +1,261 @@
+
+> law-test-randomizer@0.0.1 build
+> vite build
+
+vite v7.0.6 building SSR bundle for production...
+transforming...
+5:00:36 PM [vite-plugin-svelte] src/routes/+layout.svelte:39:16 Using `on:click` to listen to the click event is deprecated. Use the event attribute `onclick` instead
+https://svelte.dev/e/event_directive_deprecated
+37:           >
+38:         </li>
+39:         <li><button on:click={logout} class="logout-btn">Logout</button></li>
+                                         ^
+40:       {:else}
+41:         <li><a href="/login" class="login-link">Login</a></li>
+5:00:36 PM [vite-plugin-svelte] src/routes/+layout.svelte:48:1 Using `<slot>` to render parent content is deprecated. Use `{@render ...}` tags instead
+https://svelte.dev/e/slot_element_deprecated
+46: 
+47: <main>
+48:   <slot />
+              ^
+49: </main>
+50: 
+5:00:36 PM [vite-plugin-svelte] src/routes/(app)/teacher/+layout.svelte:33:16 Using `<slot>` to render parent content is deprecated. Use `{@render ...}` tags instead
+https://svelte.dev/e/slot_element_deprecated
+31:         </aside>
+32:         <section class="workspace-content" aria-live="polite">
+33:                 <slot />
+                            ^
+34:         </section>
+35: </div>
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1319:1 Elements with the 'dialog' interactive role must have a tabindex value
+https://svelte.dev/e/a11y_interactive_supports_focus
+1317: <!-- Template Modal -->
+1318: {#if showTemplateModal}
+1319:   <div
+            ^
+1320:     class="modal-overlay"
+1321:     role="dialog"
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1326:2 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+1324:     onkeydown={(e) => e.key === 'Escape' && hideTemplateModal()}
+1325:   >
+1326:     <div class="modal-content" role="document" onclick={(e) => e.stopPropagation()}>
+                ^
+1327:       <div class="modal-header">
+1328:         <h3 class="modal-title">
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1326:2 Non-interactive element `<div>` should not be assigned mouse or keyboard event listeners
+https://svelte.dev/e/a11y_no_noninteractive_element_interactions
+1324:     onkeydown={(e) => e.key === 'Escape' && hideTemplateModal()}
+1325:   >
+1326:     <div class="modal-content" role="document" onclick={(e) => e.stopPropagation()}>
+                ^
+1327:       <div class="modal-header">
+1328:         <h3 class="modal-title">
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1358:1 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+1356: <!-- Image Manager Modal -->
+1357: {#if showImageManager}
+1358:   <div class="modal-overlay" onclick={hideImageManager}>
+              ^
+1359:     <div class="modal image-manager-modal" onclick={(e) => e.stopPropagation()}>
+1360:       <div class="modal-header">
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1358:1 `<div>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+1356: <!-- Image Manager Modal -->
+1357: {#if showImageManager}
+1358:   <div class="modal-overlay" onclick={hideImageManager}>
+              ^
+1359:     <div class="modal image-manager-modal" onclick={(e) => e.stopPropagation()}>
+1360:       <div class="modal-header">
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1359:2 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+1357: {#if showImageManager}
+1358:   <div class="modal-overlay" onclick={hideImageManager}>
+1359:     <div class="modal image-manager-modal" onclick={(e) => e.stopPropagation()}>
+                ^
+1360:       <div class="modal-header">
+1361:         <h2>Image Manager</h2>
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1359:2 `<div>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+1357: {#if showImageManager}
+1358:   <div class="modal-overlay" onclick={hideImageManager}>
+1359:     <div class="modal image-manager-modal" onclick={(e) => e.stopPropagation()}>
+                ^
+1360:       <div class="modal-header">
+1361:         <h2>Image Manager</h2>
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1388:1 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+1386: <!-- Edit Review Assignment Modal -->
+1387: {#if showEditReviewAssignment}
+1388:   <div class="modal-overlay" onclick={() => showEditReviewAssignment = false}>
+              ^
+1389:     <div class="modal edit-assignment-modal" onclick={(e) => e.stopPropagation()}>
+1390:       <div class="modal-header">
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1388:1 `<div>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+1386: <!-- Edit Review Assignment Modal -->
+1387: {#if showEditReviewAssignment}
+1388:   <div class="modal-overlay" onclick={() => showEditReviewAssignment = false}>
+              ^
+1389:     <div class="modal edit-assignment-modal" onclick={(e) => e.stopPropagation()}>
+1390:       <div class="modal-header">
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1389:2 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+1387: {#if showEditReviewAssignment}
+1388:   <div class="modal-overlay" onclick={() => showEditReviewAssignment = false}>
+1389:     <div class="modal edit-assignment-modal" onclick={(e) => e.stopPropagation()}>
+                ^
+1390:       <div class="modal-header">
+1391:         <h2>Edit Review Assignment</h2>
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1389:2 `<div>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+1387: {#if showEditReviewAssignment}
+1388:   <div class="modal-overlay" onclick={() => showEditReviewAssignment = false}>
+1389:     <div class="modal edit-assignment-modal" onclick={(e) => e.stopPropagation()}>
+                ^
+1390:       <div class="modal-header">
+1391:         <h2>Edit Review Assignment</h2>
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1441:1 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+1439: <!-- Reviewer Dashboard Modal -->
+1440: {#if showReviewerDashboard}
+1441:   <div class="modal-overlay" onclick={() => showReviewerDashboard = false}>
+              ^
+1442:     <div class="modal reviewer-dashboard-modal" onclick={(e) => e.stopPropagation()}>
+1443:       <div class="modal-header">
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1441:1 `<div>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+1439: <!-- Reviewer Dashboard Modal -->
+1440: {#if showReviewerDashboard}
+1441:   <div class="modal-overlay" onclick={() => showReviewerDashboard = false}>
+              ^
+1442:     <div class="modal reviewer-dashboard-modal" onclick={(e) => e.stopPropagation()}>
+1443:       <div class="modal-header">
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1442:2 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+1440: {#if showReviewerDashboard}
+1441:   <div class="modal-overlay" onclick={() => showReviewerDashboard = false}>
+1442:     <div class="modal reviewer-dashboard-modal" onclick={(e) => e.stopPropagation()}>
+                ^
+1443:       <div class="modal-header">
+1444:         <h2>Review Questions</h2>
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1442:2 `<div>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+1440: {#if showReviewerDashboard}
+1441:   <div class="modal-overlay" onclick={() => showReviewerDashboard = false}>
+1442:     <div class="modal reviewer-dashboard-modal" onclick={(e) => e.stopPropagation()}>
+                ^
+1443:       <div class="modal-header">
+1444:         <h2>Review Questions</h2>
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1458:1 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+1456: <!-- Review Results Modal -->
+1457: {#if reviewResults.length > 0}
+1458:   <div class="modal-overlay" onclick={() => reviewResults = []}>
+              ^
+1459:     <div class="modal review-results-modal" onclick={(e) => e.stopPropagation()}>
+1460:       <div class="modal-header">
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1458:1 `<div>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+1456: <!-- Review Results Modal -->
+1457: {#if reviewResults.length > 0}
+1458:   <div class="modal-overlay" onclick={() => reviewResults = []}>
+              ^
+1459:     <div class="modal review-results-modal" onclick={(e) => e.stopPropagation()}>
+1460:       <div class="modal-header">
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1459:2 Visible, non-interactive elements with a click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as `<button type="button">` or `<a>` might be more appropriate
+https://svelte.dev/e/a11y_click_events_have_key_events
+1457: {#if reviewResults.length > 0}
+1458:   <div class="modal-overlay" onclick={() => reviewResults = []}>
+1459:     <div class="modal review-results-modal" onclick={(e) => e.stopPropagation()}>
+                ^
+1460:       <div class="modal-header">
+1461:         <h2>Review Results</h2>
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:1459:2 `<div>` with a click handler must have an ARIA role
+https://svelte.dev/e/a11y_no_static_element_interactions
+1457: {#if reviewResults.length > 0}
+1458:   <div class="modal-overlay" onclick={() => reviewResults = []}>
+1459:     <div class="modal review-results-modal" onclick={(e) => e.stopPropagation()}>
+                ^
+1460:       <div class="modal-header">
+1461:         <h2>Review Results</h2>
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:3603:1 Unused CSS selector ".results-table table"
+https://svelte.dev/e/css_unused_selector
+3601:   }
+3602: 
+3603:   .results-table table {
+                            ^
+3604:     width: 100%;
+3605:     border-collapse: collapse;
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:3612:1 Unused CSS selector ".results-table th"
+https://svelte.dev/e/css_unused_selector
+3610:   }
+3611: 
+3612:   .results-table th {
+                         ^
+3613:     background: #f8fafc;
+3614:     padding: 1rem;
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:3621:1 Unused CSS selector ".results-table td"
+https://svelte.dev/e/css_unused_selector
+3619:   }
+3620: 
+3621:   .results-table td {
+                         ^
+3622:     padding: 1rem;
+3623:     border-bottom: 1px solid #f3f4f6;
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:3627:1 Unused CSS selector ".results-table tr:hover"
+https://svelte.dev/e/css_unused_selector
+3625:   }
+3626: 
+3627:   .results-table tr:hover {
+                               ^
+3628:     background: #f9fafb;
+3629:   }
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:3631:1 Unused CSS selector ".results-table tr.low-rating"
+https://svelte.dev/e/css_unused_selector
+3629:   }
+3630: 
+3631:   .results-table tr.low-rating {
+                                    ^
+3632:     background: rgba(239, 68, 68, 0.05);
+3633:     border-left: 4px solid #ef4444;
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:3636:1 Unused CSS selector ".results-table tr.high-rating"
+https://svelte.dev/e/css_unused_selector
+3634:   }
+3635: 
+3636:   .results-table tr.high-rating {
+                                     ^
+3637:     background: rgba(34, 197, 94, 0.05);
+3638:     border-left: 4px solid #22c55e;
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:3700:2 Unused CSS selector ".results-table th"
+https://svelte.dev/e/css_unused_selector
+3698:     }
+3699: 
+3700:     .results-table th,
+                           ^
+3701:     .results-table td {
+3702:       padding: 0.5rem;
+5:00:37 PM [vite-plugin-svelte] src/routes/+page.svelte:3701:2 Unused CSS selector ".results-table td"
+https://svelte.dev/e/css_unused_selector
+3699: 
+3700:     .results-table th,
+3701:     .results-table td {
+                           ^
+3702:       padding: 0.5rem;
+3703:     }
+✓ 55 modules transformed.
+✗ Build failed in 1.09s
+error during build:
+[vite-plugin-svelte:compile] [plugin vite-plugin-svelte:compile] src/routes/(app)/teacher/upload/+page.svelte (459:43): src/routes/(app)/teacher/upload/+page.svelte:459:43 'onclick|stopPropagation' is not a valid attribute name
+https://svelte.dev/e/attribute_invalid_name
+file: src/routes/(app)/teacher/upload/+page.svelte:459:43 (/workspaces/Law-Test-Randomizer/src/routes/(app)/teacher/upload/+page.svelte)
+
+ 457 |          {#if showTemplateModal}
+ 458 |                  <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="template-heading">
+ 459 |                          <div class="modal" onclick|stopPropagation>
+                                                                          ^
+ 460 |                                  <header class="modal-header">
+ 461 |                                          <h2 id="template-heading">CSV template</h2>
+
+

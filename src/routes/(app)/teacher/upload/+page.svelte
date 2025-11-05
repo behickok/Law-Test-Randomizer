@@ -11,7 +11,7 @@
         } from '$lib/api';
         import { parseTestData } from '$lib/teacher/upload/parser';
 
-        export let data;
+        let { data } = $props();
 
         const tests = writable(data.tests ?? []);
         const teacherId = data.teacherId;
@@ -56,6 +56,13 @@
 
         function hideTemplateModal() {
                 showTemplateModal = false;
+        }
+
+        function handleOverlayKeydown(event, onClose) {
+                if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        onClose();
+                }
         }
 
         function getTemplateContent() {
@@ -304,7 +311,7 @@
                                                 id="test-select"
                                                 class="select"
                                                 bind:value={selectedTestId}
-                                                on:change={() => {
+                                                onchange={() => {
                                                         const test = $tests.find((t) => t.id == selectedTestId);
                                                         if (test) {
                                                                 title = test.title;
@@ -342,15 +349,15 @@
 
                         <div class="field">
                                 <div class="template-toolbar" role="group" aria-label="Template helpers">
-                                        <button type="button" class="btn" on:click={showTemplate}>
+                                        <button type="button" class="btn" onclick={showTemplate}>
                                                 <span aria-hidden="true">👁️</span>
                                                 Preview template
                                         </button>
-                                        <button type="button" class="btn" on:click={downloadTemplate}>
+                                        <button type="button" class="btn" onclick={downloadTemplate}>
                                                 <span aria-hidden="true">📥</span>
                                                 Download CSV
                                         </button>
-                                        <button type="button" class="btn" on:click={showImageManagerModal}>
+                                        <button type="button" class="btn" onclick={showImageManagerModal}>
                                                 <span aria-hidden="true">🖼️</span>
                                                 Manage images ({teacherImages.length})
                                         </button>
@@ -372,7 +379,7 @@
                                 <button
                                         type="button"
                                         class="primary"
-                                        on:click={handleUpload}
+                                        onclick={handleUpload}
                                         disabled={isUploading || !title.trim() || !testData.trim() || (updateMode && !selectedTestId)}
                                 >
                                         {#if isUploading}
@@ -400,7 +407,7 @@
                                                 Paste content to generate a preview.
                                         {/if}
                                 </p>
-                                <button type="button" class="btn subtle" on:click={showImagePicker}>
+                                <button type="button" class="btn subtle" onclick={showImagePicker}>
                                         <span aria-hidden="true">➕</span>
                                         Insert image placeholders
                                 </button>
@@ -455,29 +462,51 @@
         </div>
 
         {#if showTemplateModal}
-                <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="template-heading">
-                        <div class="modal" onclick|stopPropagation>
+                <div
+                        class="modal-overlay"
+                        role="button"
+                        tabindex="0"
+                        aria-label="Close template modal"
+                        onclick={(event) => {
+                                if (event.target === event.currentTarget) {
+                                        hideTemplateModal();
+                                }
+                        }}
+                        onkeydown={(event) => handleOverlayKeydown(event, hideTemplateModal)}
+                >
+                        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="template-heading" tabindex="-1">
                                 <header class="modal-header">
                                         <h2 id="template-heading">CSV template</h2>
-                                        <button type="button" class="icon-btn" on:click={hideTemplateModal} aria-label="Close template">
+                                        <button type="button" class="icon-btn" onclick={hideTemplateModal} aria-label="Close template">
                                                 &times;
                                         </button>
                                 </header>
                                 <pre class="modal-body">{getTemplateContent()}</pre>
                                 <footer class="modal-footer">
-                                        <button class="btn" on:click={copyTemplateToTextarea}>Use template</button>
-                                        <button class="btn" on:click={downloadTemplate}>Download</button>
+                                        <button class="btn" onclick={copyTemplateToTextarea}>Use template</button>
+                                        <button class="btn" onclick={downloadTemplate}>Download</button>
                                 </footer>
                         </div>
                 </div>
         {/if}
 
         {#if showImageManager}
-                <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="image-manager-heading" on:click={hideImageManager}>
-                        <div class="modal wide" onclick|stopPropagation>
+                <div
+                        class="modal-overlay"
+                        role="button"
+                        tabindex="0"
+                        aria-label="Close teacher image library"
+                        onclick={(event) => {
+                                if (event.target === event.currentTarget) {
+                                        hideImageManager();
+                                }
+                        }}
+                        onkeydown={(event) => handleOverlayKeydown(event, hideImageManager)}
+                >
+                        <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="image-manager-heading" tabindex="-1">
                                 <header class="modal-header">
                                         <h2 id="image-manager-heading">Teacher image library</h2>
-                                        <button type="button" class="icon-btn" on:click={hideImageManager} aria-label="Close image manager">
+                                        <button type="button" class="icon-btn" onclick={hideImageManager} aria-label="Close image manager">
                                                 &times;
                                         </button>
                                 </header>

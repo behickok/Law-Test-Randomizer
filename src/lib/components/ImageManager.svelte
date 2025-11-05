@@ -22,6 +22,7 @@
 	let searchQuery = $state('');
 	let editingImage = $state(null);
 	let editForm = $state({ name: '', description: '' });
+	let fileInputRef = $state(null);
 
 	// Reactive
 	const filteredImages = $derived(images.filter(
@@ -214,6 +215,34 @@
 		event.preventDefault();
 		dragOver = false;
 	}
+
+	function triggerFileSelection() {
+		fileInputRef?.click();
+	}
+
+	function handleUploadAreaKeydown(event) {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			triggerFileSelection();
+		}
+
+		if (event.key === 'Escape') {
+			dragOver = false;
+		}
+	}
+
+	function handleImageCardClick(image) {
+		if (mode !== 'select') return;
+		toggleImageSelection(image);
+	}
+
+	function handleImageCardKeydown(event, image) {
+		if (mode !== 'select') return;
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			toggleImageSelection(image);
+		}
+	}
 </script>
 
 <div class="image-manager">
@@ -241,9 +270,14 @@
 		<div class="upload-section">
 			<div
 				class="upload-area {dragOver ? 'drag-over' : ''}"
-				on:drop={handleDrop}
-				on:dragover={handleDragOver}
-				on:dragleave={handleDragLeave}
+				role="button"
+				tabindex="0"
+				aria-label="Upload images by clicking or dragging files"
+				onclick={triggerFileSelection}
+				onkeydown={handleUploadAreaKeydown}
+				ondrop={handleDrop}
+				ondragover={handleDragOver}
+				ondragleave={handleDragLeave}
 			>
 				<div class="upload-content">
 					<div class="upload-icon">📤</div>
@@ -253,7 +287,8 @@
 						type="file"
 						accept="image/*"
 						multiple
-						on:change={handleFileSelect}
+						onchange={handleFileSelect}
+						bind:this={fileInputRef}
 						class="file-input"
 					/>
 				</div>
@@ -265,7 +300,7 @@
 					<div class="queue-header">
 						<h4>Upload Queue ({uploadFiles.length})</h4>
 						{#if !uploading}
-							<button class="btn btn-primary btn-sm" on:click={uploadAllFiles}> Upload All </button>
+							<button class="btn btn-primary btn-sm" onclick={uploadAllFiles}> Upload All </button>
 						{/if}
 					</div>
 
@@ -320,7 +355,7 @@
 									{#if uploadFile.status === 'pending'}
 										<button
 											class="remove-btn"
-											on:click={() => removeUploadFile(i)}
+											onclick={() => removeUploadFile(i)}
 											disabled={uploading}>✕</button
 										>
 									{:else if uploadFile.status === 'uploading'}
@@ -350,82 +385,109 @@
 		{:else}
 			<div class="images-grid">
 				{#each filteredImages as image (image.id)}
-					<div
-						class="image-card {mode === 'select' ? 'selectable' : ''} {isSelected(image)
-							? 'selected'
-							: ''} {editingImage?.id === image.id ? 'editing' : ''}"
-						on:click={() => toggleImageSelection(image)}
-					>
-						<div class="image-preview">
-							<img
-								src={image.base64_data.startsWith('data:') ? image.base64_data : `data:${image.mime_type};base64,${image.base64_data}`}
-								alt={image.description || image.name}
-							/>
-							{#if mode === 'select' && isSelected(image)}
-								<div class="selection-overlay">
-									<div class="selection-icon">✓</div>
-								</div>
-							{/if}
-						</div>
-
-						<div class="image-info">
-							{#if editingImage?.id === image.id}
-								<!-- Edit Mode -->
-								<div class="edit-form" on:click|stopPropagation>
-									<input
-										type="text"
-										bind:value={editForm.name}
-										placeholder="Image name"
-										class="edit-name-input"
-										on:keydown={(e) => e.key === 'Enter' && saveImageChanges()}
-									/>
-									<textarea
-										bind:value={editForm.description}
-										placeholder="Description (optional)"
-										class="edit-description-input"
-										rows="2"
-									></textarea>
-									<div class="edit-actions">
-										<button class="save-btn" on:click={saveImageChanges}> 💾 Save </button>
-										<button class="cancel-btn" on:click={cancelEditing}> ❌ Cancel </button>
+					{#if mode === 'select'}
+						<button
+							type="button"
+							class="image-card selectable {isSelected(image) ? 'selected' : ''}"
+							onclick={() => handleImageCardClick(image)}
+							aria-pressed={isSelected(image)}
+						>
+							<div class="image-preview">
+								<img
+									src={image.base64_data.startsWith('data:') ? image.base64_data : `data:${image.mime_type};base64,${image.base64_data}`}
+									alt={image.description || image.name}
+								/>
+								{#if isSelected(image)}
+									<div class="selection-overlay">
+										<div class="selection-icon">✓</div>
 									</div>
-								</div>
-							{:else}
-								<!-- Display Mode -->
+								{/if}
+							</div>
+
+							<div class="image-info">
 								<div class="image-name">{image.name}</div>
 								{#if image.description}
 									<div class="image-description">{image.description}</div>
 								{/if}
 								<div class="image-meta">
-									{formatFileSize(image.file_size)} • {new Date(
-										image.created_at
-									).toLocaleDateString()}
+									{formatFileSize(image.file_size)} • {new Date(image.created_at).toLocaleDateString()}
 								</div>
 								<div class="template-syntax">
 									<code>&#123;&#123;{image.name}&#125;&#125;</code>
 								</div>
+							</div>
+						</button>
+					{:else}
+						<div class="image-card {editingImage?.id === image.id ? 'editing' : ''}">
+							<div class="image-preview">
+								<img
+									src={image.base64_data.startsWith('data:') ? image.base64_data : `data:${image.mime_type};base64,${image.base64_data}`}
+									alt={image.description || image.name}
+								/>
+							</div>
+
+							<div class="image-info">
+								{#if editingImage?.id === image.id}
+									<div class="edit-form">
+										<input
+											type="text"
+											bind:value={editForm.name}
+											placeholder="Image name"
+											class="edit-name-input"
+											onkeydown={(e) => e.key === 'Enter' && saveImageChanges()}
+										/>
+										<textarea
+											bind:value={editForm.description}
+											placeholder="Description (optional)"
+											class="edit-description-input"
+											rows="2"
+										></textarea>
+										<div class="edit-actions">
+											<button class="save-btn" onclick={saveImageChanges}> 💾 Save </button>
+											<button class="cancel-btn" onclick={cancelEditing}> ❌ Cancel </button>
+										</div>
+									</div>
+								{:else}
+									<div class="image-name">{image.name}</div>
+									{#if image.description}
+										<div class="image-description">{image.description}</div>
+									{/if}
+									<div class="image-meta">
+										{formatFileSize(image.file_size)} • {new Date(image.created_at).toLocaleDateString()}
+									</div>
+									<div class="template-syntax">
+										<code>&#123;&#123;{image.name}&#125;&#125;</code>
+									</div>
+								{/if}
+							</div>
+
+							{#if mode === 'manage'}
+								<div class="image-actions">
+									{#if editingImage?.id !== image.id}
+										<button
+											class="edit-btn"
+											onclick={(event) => {
+												event.stopPropagation();
+												startEditingImage(image);
+											}}
+										>
+											✏️
+										</button>
+									{/if}
+									<button
+										class="delete-btn"
+										onclick={(event) => {
+											event.stopPropagation();
+											handleDeleteImage(image);
+										}}
+									>
+										🗑️
+									</button>
+								</div>
 							{/if}
 						</div>
+					{/if}
 
-						{#if mode === 'manage'}
-							<div class="image-actions">
-								{#if editingImage?.id !== image.id}
-									<button
-										class="edit-btn"
-										on:click|stopPropagation={() => startEditingImage(image)}
-									>
-										✏️
-									</button>
-								{/if}
-								<button
-									class="delete-btn"
-									on:click|stopPropagation={() => handleDeleteImage(image)}
-								>
-									🗑️
-								</button>
-							</div>
-						{/if}
-					</div>
 				{/each}
 			</div>
 		{/if}

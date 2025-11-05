@@ -41,11 +41,11 @@
 		}
 	}
 
-	async function selectAssignment(assignment) {
-		selectedAssignment = assignment;
-		isLoading = true;
-		message = '';
-		
+async function selectAssignment(assignment) {
+	selectedAssignment = assignment;
+	isLoading = true;
+	message = '';
+	
 		try {
 			const result = await getQuestionsForReview(fetch, $user.id, assignment.id);
 			questionsToReview = Array.isArray(result) ? result : [];
@@ -57,11 +57,18 @@
 			messageType = 'error';
 		} finally {
 			isLoading = false;
-		}
 	}
+}
 
-	function loadCurrentQuestionData() {
-		if (questionsToReview.length === 0) return;
+function handleAssignmentCardKeydown(event, assignment) {
+	if (event.key === 'Enter' || event.key === ' ') {
+		event.preventDefault();
+		selectAssignment(assignment);
+	}
+}
+
+function loadCurrentQuestionData() {
+	if (questionsToReview.length === 0) return;
 		
 		const currentQuestion = questionsToReview[currentQuestionIndex];
 		rating = currentQuestion.rating;
@@ -254,7 +261,14 @@
 		{:else}
 			<div class="assignments-grid">
 				{#each assignments as assignment (assignment.id)}
-					<div class="assignment-card" on:click={() => selectAssignment(assignment)}>
+					<div
+						class="assignment-card"
+						onclick={() => selectAssignment(assignment)}
+						onkeydown={(event) => handleAssignmentCardKeydown(event, assignment)}
+						role="button"
+						tabindex="0"
+						aria-label={`Open review assignment ${assignment.title}`}
+					>
 						<div class="assignment-header">
 							<h3>{assignment.title}</h3>
 							<div class="assignment-meta">
@@ -298,7 +312,7 @@
 	{:else}
 		<!-- Question Review View -->
 		<div class="review-header">
-			<button class="back-btn" on:click={backToAssignments}>
+			<button class="back-btn" onclick={backToAssignments}>
 				<span class="back-icon">←</span>
 				Back to Assignments
 			</button>
@@ -322,8 +336,8 @@
 		{#if questionsToReview.length > 0}
 			<div class="questions-list">
 				{#each questionsToReview as question, index}
-					<div class="question-card {question.reviewStatus === 'completed' ? 'completed' : ''}">
-						<div class="question-header">
+																																			<div class="question-card {question.reviewStatus === 'completed' ? 'completed' : ''}">
+																																										<div class="question-header">
 							<h3>Question {index + 1}</h3>
 							<div class="question-meta">
 								<span class="question-points">{question.points} pts</span>
@@ -356,13 +370,17 @@
 							<div class="basic-review">
 								<div class="rating-and-feedback">
 									<div class="rating-group">
-										<label>Rating</label>
-										<div class="star-rating">
+										<p class="group-label" id={`rating-label-${question.id}`}>Rating</p>
+										<div class="star-rating" role="radiogroup" aria-labelledby={`rating-label-${question.id}`}>
 											{#each [1,2,3,4,5] as star}
 												<button
+													type="button"
 													class="star-btn {(question.tempRating || question.rating) >= star ? 'active' : ''}"
-													on:click={() => updateQuestionField(index, 'rating', star)}
+													onclick={() => updateQuestionField(index, 'rating', star)}
 													disabled={question.reviewStatus === 'completed'}
+													role="radio"
+													aria-checked={(question.tempRating || question.rating) === star}
+													aria-label={`${star} star${star === 1 ? '' : 's'}`}
 												>
 													★
 												</button>
@@ -371,10 +389,11 @@
 									</div>
 									
 									<div class="feedback-group">
-										<label>Feedback</label>
+										<label class="group-label" for={`feedback-${question.id}`}>Feedback</label>
 										<textarea
+											id={`feedback-${question.id}`}
 											value={question.tempFeedback ?? question.feedback ?? ''}
-											on:input={(e) => updateQuestionField(index, 'feedback', e.target.value)}
+											oninput={(e) => updateQuestionField(index, 'feedback', e.target.value)}
 											placeholder="Quick feedback or observations..."
 											rows="2"
 											class="feedback-textarea"
@@ -386,7 +405,7 @@
 								<div class="review-actions">
 									<button 
 										class="expand-btn" 
-										on:click={() => toggleQuestionExpansion(index)}
+										onclick={() => toggleQuestionExpansion(index)}
 										type="button"
 									>
 										{expandedQuestions.has(index) ? '↑ Less' : '↓ More'}
@@ -399,10 +418,11 @@
 								<div class="detailed-review">
 									<div class="detailed-ratings">
 										<div class="rating-group">
-											<label>Difficulty</label>
+											<label class="group-label" for={`difficulty-${question.id}`}>Difficulty</label>
 											<select 
+												id={`difficulty-${question.id}`}
 												value={question.tempDifficultyRating ?? question.difficultyRating ?? ''}
-												on:change={(e) => updateQuestionField(index, 'difficultyRating', e.target.value ? parseInt(e.target.value) : null)}
+												onchange={(e) => updateQuestionField(index, 'difficultyRating', e.target.value ? parseInt(e.target.value) : null)}
 												class="form-select-compact"
 												disabled={question.reviewStatus === 'completed'}
 											>
@@ -416,10 +436,11 @@
 										</div>
 
 										<div class="rating-group">
-											<label>Clarity</label>
+											<label class="group-label" for={`clarity-${question.id}`}>Clarity</label>
 											<select 
+												id={`clarity-${question.id}`}
 												value={question.tempClarityRating ?? question.clarityRating ?? ''}
-												on:change={(e) => updateQuestionField(index, 'clarityRating', e.target.value ? parseInt(e.target.value) : null)}
+												onchange={(e) => updateQuestionField(index, 'clarityRating', e.target.value ? parseInt(e.target.value) : null)}
 												class="form-select-compact"
 												disabled={question.reviewStatus === 'completed'}
 											>
@@ -433,10 +454,11 @@
 										</div>
 
 										<div class="rating-group">
-											<label>Relevance</label>
+											<label class="group-label" for={`relevance-${question.id}`}>Relevance</label>
 											<select 
+												id={`relevance-${question.id}`}
 												value={question.tempRelevanceRating ?? question.relevanceRating ?? ''}
-												on:change={(e) => updateQuestionField(index, 'relevanceRating', e.target.value ? parseInt(e.target.value) : null)}
+												onchange={(e) => updateQuestionField(index, 'relevanceRating', e.target.value ? parseInt(e.target.value) : null)}
 												class="form-select-compact"
 												disabled={question.reviewStatus === 'completed'}
 											>
@@ -451,10 +473,11 @@
 									</div>
 
 									<div class="suggestions-group">
-										<label>Suggestions for Improvement</label>
+										<label class="group-label" for={`suggestions-${question.id}`}>Suggestions for Improvement</label>
 										<textarea
+											id={`suggestions-${question.id}`}
 											value={question.tempSuggestions ?? question.suggestions ?? ''}
-											on:input={(e) => updateQuestionField(index, 'suggestions', e.target.value)}
+											oninput={(e) => updateQuestionField(index, 'suggestions', e.target.value)}
 											placeholder="How could this question be improved?"
 											rows="3"
 											class="form-textarea"
@@ -480,7 +503,7 @@
 				</div>
 				<button 
 					class="submit-all-btn" 
-					on:click={submitAllReviews}
+					onclick={submitAllReviews}
 					disabled={isLoading}
 				>
 					{#if isLoading}
@@ -649,7 +672,7 @@
 		flex-shrink: 0;
 	}
 
-	.rating-group label {
+	.group-label {
 		display: block;
 		font-weight: 600;
 		margin-bottom: 0.5rem;
@@ -1230,13 +1253,6 @@
 		height: fit-content;
 	}
 
-	.review-form h4 {
-		font-size: 1.25rem;
-		font-weight: 700;
-		margin: 0 0 1.5rem 0;
-		color: #1f2937;
-	}
-
 	.completed-banner {
 		background: #f0fdf4;
 		border: 2px solid #22c55e;
@@ -1262,7 +1278,7 @@
 		margin-bottom: 1.5rem;
 	}
 
-	.rating-group label {
+	.group-label {
 		display: block;
 		font-weight: 600;
 		margin-bottom: 0.5rem;
@@ -1317,13 +1333,6 @@
 
 	.form-group {
 		margin-bottom: 1.5rem;
-	}
-
-	.form-group label {
-		display: block;
-		font-weight: 600;
-		margin-bottom: 0.5rem;
-		color: #374151;
 	}
 
 	.form-textarea {

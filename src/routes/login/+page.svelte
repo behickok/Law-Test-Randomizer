@@ -205,7 +205,13 @@
                         </p>
 		</div>
 
-		<form on:submit|preventDefault={mode === 'login' ? login : signup} class="auth-form">
+		<form
+			onsubmit={(event) => {
+				event.preventDefault();
+				(mode === 'login' ? login : signup)();
+			}}
+			class="auth-form"
+		>
 			{#if mode === 'login'}
 				<div class="input-group">
 					<label for="login-role-select">Select Your Role</label>
@@ -245,7 +251,7 @@
 							id="name-input"
 							type="text"
 							bind:value={name}
-							on:input={handleInputChange}
+							oninput={handleInputChange}
 							placeholder="Enter your full name"
 							class:error
 							disabled={isLoading}
@@ -290,7 +296,7 @@
 								id="email-input"
 								type="email"
 								bind:value={email}
-								on:input={handleInputChange}
+								oninput={handleInputChange}
 								placeholder="Enter your email address"
 								class:error
 								disabled={isLoading}
@@ -310,7 +316,7 @@
 						id="pin-input"
 						type="password"
 						bind:value={pin}
-						on:input={handleInputChange}
+						oninput={handleInputChange}
                                             placeholder={
                                                     mode === 'signup'
                                                             ? 'Create a secure passphrase'
@@ -369,7 +375,7 @@
 			</button>
 
 			<div class="mode-switch">
-				<button type="button" class="switch-button" on:click={switchMode} disabled={isLoading}>
+				<button type="button" class="switch-button" onclick={switchMode} disabled={isLoading}>
 					{mode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Log in'}
 				</button>
 			</div>
@@ -676,7 +682,7 @@
 		letter-spacing: -0.01em;
 	}
 
-	.login-button::before {
+	.auth-button::before {
 		content: '';
 		position: absolute;
 		top: 0;

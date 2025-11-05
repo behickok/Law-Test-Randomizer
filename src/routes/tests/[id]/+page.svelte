@@ -16,7 +16,7 @@
 	let attemptId = $state(null);
 	let submitted = $state(false);
 	let score = $state(0);
-	let totalPoints = $state(questions.reduce((s, q) => s + (q.points ?? 1), 0));
+let totalPoints = $derived(questions.reduce((s, q) => s + (q.points ?? 1), 0));
 	let error = $state(data.error ?? '');
 	let submitError = $state('');
 
@@ -34,21 +34,28 @@
 		document.body.style.overflow = 'hidden';
 	}
 
-	function closeImageModal() {
-		showImageModal = false;
-		modalImageSrc = '';
-		modalImageAlt = '';
-		document.body.style.overflow = 'auto';
-	}
+function closeImageModal() {
+	showImageModal = false;
+	modalImageSrc = '';
+	modalImageAlt = '';
+	document.body.style.overflow = 'auto';
+}
 
-	function handleImageClick(event) {
-		if (event.target.tagName === 'IMG' && event.target.classList.contains('question-image')) {
-			event.preventDefault();
-			openImageModal(event.target.src, event.target.alt);
-		}
+function handleOverlayKeydown(event, onClose) {
+	if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
+		event.preventDefault();
+		onClose();
 	}
+}
 
-	onMount(async () => {
+function handleImageClick(event) {
+	if (event.target.tagName === 'IMG' && event.target.classList.contains('question-image')) {
+		event.preventDefault();
+		openImageModal(event.target.src, event.target.alt);
+	}
+}
+
+onMount(async () => {
 		if ($user && $user.role === 'teacher' && $user.id === test.teacher_id) {
 			isTeacherOwner = true;
 		}
@@ -62,7 +69,6 @@
 			});
 			attemptId = result.attemptId;
 			questions = result.questions || [];
-			totalPoints = questions.reduce((s, q) => s + (q.points ?? 1), 0);
 		}
 
 		// Check if any questions need client-side image processing
@@ -106,6 +112,14 @@
 		}
 	});
 
+	onMount(() => {
+		const clickHandler = (event) => handleImageClick(event);
+		document.addEventListener('click', clickHandler);
+		return () => {
+			document.removeEventListener('click', clickHandler);
+		};
+	});
+
 	async function saveQuestion(q) {
 		if (!isTeacherOwner) return;
 		try {
@@ -131,7 +145,6 @@
 	}
 
 	async function submit() {
-		totalPoints = questions.reduce((s, q) => s + (q.points ?? 1), 0);
 		submitted = true;
 		try {
 			const res = await submitAttempt(fetch, { attemptId });
@@ -159,11 +172,14 @@
 					<div class="question">
 						<div class="question-input-section">
 							<div class="question-header">
-								<!-- <label for={`question-text-${q.id}`}>
-									Question Text (use &#123;&#123; image_name &#125;&#125; for images):
-								</label> -->
 								<span class="question-id">ID: {q.id}</span>
 							</div>
+							<label
+								class="question-text-label"
+								for={`question-text-${q.id}`}
+							>
+								Question Text (use &#123;&#123; image_name &#125;&#125; for images):
+							</label>
 							<textarea
 								id={`question-text-${q.id}`}
 								bind:value={q.text}
@@ -172,8 +188,8 @@
 							></textarea>
 							{#if q.processed_question_text && q.processed_question_text !== q.text}
 								<div class="question-preview">
-									<label>Preview:</label>
-									<div class="preview-content" onclick={handleImageClick}>
+									<p class="preview-label">Preview:</p>
+									<div class="preview-content">
 										<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 										{@html q.processed_question_text}
 									</div>
@@ -185,7 +201,7 @@
 							<div class="choice">
 								<input type="radio" name={`correct-${q.id}`} value={c.id} bind:group={q.correct} />
 								<span class="choice-label">{String.fromCharCode(97 + choiceIndex)}.</span>
-								<input bind:value={c.text} />
+								<input type="text" bind:value={c.text} />
 							</div>
 						{/each}
 						<button type="button" onclick={() => saveQuestion(q)}>Save</button>
@@ -208,7 +224,7 @@
 							</div>
 						</div>
 					{/if}
-					<div class="questions-container" onclick={handleImageClick}>
+			<div class="questions-container">
 						{#each questions as q, i (q.id)}
 							<div class="question">
 								<div class="question-text">
@@ -289,9 +305,26 @@
 
 <!-- Image Modal -->
 {#if showImageModal}
-	<div class="image-modal-overlay" onclick={closeImageModal}>
-		<div class="image-modal-content" onclick={(e) => e.stopPropagation()}>
-			<button class="modal-close-btn" onclick={closeImageModal}>×</button>
+	<div
+		class="image-modal-overlay"
+		role="button"
+		tabindex="0"
+		aria-label="Close image preview"
+		onclick={(event) => {
+			if (event.target === event.currentTarget) {
+				closeImageModal();
+			}
+		}}
+		onkeydown={(event) => handleOverlayKeydown(event, closeImageModal)}
+	>
+		<div
+			class="image-modal-content"
+			role="dialog"
+			aria-modal="true"
+			aria-label="Enlarged question image"
+			tabindex="-1"
+		>
+			<button type="button" class="modal-close-btn" onclick={closeImageModal}>×</button>
 			<img src={modalImageSrc} alt={modalImageAlt} class="modal-image" />
 			{#if modalImageAlt}
 				<div class="modal-caption">{modalImageAlt}</div>
@@ -391,7 +424,7 @@
 		color: #374151;
 	}
 
-	.question label:hover {
+	.question .choice-label:hover {
 		background: rgba(59, 130, 246, 0.05);
 	}
 
@@ -404,7 +437,7 @@
 		margin-top: 0.125rem;
 	}
 
-	.question input[type='radio']:checked + label {
+	.question input[type='radio']:checked + .choice-label {
 		background: rgba(37, 99, 235, 0.1);
 		border-color: #2563eb;
 	}
@@ -504,7 +537,7 @@
 		font-weight: 500;
 	}
 
-	.question-input-section label {
+	.question-text-label {
 		display: block;
 		font-weight: 600;
 		margin-bottom: 0.5rem;
@@ -537,7 +570,7 @@
 		border-radius: 6px;
 	}
 
-	.question-preview label {
+	.question-preview .preview-label {
 		font-size: 0.75rem;
 		color: #6b7280;
 		text-transform: uppercase;

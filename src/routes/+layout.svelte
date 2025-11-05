@@ -2,9 +2,11 @@
 	import { user } from '$lib/user';
 	import { goto } from '$app/navigation';
 
-	export let data;
+	let { data, children } = $props();
 
-	$: user.set(data?.user ?? null);
+	$effect(() => {
+		user.set(data?.user ?? null);
+	});
 
 	async function logout() {
 		try {
@@ -34,7 +36,7 @@
 						>Welcome, <strong>{$user.name}</strong> <span class="role">({$user.role})</span></span
 					>
 				</li>
-				<li><button on:click={logout} class="logout-btn">Logout</button></li>
+				<li><button onclick={logout} class="logout-btn">Logout</button></li>
 			{:else}
 				<li><a href="/login" class="login-link">Login</a></li>
 			{/if}
@@ -42,9 +44,7 @@
 	</nav>
 </header>
 
-<main>
-	<slot />
-</main>
+<main>{@render children?.()}</main>
 
 <style>
 	/* Global Reset */

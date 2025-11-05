@@ -90,6 +90,17 @@
 	let showEditReviewer = $state(false);
 	let reviewerNewPin = $state('');
 
+	function handleOverlayKeydown(event, onClose) {
+		if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			onClose();
+		}
+	}
+
+	function closeEditReviewerModal() {
+		showEditReviewer = false;
+	}
+
 	function pinStatusLabel(hasPin, isHashed) {
 		if (!hasPin) return 'Not set';
 		return isHashed ? 'Set (hashed)' : 'Legacy (reset required)';
@@ -450,7 +461,7 @@
 							/>
 						</div>
 						<button
-							on:click={() =>
+							onclick={() =>
 								navigator.clipboard.writeText(
 									`${window.location.origin}/join/${teacherInviteCode}`
 								)}
@@ -492,7 +503,7 @@
 							/>
 						</div>
 						<button
-							on:click={handleAddTeacher}
+							onclick={handleAddTeacher}
 							class="btn btn-primary"
 							disabled={!teacherName || !teacherPin}
 						>
@@ -540,7 +551,7 @@
 							/>
 						</div>
 						<button
-							on:click={handleAddStudent}
+							onclick={handleAddStudent}
 							class="btn btn-primary"
 							disabled={!studentName || !studentPin}
 						>
@@ -598,7 +609,7 @@
 							/>
 						</div>
 						<button
-							on:click={handleAddReviewer}
+							onclick={handleAddReviewer}
 							class="btn btn-primary"
 							disabled={!reviewerName || !reviewerEmail || !reviewerPin}
 						>
@@ -648,7 +659,7 @@
 									id="test-select"
 									bind:value={selectedTestId}
 									class="form-input"
-									on:change={() => {
+									onchange={() => {
 										const selectedTest = availableTests.find((t) => t.id == selectedTestId);
 										if (selectedTest) {
 											newTestTitle = `${selectedTest.title} (Copy)`;
@@ -699,7 +710,7 @@
 						{/if}
 
 						<button
-							on:click={handleCopyTest}
+							onclick={handleCopyTest}
 							class="btn btn-accent"
 							disabled={!selectedTestId ||
 								!selectedFromTeacherId ||
@@ -773,7 +784,7 @@
 							</div>
 							<div class="form-group">
 								<button
-									on:click={handleAssignStudent}
+									onclick={handleAssignStudent}
 									class="btn btn-primary"
 									disabled={!selectedStudentId || !selectedAssignTeacherId || isAssigning}
 								>
@@ -835,7 +846,7 @@
 														<span class="teacher-name">{teacher.name}</span>
 														<button
 															class="remove-btn"
-															on:click={() =>
+															onclick={() =>
 																handleRemoveStudent(
 																	group.student.id,
 																	teacher.id,
@@ -907,14 +918,14 @@
 										<div class="reviewer-actions">
 											<button
 												class="btn btn-sm btn-secondary"
-												on:click={() => editReviewer(reviewer)}
+												onclick={() => editReviewer(reviewer)}
 											>
 												Edit
 											</button>
 											{#if reviewer.is_active}
 												<button
 													class="btn btn-sm btn-danger"
-													on:click={() => deleteReviewerHandler(reviewer.id, reviewer.name)}
+													onclick={() => deleteReviewerHandler(reviewer.id, reviewer.name)}
 												>
 													Deactivate
 												</button>
@@ -1010,11 +1021,28 @@
 
 <!-- Edit Reviewer Modal -->
 {#if showEditReviewer && editingReviewer}
-	<div class="modal-overlay" on:click={() => (showEditReviewer = false)}>
-		<div class="modal edit-reviewer-modal" on:click={(e) => e.stopPropagation()}>
+	<div
+		class="modal-overlay"
+		role="button"
+		tabindex="0"
+		aria-label="Close edit reviewer modal"
+		onclick={(event) => {
+			if (event.target === event.currentTarget) {
+				closeEditReviewerModal();
+			}
+		}}
+		onkeydown={(event) => handleOverlayKeydown(event, closeEditReviewerModal)}
+	>
+		<div
+			class="modal edit-reviewer-modal"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="edit-reviewer-heading"
+			tabindex="-1"
+		>
 			<div class="modal-header">
-				<h2>Edit Reviewer</h2>
-				<button class="modal-close" on:click={() => (showEditReviewer = false)}>
+				<h2 id="edit-reviewer-heading">Edit Reviewer</h2>
+				<button type="button" class="modal-close" onclick={closeEditReviewerModal}>
 					<span class="close-icon">&times;</span>
 				</button>
 			</div>
@@ -1069,12 +1097,13 @@
 				</div>
 
 				<div class="modal-actions">
-					<button class="btn btn-secondary" on:click={() => (showEditReviewer = false)}>
+					<button class="btn btn-secondary" type="button" onclick={closeEditReviewerModal}>
 						Cancel
 					</button>
 					<button
 						class="btn btn-primary"
-						on:click={saveReviewerEdit}
+						type="button"
+						onclick={saveReviewerEdit}
 						disabled={!editingReviewer.name.trim() ||
 							!editingReviewer.email.trim() ||
 							reviewerNewPinInvalid}
@@ -1583,10 +1612,6 @@
 		background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(5, 150, 105, 0.05));
 	}
 
-	.query-card .card-header {
-		background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(217, 119, 6, 0.05));
-	}
-
 	.copy-test-card .card-header {
 		background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(124, 58, 237, 0.05));
 	}
@@ -1605,10 +1630,6 @@
 
 	.student-card:hover {
 		box-shadow: 0 20px 60px rgba(16, 185, 129, 0.15);
-	}
-
-	.query-card:hover {
-		box-shadow: 0 20px 60px rgba(245, 158, 11, 0.15);
 	}
 
 	.copy-test-card:hover {

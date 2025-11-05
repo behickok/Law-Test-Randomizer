@@ -64,7 +64,8 @@
 		}
 	}
 
-	async function handleSubmit() {
+	async function handleSubmit(event) {
+		event?.preventDefault();
 		if (!selectedTestId || !title.trim() || selectedReviewers.length === 0) {
 			message = 'Please fill in all required fields';
 			messageType = 'error';
@@ -155,18 +156,42 @@
 			loadTestQuestionCount();
 		}
 	});
+
+	function handleBackdropKeydown(event) {
+		if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			close();
+		}
+	}
 </script>
 
 {#if visible}
-	<div class="modal-backdrop" on:click|self={close}>
-		<div class="modal-content">
+	<div
+		class="modal-backdrop"
+		role="button"
+		tabindex="0"
+		aria-label="Close review assignment form"
+		onclick={(event) => {
+			if (event.target === event.currentTarget) {
+				close();
+			}
+		}}
+		onkeydown={handleBackdropKeydown}
+	>
+		<div
+			class="modal-content"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="create-review-assignment-heading"
+			tabindex="-1"
+		>
 			<div class="modal-header">
-				<h2>Create Review Assignment</h2>
-				<button class="close-btn" on:click={close}>&times;</button>
+				<h2 id="create-review-assignment-heading">Create Review Assignment</h2>
+				<button type="button" class="close-btn" onclick={close}>&times;</button>
 			</div>
 
 			<div class="modal-body">
-				<form on:submit|preventDefault={handleSubmit}>
+				<form onsubmit={handleSubmit}>
 					<!-- Test Selection -->
 					<div class="form-group">
 						<label for="test-select">Select Test *</label>
@@ -242,14 +267,14 @@
 
 					<!-- Reviewer Selection -->
 					<div class="form-group">
-						<label>Select Reviewers * ({selectedReviewers.length} selected)</label>
+						<p class="form-label">Select Reviewers * ({selectedReviewers.length} selected)</p>
 						<div class="reviewer-grid">
 							{#each availableReviewers as reviewer (reviewer.id)}
 								<label class="reviewer-item">
 									<input
 										type="checkbox"
 										checked={selectedReviewers.includes(reviewer.id)}
-										on:change={() => handleReviewerToggle(reviewer.id)}
+										onchange={() => handleReviewerToggle(reviewer.id)}
 									/>
 									<span class="checkmark"></span>
 									<span class="reviewer-name">{reviewer.name}</span>
@@ -288,7 +313,7 @@
 					{/if}
 
 					<div class="modal-actions">
-						<button type="button" class="btn btn-secondary" on:click={close}>
+						<button type="button" class="btn btn-secondary" onclick={close}>
 							Cancel
 						</button>
 						<button 
