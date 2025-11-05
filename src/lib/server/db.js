@@ -117,7 +117,7 @@ function bindParameters(text, values = []) {
 
 function resolveQueryPayload(sqlOrConfig, options = {}) {
         const { source: optionSource, values: optionValues } = options;
-        let source = optionSource ?? 'duckdb';
+        let source = optionSource ?? 'd1';
 
         if (typeof sqlOrConfig === 'string') {
                 const values = optionValues ?? [];

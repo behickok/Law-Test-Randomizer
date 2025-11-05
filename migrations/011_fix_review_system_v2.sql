@@ -1,4 +1,4 @@
--- Migration 011: Fix Review System (DuckDB Compatible Version)
+-- Migration 011: Fix Review System (Cloudflare D1 Compatible Version)
 -- Fixes the inconsistencies in the review assignment system
 
 -- Drop existing tables to start fresh
