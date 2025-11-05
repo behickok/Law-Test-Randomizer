@@ -1,12 +1,9 @@
 -- Migration 010: Add Reviewer Role
 -- Creates a separate reviewers table and updates the review system
 
--- Create reviewers sequence
-CREATE SEQUENCE IF NOT EXISTS reviewers_seq;
-
 -- Create reviewers table
 CREATE TABLE IF NOT EXISTS reviewers (
-    id INTEGER PRIMARY KEY DEFAULT nextval('reviewers_seq'),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     email TEXT UNIQUE, -- Email for reviewer identification
     pin TEXT NOT NULL UNIQUE, -- PIN for authentication
@@ -16,9 +13,8 @@ CREATE TABLE IF NOT EXISTS reviewers (
 );
 
 -- Create reviewer invitations table to track invites from teachers
-CREATE SEQUENCE IF NOT EXISTS reviewer_invitations_seq;
 CREATE TABLE IF NOT EXISTS reviewer_invitations (
-    id INTEGER PRIMARY KEY DEFAULT nextval('reviewer_invitations_seq'),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     teacher_id INTEGER NOT NULL REFERENCES teachers(id),
     reviewer_email TEXT NOT NULL,
     reviewer_name TEXT NOT NULL,
@@ -29,9 +25,13 @@ CREATE TABLE IF NOT EXISTS reviewer_invitations (
 );
 
 -- Update question_reviews table to reference reviewers instead of teachers
+DROP VIEW IF EXISTS review_summary;
+DROP VIEW IF EXISTS reviewer_summary;
+DROP TABLE IF EXISTS question_reviews_new;
+
 -- First, create a new table with the correct structure
 CREATE TABLE IF NOT EXISTS question_reviews_new (
-    id INTEGER PRIMARY KEY DEFAULT nextval('question_reviews_seq'),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     question_id INTEGER NOT NULL REFERENCES questions(id),
     reviewer_id INTEGER NOT NULL REFERENCES reviewers(id), -- Now references reviewers table
     assignment_id INTEGER NOT NULL REFERENCES review_assignments(id),
@@ -76,7 +76,6 @@ CREATE INDEX IF NOT EXISTS idx_reviewer_invitations_teacher_id ON reviewer_invit
 CREATE INDEX IF NOT EXISTS idx_reviewer_invitations_invite_code ON reviewer_invitations(invite_code);
 
 -- Update the review_summary view to work with reviewers
-DROP VIEW IF EXISTS review_summary;
 CREATE VIEW review_summary AS
 SELECT 
     ra.id as assignment_id,

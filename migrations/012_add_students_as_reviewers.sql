@@ -6,9 +6,9 @@
 INSERT INTO reviewers (name, email, pin, is_active, created_at)
 SELECT 
     s.name,
-    COALESCE(s.email, s.name || '@student.local') as email, -- Use email if exists, otherwise generate one
+    LOWER(REPLACE(s.name, ' ', '_')) || '_' || s.id || '@student.local' as email, -- Generate a deterministic unique email
     s.pin,
-    TRUE as is_active,
+    1 as is_active,
     CURRENT_TIMESTAMP as created_at
 FROM students s
 WHERE NOT EXISTS (

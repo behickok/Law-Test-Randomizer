@@ -1,9 +1,7 @@
 -- Add image support to questions
--- This migration adds support for images in questions with base64 encoded data
-CREATE SEQUENCE IF NOT EXISTS images_seq;
 -- Create images table to store base64 encoded image data
 CREATE TABLE IF NOT EXISTS images (
-    id INTEGER PRIMARY KEY DEFAULT nextval('images_seq'),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     description TEXT,
     mime_type TEXT NOT NULL,
@@ -14,15 +12,12 @@ CREATE TABLE IF NOT EXISTS images (
     UNIQUE(name, uploaded_by)
 );
 
--- Create sequence for images
-CREATE SEQUENCE IF NOT EXISTS images_seq;
-
 -- Add processed_question_text column to questions table
 -- This will store the question text with template variables replaced with actual image references
-ALTER TABLE questions ADD COLUMN IF NOT EXISTS processed_question_text TEXT;
+ALTER TABLE questions ADD COLUMN processed_question_text TEXT;
 
 -- Add image_references column to track which images are used in each question
-ALTER TABLE questions ADD COLUMN IF NOT EXISTS image_references TEXT; -- JSON array of image IDs
+ALTER TABLE questions ADD COLUMN image_references TEXT; -- JSON array of image IDs
 
 -- Create index for faster image lookups
 CREATE INDEX IF NOT EXISTS idx_images_name_teacher ON images(name, uploaded_by);

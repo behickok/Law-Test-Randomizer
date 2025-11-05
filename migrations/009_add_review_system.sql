@@ -1,13 +1,9 @@
 -- Migration 009: Add Review System
 -- Creates tables for question review assignments and feedback
 
--- Create sequences for the new tables
-CREATE SEQUENCE IF NOT EXISTS review_assignments_seq;
-CREATE SEQUENCE IF NOT EXISTS question_reviews_seq;
-
 -- Review assignments table - manages the overall review process
 CREATE TABLE IF NOT EXISTS review_assignments (
-    id INTEGER PRIMARY KEY DEFAULT nextval('review_assignments_seq'),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     test_id INTEGER NOT NULL REFERENCES tests(id),
     assigner_id INTEGER NOT NULL REFERENCES teachers(id), -- teacher who created the assignment
     title TEXT NOT NULL,
@@ -21,7 +17,7 @@ CREATE TABLE IF NOT EXISTS review_assignments (
 
 -- Individual question reviews
 CREATE TABLE IF NOT EXISTS question_reviews (
-    id INTEGER PRIMARY KEY DEFAULT nextval('question_reviews_seq'),
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     question_id INTEGER NOT NULL REFERENCES questions(id),
     reviewer_id INTEGER NOT NULL REFERENCES teachers(id), -- teacher acting as reviewer
     assignment_id INTEGER NOT NULL REFERENCES review_assignments(id),

@@ -1,11 +1,3 @@
--- Ensure the points column exists in questions table
--- This is a safety migration in case 005_long_response.sql wasn't applied
-
-ALTER TABLE questions ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 1;
-
--- Also ensure other columns from the long response migration exist
-ALTER TABLE attempt_answers ADD COLUMN IF NOT EXISTS answer_text TEXT;
-ALTER TABLE attempt_answers ADD COLUMN IF NOT EXISTS points_awarded INTEGER;
-
--- Make choice_id nullable if it isn't already (for long response questions)
--- Note: Cloudflare D1 (SQLite) may not support conditional column modifications, so this might need to be handled differently
+-- No schema changes required for SQLite.
+-- Migration 005_long_response.sql already adds the necessary columns by
+-- recreating attempt_answers with the relaxed constraints.

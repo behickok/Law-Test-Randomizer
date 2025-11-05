@@ -13,15 +13,12 @@ DROP TABLE IF EXISTS question_reviews;
 -- Also drop question_reviews_new if it exists from failed migration
 DROP TABLE IF EXISTS question_reviews_new;
 
--- Ensure the sequence exists
-CREATE SEQUENCE IF NOT EXISTS question_reviews_seq;
-
 -- Create the correct question_reviews table structure
 CREATE TABLE question_reviews (
-    id INTEGER PRIMARY KEY DEFAULT nextval('question_reviews_seq'),
-    question_id INTEGER NOT NULL,
-    reviewer_id INTEGER NOT NULL, -- References reviewers.id, not teachers.id
-    assignment_id INTEGER NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    question_id INTEGER NOT NULL REFERENCES questions(id),
+    reviewer_id INTEGER NOT NULL REFERENCES reviewers(id), -- References reviewers.id, not teachers.id
+    assignment_id INTEGER NOT NULL REFERENCES review_assignments(id),
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed')),
     rating INTEGER CHECK (rating >= 1 AND rating <= 5),
     feedback TEXT,
@@ -33,16 +30,6 @@ CREATE TABLE question_reviews (
     completed_at TIMESTAMP,
     UNIQUE(question_id, reviewer_id, assignment_id)
 );
-
--- Add foreign key constraints
-ALTER TABLE question_reviews ADD CONSTRAINT fk_question_reviews_question_id 
-    FOREIGN KEY (question_id) REFERENCES questions(id);
-    
-ALTER TABLE question_reviews ADD CONSTRAINT fk_question_reviews_reviewer_id 
-    FOREIGN KEY (reviewer_id) REFERENCES reviewers(id);
-    
-ALTER TABLE question_reviews ADD CONSTRAINT fk_question_reviews_assignment_id 
-    FOREIGN KEY (assignment_id) REFERENCES review_assignments(id);
 
 -- Create indexes for better performance (Cloudflare D1 compatible)
 CREATE INDEX idx_question_reviews_assignment_id ON question_reviews(assignment_id);
@@ -94,7 +81,7 @@ ORDER BY r.created_at DESC;
 -- Clean up any orphaned data
 -- Remove any question_reviews that reference non-existent reviewers
 DELETE FROM question_reviews 
-WHERE reviewer_id NOT IN (SELECT id FROM reviewers WHERE is_active = TRUE);
+WHERE reviewer_id NOT IN (SELECT id FROM reviewers WHERE is_active = 1);
 
 -- Remove any question_reviews that reference non-existent assignments
 DELETE FROM question_reviews 

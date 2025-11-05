@@ -1,5 +1,5 @@
 ---------------------------------------------------------------------
--- Reset schema: drop existing tables and sequences
+-- Reset schema: drop existing tables
 ---------------------------------------------------------------------
 DROP TABLE IF EXISTS attempt_answers;
 DROP TABLE IF EXISTS test_attempts;
@@ -9,42 +9,20 @@ DROP TABLE IF EXISTS tests;
 DROP TABLE IF EXISTS students;
 DROP TABLE IF EXISTS teachers;
 
-DROP SEQUENCE IF EXISTS attempt_answers_seq;
-DROP SEQUENCE IF EXISTS test_attempts_seq;
-DROP SEQUENCE IF EXISTS choices_seq;
-DROP SEQUENCE IF EXISTS questions_seq;
-DROP SEQUENCE IF EXISTS tests_seq;
-DROP SEQUENCE IF EXISTS students_seq;
-DROP SEQUENCE IF EXISTS teachers_seq;
-
----------------------------------------------------------------------
--- 1. Sequences (provide auto-increment behaviour)
----------------------------------------------------------------------
-CREATE SEQUENCE teachers_seq;
-CREATE SEQUENCE students_seq;
-CREATE SEQUENCE tests_seq;
-CREATE SEQUENCE questions_seq;
-CREATE SEQUENCE choices_seq;
-CREATE SEQUENCE test_attempts_seq;
-CREATE SEQUENCE attempt_answers_seq;
-
----------------------------------------------------------------------
--- 2. Tables
----------------------------------------------------------------------
 CREATE TABLE teachers (
-    id   INTEGER PRIMARY KEY DEFAULT nextval('teachers_seq'),
+    id   INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     pin  TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE students (
-    id   INTEGER PRIMARY KEY DEFAULT nextval('students_seq'),
+    id   INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     pin  TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE tests (
-    id          INTEGER PRIMARY KEY DEFAULT nextval('tests_seq'),
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
     title       TEXT NOT NULL,
     description TEXT,
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -53,20 +31,20 @@ CREATE TABLE tests (
 );
 
 CREATE TABLE questions (
-    id            INTEGER PRIMARY KEY DEFAULT nextval('questions_seq'),
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
     test_id       INTEGER NOT NULL REFERENCES tests(id),
     question_text TEXT NOT NULL
 );
 
 CREATE TABLE choices (
-    id          INTEGER PRIMARY KEY DEFAULT nextval('choices_seq'),
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
     question_id INTEGER NOT NULL REFERENCES questions(id),
     choice_text TEXT NOT NULL,
     is_correct  BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE test_attempts (
-    id           INTEGER PRIMARY KEY DEFAULT nextval('test_attempts_seq'),
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
     test_id      INTEGER NOT NULL REFERENCES tests(id),
     student_name TEXT NOT NULL,
     started_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -76,7 +54,7 @@ CREATE TABLE test_attempts (
 );
 
 CREATE TABLE attempt_answers (
-    id          INTEGER PRIMARY KEY DEFAULT nextval('attempt_answers_seq'),
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
     attempt_id  INTEGER NOT NULL REFERENCES test_attempts(id),
     question_id INTEGER NOT NULL REFERENCES questions(id),
     choice_id   INTEGER NOT NULL REFERENCES choices(id),
@@ -84,7 +62,7 @@ CREATE TABLE attempt_answers (
 );
 
 ---------------------------------------------------------------------
--- 3. Seed data
+-- Seed data
 ---------------------------------------------------------------------
 INSERT INTO teachers (name, pin) VALUES ('Test Teacher', '1111');
 INSERT INTO students (name, pin) VALUES ('Test Student', '2222');

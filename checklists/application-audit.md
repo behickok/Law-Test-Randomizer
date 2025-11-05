@@ -15,6 +15,20 @@
   - Session adoption is incomplete: most protected endpoints still trust `teacherId` provided in request bodies instead of deriving identity from the authenticated session, enabling privilege escalation (`src/routes/api/tests/assign/+server.js:22`, `src/routes/api/tests/upload/+server.js:66`).
   - Legacy numeric credentials can persist for dormant accounts until the migration sweep is run; all new signups and resets now require 10+ character passphrases with letters and numbers (`src/lib/credentials.js:1`, `src/routes/api/auth/signup/+server.js:1`, `scripts/migrate-pins.js:1`). Ensure backfill jobs run before launch so no weak secrets remain.
 
+## Cloudflare Local Development Setup Checklist
+- [ ] Run `npm install` so SvelteKit, adapter-cloudflare, and local tooling are available before invoking Wrangler builds or migrations.
+- [ ] Add Wrangler to the workspace with `npm install -D wrangler` (or pin a version in `package.json`) so `npx wrangler` resolves consistently across machines and CI.
+- [ ] Authenticate against the correct Cloudflare account using `npx wrangler login` and confirm access with `npx wrangler whoami`.
+- [ ] Create or refresh `wrangler.toml` with `name`, `compatibility_date`, `main = ".svelte-kit/cloudflare/_worker.js"`, `pages_build_output_dir = ".svelte-kit/cloudflare"`, and a `[[d1_databases]]` section binding `DB` and pointing `migrations_dir` to `migrations/`.
+- [ ] Provision the dev D1 database via `npx wrangler d1 create law-test-randomizer-dev` and capture the returned `database_id`.
+- [ ] Paste the `database_id` (and optional `preview_database_id` for a local-only copy) into the `[[d1_databases]]` entry so the binding resolves as `env.DB` in Workers/Pages.
+- [ ] Apply schema changes to the remote database with `npx wrangler d1 migrations apply law-test-randomizer-dev` to align production-like environments with `/migrations`.
+- [ ] Mirror the migrations locally with `npx wrangler d1 migrations apply law-test-randomizer-dev --local` so `wrangler pages dev` runs against the same schema.
+- [ ] Seed baseline data (teachers, classes, reviewers) using `node scripts/migrate-pins.js` or `npx wrangler d1 execute law-test-randomizer-dev --local --file <seed.sql>` before validating flows.
+- [ ] Store secrets required by server hooks in `.dev.vars` (e.g. `SESSION_SECRET=`) so Wrangler injects them the same way as production bindings.
+- [ ] Start Cloudflare-aware local development with `npx wrangler pages dev -- npm run dev` and confirm the app can query via `platform.env.DB`.
+- [ ] Execute `npx wrangler pages dev -- npm run test:unit -- --run` once to ensure the unit suite passes with the D1 binding in place.
+
 ## Security (critical risks)
 - **Client-managed SQL with exposed credentials (mitigated 2025-11-07).** SvelteKit no longer exposes the generic `/api/query` and `/api/query-file` proxies; all raw SQL now executes from server routes using the private service token (`src/routes/tests/[id]/+page.server.js:1`, `src/routes/+page.server.js:1`, `src/routes/api/tests/[id]/+server.js:1`, `src/lib/api.js:1`). *Follow-up:* scrub documentation and tooling that referenced the old endpoints and ensure administrators only run migrations through secured server processes.
 - **Server-side SQL string building (mitigated 2025-11-13).** Even with the browser proxy removed, server handlers previously composed SQL with string concatenation (`src/routes/api/tests/upload/+server.js:1`, `src/routes/api/auth/signup/+server.js:1`). The shared helper now binds `{ text, values }`, and uploads, signup, attempt answer retrieval, and grading all use parameterised statements (`src/lib/server/db.js:1`, `src/routes/api/tests/upload/+server.js:1`, `src/routes/api/auth/signup/+server.js:1`, `src/routes/api/attempts/[attemptId]/answers/+server.js:1`, `src/routes/api/attempts/answers/grade/+server.js:1`). Continue auditing remaining admin/reporting endpoints for similar refactors.
