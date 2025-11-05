@@ -1,4 +1,4 @@
-import { escapeSql, runQuery } from '$lib/server/db';
+import { runQuery } from '$lib/server/db';
 import { resolveTeacherId } from '$lib/server/authGuard';
 
 // This function is designed to be more robust for Excel copy-paste.
@@ -36,8 +36,12 @@ function parseLine(line) {
 	return result;
 }
 
-async function run(fetcher, sql) {
-	return runQuery(fetcher, sql);
+async function run(fetcher, sqlOrConfig, values) {
+        if (values) {
+                return runQuery(fetcher, { text: sqlOrConfig, values });
+        }
+
+        return runQuery(fetcher, sqlOrConfig);
 }
 
 export async function POST({ request, fetch, locals }) {
@@ -68,55 +72,72 @@ export async function POST({ request, fetch, locals }) {
         }
 
         // Validate test_id if provided (for updates)
-	if (test_id && !/^\d+$/.test(test_id)) {
-		return new Response('Invalid test_id format', { status: 400 });
-	}
+        if (test_id && !/^\d+$/.test(test_id)) {
+                return new Response('Invalid test_id format', { status: 400 });
+        }
 
-	const text = data;
-	const lines = text
-		.split(/\r?\n/)
-		.map((l) => l.trim())
-		.filter(Boolean);
+        const text = data;
+        const lines = text
+                .split(/\r?\n/)
+                .map((l) => l.trim())
+                .filter(Boolean);
 
-	if (lines.length === 0) {
-		return new Response('No rows found in provided data.', { status: 400 });
-	}
+        if (lines.length === 0) {
+                return new Response('No rows found in provided data.', { status: 400 });
+        }
 
-	try {
-		let final_test_id;
+        try {
+                let final_test_id;
+                const numericTestId = test_id ? Number(test_id) : null;
 
-		if (test_id) {
-			// Update existing test - verify ownership first
-                        const ownershipCheck = await run(fetch,
-                                `SELECT id FROM tests WHERE id = ${test_id} AND teacher_id = ${teacherId}`
-                        );
+                if (test_id) {
+                        // Update existing test - verify ownership first
+                        const ownershipCheck = await run(fetch, {
+                                text: `SELECT id FROM tests WHERE id = $1 AND teacher_id = $2`,
+                                values: [numericTestId, teacherId]
+                        });
 
-			if (ownershipCheck.length === 0) {
-				return new Response('Test not found or access denied', { status: 403 });
-			}
+                        if (ownershipCheck.length === 0) {
+                                return new Response('Test not found or access denied', { status: 403 });
+                        }
 
-			// Update test title (only if not in append mode)
-			if (!append_mode) {
-				await run(fetch, `UPDATE tests SET title = '${escapeSql(title)}' WHERE id = ${test_id}`);
-			}
+                        // Update test title (only if not in append mode)
+                        if (!append_mode) {
+                                await run(fetch, {
+                                        text: `UPDATE tests SET title = $1 WHERE id = $2`,
+                                        values: [title, numericTestId]
+                                });
+                        }
 
-			if (!append_mode) {
-				// Full replacement mode - delete existing data (in correct order due to foreign key constraints)
-				await run(fetch,
-					`DELETE FROM choices WHERE question_id IN (SELECT id FROM questions WHERE test_id = ${test_id})`
-				);
-				await run(fetch, `DELETE FROM questions WHERE test_id = ${test_id}`);
-				await run(fetch, `DELETE FROM sections WHERE test_id = ${test_id}`);
-			}
+                        if (!append_mode) {
+                                // Full replacement mode - delete existing data (in correct order due to foreign key constraints)
+                                await run(fetch, {
+                                        text: `DELETE FROM choices WHERE question_id IN (SELECT id FROM questions WHERE test_id = $1)`,
+                                        values: [numericTestId]
+                                });
+                                await run(fetch, {
+                                        text: `DELETE FROM questions WHERE test_id = $1`,
+                                        values: [numericTestId]
+                                });
+                                await run(fetch, {
+                                        text: `DELETE FROM sections WHERE test_id = $1`,
+                                        values: [numericTestId]
+                                });
+                        }
 
-			final_test_id = test_id;
-		} else {
-			// Create new test
-                        const testRow = await run(fetch,
-                                `INSERT INTO tests (title, teacher_id) VALUES ('${escapeSql(title)}', ${teacherId}) RETURNING id`
-                        );
-			final_test_id = testRow[0].id;
-		}
+                        final_test_id = numericTestId;
+                } else {
+                        // Create new test
+                        const testRow = await run(fetch, {
+                                text: `INSERT INTO tests (title, teacher_id) VALUES ($1, $2) RETURNING id`,
+                                values: [title, teacherId]
+                        });
+                        final_test_id = Number(testRow[0].id);
+
+                        if (!Number.isFinite(final_test_id)) {
+                                throw new Error('Failed to determine created test id');
+                        }
+                }
 
 		// Parse sections and questions
 		const sections = new Map(); // section_name -> { order, total_questions, questions[] }
@@ -153,8 +174,8 @@ export async function POST({ request, fetch, locals }) {
 			}
 
 			// Extract question ID and text
-			const question_id = escapeSql(cols[0].trim());
-			const question_text = escapeSql(cols[1].trim());
+                        const question_id = cols[0].trim();
+                        const question_text = cols[1].trim();
 
 			// Check if this is a long response question
 			const isLongResponse =
@@ -174,10 +195,10 @@ export async function POST({ request, fetch, locals }) {
 			};
 
 			if (!isLongResponse && cols.length >= 7) {
-				const answer1 = escapeSql(cols[2].trim());
-				const answer2 = escapeSql(cols[3].trim());
-				const answer3 = escapeSql(cols[4].trim());
-				const answer4 = escapeSql(cols[5].trim());
+                                const answer1 = cols[2].trim();
+                                const answer2 = cols[3].trim();
+                                const answer3 = cols[4].trim();
+                                const answer4 = cols[5].trim();
 				const correctAnswer = cols[6].trim().toLowerCase();
 
 				if (answer1 || answer2 || answer3 || answer4) {
@@ -221,91 +242,114 @@ export async function POST({ request, fetch, locals }) {
 		for (const [sectionName, sectionData] of sections) {
 			let sectionId;
 
-			if (append_mode) {
-				// In append mode, find existing section or create if it doesn't exist
-				const existingSections = await run(fetch,
-					`SELECT id FROM sections WHERE test_id = ${final_test_id} AND section_name = '${escapeSql(sectionName)}'`
-				);
+                        if (append_mode) {
+                                // In append mode, find existing section or create if it doesn't exist
+                                const existingSections = await run(fetch, {
+                                        text: `SELECT id FROM sections WHERE test_id = $1 AND section_name = $2`,
+                                        values: [final_test_id, sectionName]
+                                });
 
-				if (existingSections.length > 0) {
-					sectionId = existingSections[0].id;
-				} else {
-					// Get the maximum order for new sections
-					const maxOrderResult = await run(fetch,
-						`SELECT COALESCE(MAX(section_order), 0) as max_order FROM sections WHERE test_id = ${final_test_id}`
-					);
-					const nextOrder = (maxOrderResult[0]?.max_order || 0) + 1;
+                                if (existingSections.length > 0) {
+                                        sectionId = existingSections[0].id;
+                                } else {
+                                        // Get the maximum order for new sections
+                                        const maxOrderResult = await run(fetch, {
+                                                text: `SELECT COALESCE(MAX(section_order), 0) as max_order FROM sections WHERE test_id = $1`,
+                                                values: [final_test_id]
+                                        });
+                                        const nextOrder = (maxOrderResult[0]?.max_order || 0) + 1;
 
-					const sectionRow = await run(fetch,
-						`INSERT INTO sections (test_id, section_name, section_order, total_questions) 
-						 VALUES (${final_test_id}, '${escapeSql(sectionName)}', ${nextOrder}, ${sectionData.total_questions}) 
-						 RETURNING id`
-					);
-					sectionId = sectionRow[0].id;
-				}
-			} else {
-				// Full replacement mode - insert new section
-				const sectionRow = await run(fetch,
-					`INSERT INTO sections (test_id, section_name, section_order, total_questions) 
-					 VALUES (${final_test_id}, '${escapeSql(sectionName)}', ${sectionData.order}, ${sectionData.total_questions}) 
-					 RETURNING id`
-				);
-				sectionId = sectionRow[0].id;
-			}
+                                        const sectionRow = await run(fetch, {
+                                                text: `INSERT INTO sections (test_id, section_name, section_order, total_questions)
+                                                 VALUES ($1, $2, $3, $4)
+                                                 RETURNING id`,
+                                                values: [final_test_id, sectionName, nextOrder, sectionData.total_questions]
+                                        });
+                                        sectionId = sectionRow[0].id;
+                                }
+                        } else {
+                                // Full replacement mode - insert new section
+                                const sectionRow = await run(fetch, {
+                                        text: `INSERT INTO sections (test_id, section_name, section_order, total_questions)
+                                         VALUES ($1, $2, $3, $4)
+                                         RETURNING id`,
+                                        values: [final_test_id, sectionName, sectionData.order, sectionData.total_questions]
+                                });
+                                sectionId = sectionRow[0].id;
+                        }
 
 			// Insert questions for this section
 			for (const questionData of sectionData.questions) {
 				let question_pk_id;
 
-				if (append_mode) {
-					// In append mode, check if question with this question_id already exists
-					const existingQuestions = await run(fetch,
-						`SELECT id FROM questions WHERE test_id = ${final_test_id} AND question_id = '${questionData.question_id}'`
-					);
+                                if (append_mode) {
+                                        // In append mode, check if question with this question_id already exists
+                                        const existingQuestions = await run(fetch, {
+                                                text: `SELECT id FROM questions WHERE test_id = $1 AND question_id = $2`,
+                                                values: [final_test_id, questionData.question_id]
+                                        });
 
-					if (existingQuestions.length > 0) {
-						// Update existing question
-						question_pk_id = existingQuestions[0].id;
-						await run(fetch,
-							`UPDATE questions SET question_text = '${questionData.question_text}', section_id = ${sectionId} 
-							 WHERE id = ${question_pk_id}`
-						);
+                                        if (existingQuestions.length > 0) {
+                                                // Update existing question
+                                                question_pk_id = existingQuestions[0].id;
+                                                await run(fetch, {
+                                                        text: `UPDATE questions SET question_text = $1, section_id = $2
+                                                         WHERE id = $3`,
+                                                        values: [questionData.question_text, sectionId, question_pk_id]
+                                                });
 
-						// Delete existing choices for this question
-						await run(fetch, `DELETE FROM choices WHERE question_id = ${question_pk_id}`);
-					} else {
-						// Insert new question
-						const qRow = await run(fetch,
-							`INSERT INTO questions (test_id, question_text, question_id, points, section_id) 
-							 VALUES (${final_test_id}, '${questionData.question_text}', '${questionData.question_id}', 1, ${sectionId}) 
-							 RETURNING id`
-						);
-						question_pk_id = qRow[0].id;
-					}
-				} else {
-					// Full replacement mode - insert new question
-					const qRow = await run(fetch,
-						`INSERT INTO questions (test_id, question_text, question_id, points, section_id) 
-						 VALUES (${final_test_id}, '${questionData.question_text}', '${questionData.question_id}', 1, ${sectionId}) 
-						 RETURNING id`
-					);
-					question_pk_id = qRow[0].id;
-				}
+                                                // Delete existing choices for this question
+                                                await run(fetch, {
+                                                        text: `DELETE FROM choices WHERE question_id = $1`,
+                                                        values: [question_pk_id]
+                                                });
+                                        } else {
+                                                // Insert new question
+                                                const qRow = await run(fetch, {
+                                                        text: `INSERT INTO questions (test_id, question_text, question_id, points, section_id)
+                                                         VALUES ($1, $2, $3, $4, $5)
+                                                         RETURNING id`,
+                                                        values: [
+                                                                final_test_id,
+                                                                questionData.question_text,
+                                                                questionData.question_id,
+                                                                1,
+                                                                sectionId
+                                                        ]
+                                                });
+                                                question_pk_id = qRow[0].id;
+                                        }
+                                } else {
+                                        // Full replacement mode - insert new question
+                                        const qRow = await run(fetch, {
+                                                text: `INSERT INTO questions (test_id, question_text, question_id, points, section_id)
+                                                 VALUES ($1, $2, $3, $4, $5)
+                                                 RETURNING id`,
+                                                values: [
+                                                        final_test_id,
+                                                        questionData.question_text,
+                                                        questionData.question_id,
+                                                        1,
+                                                        sectionId
+                                                ]
+                                        });
+                                        question_pk_id = qRow[0].id;
+                                }
 
 				// Insert choices if not long response
 				if (!questionData.isLongResponse && questionData.choices.length > 0) {
 					for (let i = 0; i < questionData.choices.length; i++) {
 						const choice = questionData.choices[i];
 						if (choice.text) {
-							const isCorrect = choice.isCorrect ? 'TRUE' : 'FALSE';
-							await run(fetch,
-								`INSERT INTO choices (question_id, choice_text, is_correct) 
-								 VALUES (${question_pk_id}, '${choice.text}', ${isCorrect})`
-							);
-						}
-					}
-				}
-			}
+                                                        await run(fetch, {
+                                                                text: `INSERT INTO choices (question_id, choice_text, is_correct)
+                                                                 VALUES ($1, $2, $3)`,
+                                                                values: [question_pk_id, choice.text, choice.isCorrect === true]
+                                                        });
+                                                }
+                                        }
+                                }
+                        }
 		}
 
 		// Respond with success

@@ -28,41 +28,41 @@ export async function POST({ params, request, fetch, locals }) {
                 }
                 const teacherId = resolveTeacherId(locals, body?.teacherId);
 
-		const ownership = normaliseResult(
-			await runQuery(
-				fetch,
-				`SELECT ta.id
-				 FROM test_attempts ta
-				 JOIN tests t ON t.id = ta.test_id
-				 WHERE ta.id = ${attemptId} AND t.teacher_id = ${teacherId}
-				 LIMIT 1`
-			)
-		);
+                const ownership = normaliseResult(
+                        await runQuery(fetch, {
+                                text: `SELECT ta.id
+                                 FROM test_attempts ta
+                                 JOIN tests t ON t.id = ta.test_id
+                                 WHERE ta.id = $1 AND t.teacher_id = $2
+                                 LIMIT 1`,
+                                values: [attemptId, teacherId]
+                        })
+                );
 
 		if (ownership.length === 0) {
 			return json({ error: 'Attempt not found or access denied' }, { status: 403 });
 		}
 
-		const rows = normaliseResult(
-			await runQuery(
-				fetch,
-				`SELECT aa.id,
-						q.question_text,
-						q.points,
-						c.choice_text AS student_answer,
-						aa.answer_text,
-						aa.is_correct,
-						aa.points_awarded,
-						correct_c.choice_text AS correct_answer
-				 FROM attempt_answers aa
-				 JOIN questions q ON q.id = aa.question_id
-				 LEFT JOIN choices c ON c.id = aa.choice_id
-				 LEFT JOIN choices correct_c
-					   ON correct_c.question_id = q.id AND correct_c.is_correct = TRUE
-				 WHERE aa.attempt_id = ${attemptId}
-				 ORDER BY aa.id`
-			)
-		);
+                const rows = normaliseResult(
+                        await runQuery(fetch, {
+                                text: `SELECT aa.id,
+                                                q.question_text,
+                                                q.points,
+                                                c.choice_text AS student_answer,
+                                                aa.answer_text,
+                                                aa.is_correct,
+                                                aa.points_awarded,
+                                                correct_c.choice_text AS correct_answer
+                                 FROM attempt_answers aa
+                                 JOIN questions q ON q.id = aa.question_id
+                                 LEFT JOIN choices c ON c.id = aa.choice_id
+                                 LEFT JOIN choices correct_c
+                                           ON correct_c.question_id = q.id AND correct_c.is_correct = TRUE
+                                 WHERE aa.attempt_id = $1
+                                 ORDER BY aa.id`,
+                                values: [attemptId]
+                        })
+                );
 
 		return json({ answers: rows });
 	} catch (error) {

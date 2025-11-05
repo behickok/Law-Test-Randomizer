@@ -39,48 +39,44 @@ export async function POST({ request, fetch, locals }) {
 		const isCorrect = acceptBooleanOrNull(body?.isCorrect, 'isCorrect');
 		const pointsAwarded = acceptNumericOrNull(body?.pointsAwarded, 'pointsAwarded');
 
-		const ownership = normaliseResult(
-			await runQuery(
-				fetch,
-				`SELECT aa.attempt_id
-				 FROM attempt_answers aa
-				 JOIN test_attempts ta ON ta.id = aa.attempt_id
-				 JOIN tests t ON t.id = ta.test_id
-				 WHERE aa.id = ${answerId} AND t.teacher_id = ${teacherId}
-				 LIMIT 1`
-			)
-		);
+                const ownership = normaliseResult(
+                        await runQuery(fetch, {
+                                text: `SELECT aa.attempt_id
+                                 FROM attempt_answers aa
+                                 JOIN test_attempts ta ON ta.id = aa.attempt_id
+                                 JOIN tests t ON t.id = ta.test_id
+                                 WHERE aa.id = $1 AND t.teacher_id = $2
+                                 LIMIT 1`,
+                                values: [answerId, teacherId]
+                        })
+                );
 
 		if (ownership.length === 0) {
 			return json({ error: 'Answer not found or access denied' }, { status: 403 });
 		}
 
-		const setCorrect =
-			isCorrect === null ? 'NULL' : isCorrect === true ? 'TRUE' : 'FALSE';
-		const setPoints = pointsAwarded === null ? 'NULL' : pointsAwarded;
-
-		await runQuery(
-			fetch,
-			`UPDATE attempt_answers
-			 SET is_correct = ${setCorrect},
-				 points_awarded = ${setPoints}
-			 WHERE id = ${answerId};
-			 UPDATE test_attempts
-			 SET score = (
-					SELECT CASE
-						WHEN EXISTS (
-							SELECT 1
-							FROM attempt_answers
-							WHERE attempt_id = test_attempts.id
-							  AND points_awarded IS NULL
-						) THEN NULL
-						ELSE COALESCE(SUM(points_awarded), 0)
-					END
-					FROM attempt_answers
-					WHERE attempt_id = test_attempts.id
-				)
-			 WHERE id = (SELECT attempt_id FROM attempt_answers WHERE id = ${answerId});`
-		);
+                await runQuery(fetch, {
+                        text: `UPDATE attempt_answers
+                         SET is_correct = $1,
+                                 points_awarded = $2
+                         WHERE id = $3;
+                         UPDATE test_attempts
+                         SET score = (
+                                        SELECT CASE
+                                                WHEN EXISTS (
+                                                        SELECT 1
+                                                        FROM attempt_answers
+                                                        WHERE attempt_id = test_attempts.id
+                                                          AND points_awarded IS NULL
+                                                ) THEN NULL
+                                                ELSE COALESCE(SUM(points_awarded), 0)
+                                        END
+                                        FROM attempt_answers
+                                        WHERE attempt_id = test_attempts.id
+                                )
+                         WHERE id = (SELECT attempt_id FROM attempt_answers WHERE id = $3);`,
+                        values: [isCorrect, pointsAwarded, answerId]
+                });
 
 		return json({ ok: true });
 	} catch (error) {
