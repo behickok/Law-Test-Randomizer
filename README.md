@@ -69,7 +69,7 @@ The app now uses session-backed passphrases for authentication. Teachers, studen
 
 ## Database migrations
 
-This project includes SQL migrations for the DuckDB backend. The scripts live in the `migrations/` directory. To apply the initial schema, upload the SQL file to the FastAPI service:
+This project includes SQL migrations for the Cloudflare D1 backend. The scripts live in the `migrations/` directory. To apply the initial schema, upload the SQL file to the FastAPI service:
 
 ```sh
 curl -X POST -F "sql_file=@migrations/001_init.sql" https://web-production-b1513.up.railway.app/query-file

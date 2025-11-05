@@ -8,4 +8,4 @@ ALTER TABLE attempt_answers ADD COLUMN IF NOT EXISTS answer_text TEXT;
 ALTER TABLE attempt_answers ADD COLUMN IF NOT EXISTS points_awarded INTEGER;
 
 -- Make choice_id nullable if it isn't already (for long response questions)
--- Note: DuckDB may not support conditional column modifications, so this might need to be handled differently
+-- Note: Cloudflare D1 (SQLite) may not support conditional column modifications, so this might need to be handled differently

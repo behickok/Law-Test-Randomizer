@@ -2,9 +2,9 @@
 -- Fixes the inconsistencies in the review assignment system
 
 -- Check if question_reviews_new exists and handle it
--- DuckDB doesn't support procedural blocks, so we'll handle this with conditional statements
+-- Cloudflare D1 (SQLite) doesn't support procedural blocks, so we'll handle this with conditional statements
 
--- DuckDB doesn't have complex conditional logic, so we'll use a simpler approach
+-- Cloudflare D1 (SQLite) doesn't have complex conditional logic, so we'll use a simpler approach
 -- Drop and recreate the question_reviews table with the correct structure
 
 -- Drop the question_reviews table if it exists (it may have wrong structure)
@@ -44,7 +44,7 @@ ALTER TABLE question_reviews ADD CONSTRAINT fk_question_reviews_reviewer_id
 ALTER TABLE question_reviews ADD CONSTRAINT fk_question_reviews_assignment_id 
     FOREIGN KEY (assignment_id) REFERENCES review_assignments(id);
 
--- Create indexes for better performance (DuckDB compatible)
+-- Create indexes for better performance (Cloudflare D1 compatible)
 CREATE INDEX idx_question_reviews_assignment_id ON question_reviews(assignment_id);
 CREATE INDEX idx_question_reviews_reviewer_id ON question_reviews(reviewer_id);
 CREATE INDEX idx_question_reviews_question_id ON question_reviews(question_id);
