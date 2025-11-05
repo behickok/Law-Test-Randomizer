@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { normaliseResult, runQuery } from '$lib/server/db';
 import { resolveTeacherId } from '$lib/server/authGuard';
 
-export async function POST({ request, fetch, locals }) {
+export async function POST({ request, locals }) {
         try {
                 let body = {};
                 const contentType = request.headers.get('content-type') ?? '';
@@ -19,8 +19,7 @@ export async function POST({ request, fetch, locals }) {
                 const teacherId = resolveTeacherId(locals, body?.teacherId);
 
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT ta.id,
 						ta.student_name,
 						ta.score,

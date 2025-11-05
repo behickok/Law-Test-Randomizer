@@ -2,12 +2,11 @@ import { json } from '@sveltejs/kit';
 import { normaliseResult, runQuery } from '$lib/server/db';
 import { requireTeacher } from '$lib/server/authz';
 
-export async function GET({ fetch, locals }) {
+export async function GET({ locals }) {
 	try {
 		requireTeacher(locals);
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT t.id,
 				        t.title,
 				        t.description,

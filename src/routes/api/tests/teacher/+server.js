@@ -2,13 +2,12 @@ import { json } from '@sveltejs/kit';
 import { normaliseResult, runQuery } from '$lib/server/db';
 import { resolveTeacherId } from '$lib/server/authGuard';
 
-export async function GET({ fetch, locals }) {
+export async function GET({ locals }) {
         try {
                 const teacherId = resolveTeacherId(locals);
 
                 const rows = normaliseResult(
-                        await runQuery(
-                                fetch,
+                        await runQuery(locals.db,
                                 `SELECT id, title, description, is_active
                                  FROM tests
                                  WHERE teacher_id = ${teacherId}

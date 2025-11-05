@@ -34,7 +34,7 @@ function shuffle(array) {
 	return shuffled;
 }
 
-export async function POST({ request, fetch }) {
+export async function POST({request, locals}) {
 	try {
 		const body = await request.json();
 		const testId = requireNumeric(body?.testId, 'testId');
@@ -42,8 +42,7 @@ export async function POST({ request, fetch }) {
 		const studentName = requireString(body?.studentName, 'studentName');
 
 		const testRows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT id, title, teacher_id FROM tests WHERE id = ${testId}`
 			)
 		);
@@ -53,8 +52,7 @@ export async function POST({ request, fetch }) {
 		}
 
 		const existingAttemptRows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT id
 				 FROM test_attempts
 				 WHERE test_id = ${testId}
@@ -68,8 +66,7 @@ export async function POST({ request, fetch }) {
 		let attemptId = existingAttemptRows[0]?.id ?? null;
 
 		const sectionsRows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT id, section_name, section_order, total_questions
 				 FROM sections
 				 WHERE test_id = ${testId}
@@ -80,8 +77,7 @@ export async function POST({ request, fetch }) {
 
 		if (attemptId) {
 			const rows = normaliseResult(
-				await runQuery(
-					fetch,
+				await runQuery(locals.db,
 					`SELECT aa.id as attempt_answer_id,
 					        q.id as question_id,
 					        q.question_text,
@@ -135,8 +131,7 @@ export async function POST({ request, fetch }) {
 		}
 
 		const questionRows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT q.id as question_id,
 				        q.question_text,
 				        q.points,
@@ -203,8 +198,7 @@ export async function POST({ request, fetch }) {
 		}
 
 		const insertAttemptRows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`INSERT INTO test_attempts (test_id, student_id, student_name)
 				 VALUES (${testId}, ${studentId}, '${escapeSql(studentName)}')
 				 RETURNING id`
@@ -217,8 +211,7 @@ export async function POST({ request, fetch }) {
 
 		if (finalQuestions.length > 0) {
 			const values = finalQuestions.map((q) => `(${attemptId}, ${q.id})`).join(', ');
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`INSERT INTO attempt_answers (attempt_id, question_id)
 				 VALUES ${values}`
 			);

@@ -10,13 +10,12 @@ function requireNumeric(value) {
 	return Number(value);
 }
 
-export async function GET({ params, fetch }) {
+export async function GET({params, locals}) {
 	try {
 		const studentId = requireNumeric(params.id);
 
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT c.teacher_id,
 				        t.name AS teacher_name,
 				        c.status

@@ -16,7 +16,7 @@ function maybeString(value) {
 	return String(value);
 }
 
-export async function POST({ params, request, fetch }) {
+export async function POST({params, request, locals}) {
 	try {
 		const attemptId = requireNumeric(params.id, 'attemptId');
 		const body = await request.json();
@@ -30,8 +30,7 @@ export async function POST({ params, request, fetch }) {
 		const choiceSql = choiceId === null ? 'NULL' : choiceId;
 		const answerSql = answerText === null ? 'NULL' : `'${escapeSql(answerText)}'`;
 
-		await runQuery(
-			fetch,
+		await runQuery(locals.db,
 			`UPDATE attempt_answers
 			 SET choice_id = ${choiceSql},
 			     answer_text = ${answerSql},

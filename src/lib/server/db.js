@@ -1,27 +1,33 @@
-import { BACKEND_BASE_URL, BACKEND_SERVICE_TOKEN } from '$lib/server/env';
-
-function ensureFetcher(fetcher) {
-	if (fetcher) return fetcher;
-	if (typeof fetch === 'function') return fetch;
-	throw new Error('No fetch implementation available for backend request');
-}
-
-function buildHeaders(initHeaders) {
-	const headers = new Headers(initHeaders ?? {});
-	if (BACKEND_SERVICE_TOKEN && !headers.has('Authorization')) {
-		headers.set('Authorization', `Bearer ${BACKEND_SERVICE_TOKEN}`);
+function resolveDatabase(target) {
+	if (!target) {
+		throw new Error(
+			'[db] No database binding provided. Ensure a Cloudflare D1 binding named DB is configured.'
+		);
 	}
-	return headers;
-}
 
-export async function backendFetch(fetcher, path, init = {}) {
-	const finalFetch = ensureFetcher(fetcher);
-	const headers = buildHeaders(init.headers);
-	const response = await finalFetch(`${BACKEND_BASE_URL}${path}`, {
-		...init,
-		headers
-	});
-	return response;
+	if (typeof target.prepare === 'function') {
+		return target;
+	}
+
+	if (target.locals?.db) {
+		return resolveDatabase(target.locals.db);
+	}
+
+	if (target.db) {
+		return resolveDatabase(target.db);
+	}
+
+	if (target.platform?.env?.DB) {
+		return resolveDatabase(target.platform.env.DB);
+	}
+
+	if (target.env?.DB) {
+		return resolveDatabase(target.env.DB);
+	}
+
+	throw new Error(
+		'[db] Invalid database binding. Provide the D1 database instance (platform.env.DB).'
+	);
 }
 
 function serialiseParameter(value) {
@@ -143,50 +149,61 @@ function resolveQueryPayload(sqlOrConfig, options = {}) {
         return { sql, source };
 }
 
-export async function runQuery(fetcher, sqlOrConfig, options = {}) {
-        const { sql, source } = resolveQueryPayload(sqlOrConfig, options);
-
-        const response = await backendFetch(fetcher, '/query', {
-                method: 'POST',
-                headers: {
-                        'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ sql, source })
-        });
-
-	if (!response.ok) {
-		const message = await response.text();
-		const error = new Error(message || 'Backend query failed');
-		error.status = response.status;
-		throw error;
+async function execute(database, sql) {
+	const trimmed = sql.trim();
+	if (!trimmed) {
+		throw new Error('[db] Cannot execute an empty SQL statement');
 	}
 
-	// Attempt to parse JSON, but fall back to raw text
-	try {
-		return await response.json();
-	} catch {
-		return await response.text();
-	}
+	// Prefer .all() to support statements that return rows (e.g. INSERT ... RETURNING).
+	const statement = database.prepare(trimmed);
+	const { results } = await statement.all();
+	return results ?? [];
 }
 
-export async function runQueryFile(fetcher, formData) {
-	const response = await backendFetch(fetcher, '/query-file', {
-		method: 'POST',
-		body: formData
-	});
+export async function runQuery(target, sqlOrConfig, options = {}) {
+	const database = resolveDatabase(target);
+        const { sql, source } = resolveQueryPayload(sqlOrConfig, options);
 
-	if (!response.ok) {
-		const message = await response.text();
-		const error = new Error(message || 'Backend query-file failed');
-		error.status = response.status;
-		throw error;
+        // `source` is kept for compatibility with historical payloads but is unused now that
+        // queries execute directly against the bound D1 database.
+        void source;
+
+	return execute(database, sql);
+}
+
+async function readSqlInput(input) {
+	if (!input) {
+		throw new Error('[db] No SQL input provided');
 	}
 
-	try {
-		return await response.json();
-	} catch {
-		return await response.text();
+	if (typeof input === 'string') {
+		return input;
 	}
+
+	if ( typeof input === 'object') {
+		if (input instanceof Blob) {
+			return input.text();
+		}
+
+		if (typeof input.text === 'function') {
+			return input.text();
+		}
+	}
+
+	throw new Error('[db] Unsupported SQL input type');
+}
+
+export async function runQueryFile(target, sqlSource) {
+	const database = resolveDatabase(target);
+	const sql = await readSqlInput(sqlSource);
+	const trimmed = sql.trim();
+	if (!trimmed) {
+		return { success: true };
+	}
+
+	await database.exec(trimmed);
+	return { success: true };
 }
 
 export function escapeSql(str) {

@@ -12,13 +12,14 @@
 		"lint": "prettier --check . && eslint .",
 		"test:unit": "vitest --maxWorkers=1",
 		"test": "npm run test:unit -- --run && npm run test:e2e",
-		"test:e2e": "cross-env BACKEND_SERVICE_TOKEN=\"dummy-passphrase\" playwright test"
+		"test:e2e": "playwright test"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.2.5",
 		"@eslint/js": "^9.18.0",
+		"@cloudflare/workers-types": "^4.20251014.0",
 		"@playwright/test": "^1.49.1",
-		"@sveltejs/adapter-auto": "^6.0.0",
+		"@sveltejs/adapter-cloudflare": "^7.2.4",
 		"@sveltejs/kit": "^2.22.0",
 		"@sveltejs/vite-plugin-svelte": "^6.0.0",
 		"@vitest/browser": "^3.2.3",

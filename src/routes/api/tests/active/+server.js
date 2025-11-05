@@ -1,11 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { normaliseResult, runQuery } from '$lib/server/db';
 
-export async function GET({ fetch }) {
+export async function GET({ locals }) {
 	try {
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT id, title, description, is_active
 				 FROM tests
 				 WHERE is_active = TRUE

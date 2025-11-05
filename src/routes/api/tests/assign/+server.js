@@ -20,7 +20,7 @@ function requireString(value, field) {
 	return value.trim();
 }
 
-export async function POST({ request, fetch, locals }) {
+export async function POST({ request, locals }) {
         try {
                 const body = await request.json();
                 const teacherId = resolveTeacherId(locals, body?.teacherId);
@@ -29,8 +29,7 @@ export async function POST({ request, fetch, locals }) {
                 const studentName = requireString(body?.studentName, 'studentName');
 
 		const ownership = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT id FROM tests WHERE id = ${testId} AND teacher_id = ${teacherId} LIMIT 1`
 			)
 		);
@@ -40,8 +39,7 @@ export async function POST({ request, fetch, locals }) {
 		}
 
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`INSERT INTO test_attempts (test_id, student_id, student_name)
 				 VALUES (${testId}, ${studentId}, '${escapeSql(studentName)}')
 				 RETURNING id`

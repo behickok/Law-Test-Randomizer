@@ -69,29 +69,22 @@ The app now uses session-backed passphrases for authentication. Teachers, studen
 
 ## Database migrations
 
-This project includes SQL migrations for the Cloudflare D1 backend. The scripts live in the `migrations/` directory. To apply the initial schema, upload the SQL file to the FastAPI service:
+This project targets Cloudflare D1. Migrations live in the `migrations/` directory and can be executed with Wrangler:
 
 ```sh
-curl -X POST -F "sql_file=@migrations/001_init.sql" https://web-production-b1513.up.railway.app/query-file
+# Local development (uses wrangler.toml bindings)
+wrangler d1 execute <DATABASE_NAME> --local --file migrations/001_init.sql
+wrangler d1 execute <DATABASE_NAME> --local --file migrations/002_add_pins.sql
+
+# Production
+wrangler d1 execute <DATABASE_NAME> --file migrations/001_init.sql
+wrangler d1 execute <DATABASE_NAME> --file migrations/002_add_pins.sql
 ```
 
-To add support for passphrases and test activation, apply the additional migration:
+Replace `<DATABASE_NAME>` with the binding configured in your `wrangler.toml`. The statements create the tables used by the app for tests, questions, and student attempts.
 
-```sh
-curl -X POST -F "sql_file=@migrations/002_add_pins.sql" https://web-production-b1513.up.railway.app/query-file
-```
-
-This will create the tables used by the app for tests, questions and student attempts.
-
-> **Security note:** The SvelteKit app no longer exposes `/api/query` or `/api/query-file`; these endpoints are only reachable from trusted server code that forwards the private `BACKEND_SERVICE_TOKEN` (`src/routes/+page.server.js:1`, `src/lib/server/db.js:1`). Run the `curl` commands from a secure environment (or the backend service itself) so the token is never exposed to browsers or untrusted clients.
+> **Security note:** The SvelteKit server now talks directly to the Cloudflare D1 binding. Ensure every environment (development, preview, production) defines a `DB` binding that points to the correct database. No bearer tokens are required or exposed to the browser.
 
 ## Authentication
 
-API requests now require a bearer token. Set `BACKEND_SERVICE_TOKEN` in your environment before running the app:
-
-```sh
-export BACKEND_SERVICE_TOKEN=your_token_here
-npm run dev
-```
-
-The token is only sent from server-side routes; keep it private and avoid exposing it to the browser.
+Authentication is session-based and stored in HTTP-only cookies. All credential checks run on the server against the D1 database via the `DB` binding. Configure the binding through Wrangler/Cloudflare Pages to ensure server routes can access the database.

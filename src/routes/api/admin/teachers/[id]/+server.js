@@ -11,13 +11,12 @@ function requireNumericParam(param) {
 	return Number(param);
 }
 
-export async function GET({ params, fetch, locals }) {
+export async function GET({ params, locals }) {
 	try {
 		requireTeacher(locals);
 		const teacherId = requireNumericParam(params.id);
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT id, name, pin, invite_code FROM teachers WHERE id = ${teacherId} LIMIT 1`
 			)
 		);

@@ -19,12 +19,12 @@ Some dormant users may still have legacy numeric PINs until they authenticate. T
    import { hashPin } from '../src/lib/server/pin.js';
    import { escapeSql, runQuery } from '../src/lib/server/db.js';
 
-   const upgrade = async (table, id, rawPin) => {
+   const upgrade = async (db, table, id, rawPin) => {
      const hashed = hashPin(rawPin);
-     await runQuery(undefined, `UPDATE ${table} SET pin = '${escapeSql(hashed)}' WHERE id = ${id}`);
+     await runQuery(db, `UPDATE ${table} SET pin = '${escapeSql(hashed)}' WHERE id = ${id}`);
    };
    ```
-   > The repository includes `scripts/migrate-pins.js`; run it with `node scripts/migrate-pins.js` after exporting `BACKEND_BASE_URL` and `BACKEND_SERVICE_TOKEN`. Use parameterised queries if you customise the snippet.
+   > The repository includes `scripts/migrate-pins.js`; run it with `node scripts/migrate-pins.js` after exporting `CLOUDFLARE_ACCOUNT_ID`, `D1_DATABASE_ID`, and `CLOUDFLARE_API_TOKEN`. Use parameterised queries if you customise the snippet.
 3. After backfill, rotate invite codes and notify users to adopt stronger credentials.
 
 ## Next Security Steps

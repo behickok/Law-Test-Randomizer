@@ -27,14 +27,14 @@ async function parseJson(request) {
         }
 }
 
-export async function DELETE({ params, request, fetch, locals }) {
+export async function DELETE({ params, request, locals }) {
         try {
                 const testId = requireNumeric(params.id, 'testId');
                 const body = await parseJson(request);
                 const teacherId = resolveTeacherId(locals, body?.teacherId);
 
                 const ownership = normaliseResult(
-                        await runQuery(fetch, {
+                        await runQuery(locals.db, {
                                 text: 'SELECT id FROM tests WHERE id = $1 AND teacher_id = $2 LIMIT 1',
                                 values: [testId, teacherId]
                         })
@@ -44,27 +44,27 @@ export async function DELETE({ params, request, fetch, locals }) {
                         return json({ error: 'Test not found or access denied' }, { status: 404 });
                 }
 
-                await runQuery(fetch, {
+                await runQuery(locals.db, {
                         text: 'DELETE FROM attempt_answers WHERE question_id IN (SELECT id FROM questions WHERE test_id = $1)',
                         values: [testId]
                 });
-                await runQuery(fetch, {
+                await runQuery(locals.db, {
                         text: 'DELETE FROM choices WHERE question_id IN (SELECT id FROM questions WHERE test_id = $1)',
                         values: [testId]
                 });
-                await runQuery(fetch, {
+                await runQuery(locals.db, {
                         text: 'DELETE FROM questions WHERE test_id = $1',
                         values: [testId]
                 });
-                await runQuery(fetch, {
+                await runQuery(locals.db, {
                         text: 'DELETE FROM sections WHERE test_id = $1',
                         values: [testId]
                 });
-                await runQuery(fetch, {
+                await runQuery(locals.db, {
                         text: 'DELETE FROM test_attempts WHERE test_id = $1',
                         values: [testId]
                 });
-                await runQuery(fetch, {
+                await runQuery(locals.db, {
                         text: 'DELETE FROM tests WHERE id = $1',
                         values: [testId]
                 });

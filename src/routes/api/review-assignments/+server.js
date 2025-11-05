@@ -20,7 +20,7 @@ function requireString(value, field) {
 	return value.trim();
 }
 
-export async function GET({ request, fetch, locals }) {
+export async function GET({ request, locals }) {
         try {
                 const teacher = requireTeacher(locals);
                 const url = new URL(request.url);
@@ -34,8 +34,7 @@ export async function GET({ request, fetch, locals }) {
                 }
 
                 const rows = normaliseResult(
-                        await runQuery(
-                                fetch,
+                        await runQuery(locals.db,
                                 `SELECT *
                                  FROM review_summary
                                  WHERE assigner_id = ${teacher.id}
@@ -52,7 +51,7 @@ export async function GET({ request, fetch, locals }) {
 	}
 }
 
-export async function POST({ request, fetch, locals }) {
+export async function POST({ request, locals }) {
         try {
                 const teacher = requireTeacher(locals);
                 const body = await request.json();
@@ -73,8 +72,7 @@ export async function POST({ request, fetch, locals }) {
                 const reviewerIds = reviewers.map((id) => requireNumeric(id, 'reviewerId'));
 
                 const testCheck = normaliseResult(
-                        await runQuery(
-                                fetch,
+                        await runQuery(locals.db,
                                 `SELECT id
                                  FROM tests
                                  WHERE id = ${testId} AND teacher_id = ${teacher.id}
@@ -87,8 +85,7 @@ export async function POST({ request, fetch, locals }) {
 
                 // Verify reviewers
                 const reviewerCheck = normaliseResult(
-                        await runQuery(
-                                fetch,
+                        await runQuery(locals.db,
 				`SELECT id
 				 FROM reviewers
 				 WHERE id IN (${reviewerIds.join(',')})
@@ -101,8 +98,7 @@ export async function POST({ request, fetch, locals }) {
 
 		// Create assignment
                 const assignmentRes = normaliseResult(
-                        await runQuery(
-                                fetch,
+                        await runQuery(locals.db,
                                 `INSERT INTO review_assignments (test_id, assigner_id, title, description, questions_per_reviewer, overlap_factor)
                                  VALUES (${testId}, ${teacher.id}, '${escapeSql(title)}', '${escapeSql(description)}', ${questionsPerReviewer}, ${overlapFactor})
                                  RETURNING id`
@@ -114,8 +110,7 @@ export async function POST({ request, fetch, locals }) {
 		}
 
 		const questions = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT id
 				 FROM questions
 				 WHERE test_id = ${testId}
@@ -145,8 +140,7 @@ export async function POST({ request, fetch, locals }) {
 			)
 			.join(', ');
 
-		await runQuery(
-			fetch,
+		await runQuery(locals.db,
 			`INSERT INTO question_reviews (question_id, reviewer_id, assignment_id)
 			 VALUES ${insertValues}`
 		);

@@ -10,12 +10,11 @@ function requireNumeric(value, field) {
 	return Number(value);
 }
 
-export async function POST({ params, fetch }) {
+export async function POST({params, locals}) {
 	try {
 		const attemptId = requireNumeric(params.id, 'attemptId');
 
-		await runQuery(
-			fetch,
+		await runQuery(locals.db,
 			`UPDATE attempt_answers aa
 			 SET is_correct = c.is_correct,
 			     points_awarded = CASE WHEN c.is_correct THEN q.points ELSE 0 END
@@ -25,8 +24,7 @@ export async function POST({ params, fetch }) {
 			   AND aa.choice_id = c.id`
 		);
 
-		await runQuery(
-			fetch,
+		await runQuery(locals.db,
 			`UPDATE test_attempts
 			 SET score = (
 					SELECT CASE
@@ -46,8 +44,7 @@ export async function POST({ params, fetch }) {
 		);
 
 		const scoreRows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT score
 				 FROM test_attempts
 				 WHERE id = ${attemptId}`

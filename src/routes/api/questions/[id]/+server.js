@@ -20,7 +20,7 @@ function requireString(value, field) {
 	return value.trim();
 }
 
-export async function PUT({ params, request, fetch, locals }) {
+export async function PUT({ params, request, locals }) {
         try {
                 const questionId = requireNumeric(params.id, 'questionId');
                 const body = await request.json();
@@ -29,8 +29,7 @@ export async function PUT({ params, request, fetch, locals }) {
 		const points = requireNumeric(body?.points, 'points');
 
 		const questionOwnership = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT 1
 				 FROM questions q
 				 JOIN tests t ON q.test_id = t.id
@@ -45,8 +44,7 @@ export async function PUT({ params, request, fetch, locals }) {
 		}
 
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`UPDATE questions
 				 SET question_text = '${escapeSql(text)}',
 				     points = ${points}

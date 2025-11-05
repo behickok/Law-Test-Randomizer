@@ -29,7 +29,7 @@ function requireBoolean(value, field) {
 	return value;
 }
 
-export async function PUT({ params, request, fetch, locals }) {
+export async function PUT({ params, request, locals }) {
         try {
                 const choiceId = requireNumeric(params.id, 'choiceId');
                 const body = await request.json();
@@ -38,8 +38,7 @@ export async function PUT({ params, request, fetch, locals }) {
 		const isCorrect = requireBoolean(body?.isCorrect, 'isCorrect');
 
 		const ownership = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT 1
 				 FROM choices c
 				 JOIN questions q ON q.id = c.question_id
@@ -55,8 +54,7 @@ export async function PUT({ params, request, fetch, locals }) {
 		}
 
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`UPDATE choices
 				 SET choice_text = '${escapeSql(text)}',
 				     is_correct = ${isCorrect ? 'TRUE' : 'FALSE'}

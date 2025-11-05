@@ -31,7 +31,7 @@ function acceptNumericOrNull(value, field) {
 	return Number(value);
 }
 
-export async function POST({ request, fetch, locals }) {
+export async function POST({ request, locals }) {
         try {
                 const body = await request.json();
                 const teacherId = resolveTeacherId(locals, body?.teacherId);
@@ -40,7 +40,7 @@ export async function POST({ request, fetch, locals }) {
 		const pointsAwarded = acceptNumericOrNull(body?.pointsAwarded, 'pointsAwarded');
 
                 const ownership = normaliseResult(
-                        await runQuery(fetch, {
+                        await runQuery(locals.db, {
                                 text: `SELECT aa.attempt_id
                                  FROM attempt_answers aa
                                  JOIN test_attempts ta ON ta.id = aa.attempt_id
@@ -55,7 +55,7 @@ export async function POST({ request, fetch, locals }) {
 			return json({ error: 'Answer not found or access denied' }, { status: 403 });
 		}
 
-                await runQuery(fetch, {
+                await runQuery(locals.db, {
                         text: `UPDATE attempt_answers
                          SET is_correct = $1,
                                  points_awarded = $2

@@ -10,7 +10,7 @@ function requireNumeric(value, field) {
 	return Number(value);
 }
 
-export async function GET({ request, fetch }) {
+export async function GET({request, locals}) {
 	try {
 		const url = new URL(request.url);
 		const reviewerParam = url.searchParams.get('reviewerId');
@@ -20,8 +20,7 @@ export async function GET({ request, fetch }) {
 		const reviewerId = requireNumeric(reviewerParam, 'reviewerId');
 
 		const reviewerExists = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT id
 				 FROM reviewers
 				 WHERE id = ${reviewerId} AND is_active = TRUE
@@ -33,8 +32,7 @@ export async function GET({ request, fetch }) {
 		}
 
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT DISTINCT ra.id,
 				        ra.title,
 				        ra.description,

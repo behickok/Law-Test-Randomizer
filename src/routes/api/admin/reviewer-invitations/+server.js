@@ -21,7 +21,7 @@ function requireString(value, field) {
 	return value.trim();
 }
 
-export async function GET({ request, fetch, locals }) {
+export async function GET({ request, locals }) {
 	try {
 		const teacher = requireTeacher(locals);
 		const teacherIdHeader = request.headers.get('x-teacher-id');
@@ -34,8 +34,7 @@ export async function GET({ request, fetch, locals }) {
 		}
 
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT id,
 				        teacher_id,
 				        reviewer_name,
@@ -59,7 +58,7 @@ export async function GET({ request, fetch, locals }) {
 	}
 }
 
-export async function POST({ request, fetch, locals }) {
+export async function POST({ request, locals }) {
 	try {
 		const teacher = requireTeacher(locals);
 		const body = await request.json();
@@ -75,7 +74,7 @@ export async function POST({ request, fetch, locals }) {
 
 		// Ensure teacher exists
 		const teacherCheck = normaliseResult(
-			await runQuery(fetch, `SELECT id FROM teachers WHERE id = ${teacherId} LIMIT 1`)
+			await runQuery(locals.db, `SELECT id FROM teachers WHERE id = ${teacherId} LIMIT 1`)
 		);
 		if (teacherCheck.length === 0) {
 			return json({ error: 'Teacher not found' }, { status: 404 });
@@ -84,8 +83,7 @@ export async function POST({ request, fetch, locals }) {
 		const inviteCode = randomUUID();
 
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`INSERT INTO reviewer_invitations (teacher_id, reviewer_name, reviewer_email, invite_code)
 				 VALUES (${teacherId}, '${escapeSql(reviewerName)}', '${escapeSql(reviewerEmail)}', '${inviteCode}')
 				 RETURNING id, reviewer_name, reviewer_email, invite_code, status, created_at`

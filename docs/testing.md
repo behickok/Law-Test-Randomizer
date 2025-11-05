@@ -38,7 +38,7 @@ What’s covered:
 ## 3. Playwright end-to-end tests
 
 ```bash
-BACKEND_SERVICE_TOKEN=dummy-passphrase npm run test:e2e
+npm run test:e2e
 ```
 
 Scenarios include:
@@ -48,13 +48,13 @@ Scenarios include:
 
 Tips:
 
-- Run against `npm run dev` in another terminal for quicker iterations.
+- Run against `wrangler pages dev` (or another Cloudflare environment that provides the `DB` binding) in another terminal for quicker iterations.
 - Artifacts (screenshots/videos) live under `playwright-report/` when a test fails.
 
 ## 4. Troubleshooting
 
 - **Channel closed / tinypool errors**: the script already runs in a single worker; if you need to override manually, use `npx vitest run --config vitest.config.js --maxWorkers=1`.
-- **Missing PASS**: ensure `BACKEND_SERVICE_TOKEN` matches your backend or stub responses in Vitest using `vi.mock`.
+- **D1 binding missing**: ensure the Cloudflare worker environment exposes a `DB` binding when running the dev server or tests.
 - **Playwright browser missing**: rerun `npx playwright install`.
 
 Keep this document updated when adding new suites or changing tooling defaults.

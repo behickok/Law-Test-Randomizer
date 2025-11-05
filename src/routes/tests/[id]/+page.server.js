@@ -115,14 +115,13 @@ function shuffle(array) {
 	return shuffled;
 }
 
-export async function load({ params, fetch }) {
+export async function load({ params, fetch, locals }) {
 	const startTime = Date.now();
 	const MAX_PROCESSING_TIME = 25000; // 25 seconds to avoid gateway timeout
 	
 	try {
                 const tData = normaliseResult(
-                        await runQuery(
-                                fetch,
+                        await runQuery(locals.db,
                                 `select id, title, teacher_id from tests where id = ${params.id}`
                         )
                 );
@@ -130,8 +129,7 @@ export async function load({ params, fetch }) {
 
                 // Get sections for this test
                 const sections = normaliseResult(
-                        await runQuery(
-                                fetch,
+                        await runQuery(locals.db,
                                 `select id, section_name, section_order, total_questions
                                  from sections
                                  where test_id = ${params.id}
@@ -141,8 +139,7 @@ export async function load({ params, fetch }) {
 
                 // Get all questions with their section information
                 const rows = normaliseResult(
-                        await runQuery(
-                                fetch,
+                        await runQuery(locals.db,
                                 `select q.id as question_id, q.question_text, q.points, q.section_id,
                                                 s.section_name, s.section_order, s.total_questions,
                                                 c.id as choice_id, c.choice_text, c.is_correct

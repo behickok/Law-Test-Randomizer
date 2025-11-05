@@ -10,14 +10,13 @@ function requireNumeric(value, field) {
 	return Number(value);
 }
 
-export async function POST({ request, fetch }) {
+export async function POST({request, locals}) {
 	try {
 		const body = await request.json();
 		const studentId = requireNumeric(body?.studentId, 'studentId');
 
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT t.id AS test_id,
 						t.title,
 						ta.score,

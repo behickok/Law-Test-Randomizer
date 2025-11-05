@@ -38,10 +38,10 @@ const PIN_TABLES = [
 	{ name: 'reviewers', idColumn: 'id' }
 ];
 
-export async function pinExists(fetch, pin, exclude) {
+export async function pinExists(db, pin, exclude) {
         for (const table of PIN_TABLES) {
                 const rows = normaliseResult(
-                        await runQuery(fetch, `SELECT ${table.idColumn} AS id, pin FROM ${table.name}`)
+                        await runQuery(db, `SELECT ${table.idColumn} AS id, pin FROM ${table.name}`)
                 );
                 for (const row of rows) {
 			if (exclude && exclude.table === table.name && exclude.id === row.id) {

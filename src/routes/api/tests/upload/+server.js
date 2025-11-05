@@ -36,15 +36,15 @@ function parseLine(line) {
 	return result;
 }
 
-async function run(fetcher, sqlOrConfig, values) {
+async function run(database, sqlOrConfig, values) {
         if (values) {
-                return runQuery(fetcher, { text: sqlOrConfig, values });
+                return runQuery(database, { text: sqlOrConfig, values });
         }
 
-        return runQuery(fetcher, sqlOrConfig);
+        return runQuery(database, sqlOrConfig);
 }
 
-export async function POST({ request, fetch, locals }) {
+export async function POST({ request, locals }) {
         const formData = await request.formData();
 	const data = formData.get('data');
 	const test_id = formData.get('test_id');
@@ -92,7 +92,7 @@ export async function POST({ request, fetch, locals }) {
 
                 if (test_id) {
                         // Update existing test - verify ownership first
-                        const ownershipCheck = await run(fetch, {
+                        const ownershipCheck = await run(locals.db, {
                                 text: `SELECT id FROM tests WHERE id = $1 AND teacher_id = $2`,
                                 values: [numericTestId, teacherId]
                         });
@@ -103,7 +103,7 @@ export async function POST({ request, fetch, locals }) {
 
                         // Update test title (only if not in append mode)
                         if (!append_mode) {
-                                await run(fetch, {
+                                await run(locals.db, {
                                         text: `UPDATE tests SET title = $1 WHERE id = $2`,
                                         values: [title, numericTestId]
                                 });
@@ -111,15 +111,15 @@ export async function POST({ request, fetch, locals }) {
 
                         if (!append_mode) {
                                 // Full replacement mode - delete existing data (in correct order due to foreign key constraints)
-                                await run(fetch, {
+                                await run(locals.db, {
                                         text: `DELETE FROM choices WHERE question_id IN (SELECT id FROM questions WHERE test_id = $1)`,
                                         values: [numericTestId]
                                 });
-                                await run(fetch, {
+                                await run(locals.db, {
                                         text: `DELETE FROM questions WHERE test_id = $1`,
                                         values: [numericTestId]
                                 });
-                                await run(fetch, {
+                                await run(locals.db, {
                                         text: `DELETE FROM sections WHERE test_id = $1`,
                                         values: [numericTestId]
                                 });
@@ -128,7 +128,7 @@ export async function POST({ request, fetch, locals }) {
                         final_test_id = numericTestId;
                 } else {
                         // Create new test
-                        const testRow = await run(fetch, {
+                        const testRow = await run(locals.db, {
                                 text: `INSERT INTO tests (title, teacher_id) VALUES ($1, $2) RETURNING id`,
                                 values: [title, teacherId]
                         });
@@ -244,7 +244,7 @@ export async function POST({ request, fetch, locals }) {
 
                         if (append_mode) {
                                 // In append mode, find existing section or create if it doesn't exist
-                                const existingSections = await run(fetch, {
+                                const existingSections = await run(locals.db, {
                                         text: `SELECT id FROM sections WHERE test_id = $1 AND section_name = $2`,
                                         values: [final_test_id, sectionName]
                                 });
@@ -253,13 +253,13 @@ export async function POST({ request, fetch, locals }) {
                                         sectionId = existingSections[0].id;
                                 } else {
                                         // Get the maximum order for new sections
-                                        const maxOrderResult = await run(fetch, {
+                                        const maxOrderResult = await run(locals.db, {
                                                 text: `SELECT COALESCE(MAX(section_order), 0) as max_order FROM sections WHERE test_id = $1`,
                                                 values: [final_test_id]
                                         });
                                         const nextOrder = (maxOrderResult[0]?.max_order || 0) + 1;
 
-                                        const sectionRow = await run(fetch, {
+                                        const sectionRow = await run(locals.db, {
                                                 text: `INSERT INTO sections (test_id, section_name, section_order, total_questions)
                                                  VALUES ($1, $2, $3, $4)
                                                  RETURNING id`,
@@ -269,7 +269,7 @@ export async function POST({ request, fetch, locals }) {
                                 }
                         } else {
                                 // Full replacement mode - insert new section
-                                const sectionRow = await run(fetch, {
+                                const sectionRow = await run(locals.db, {
                                         text: `INSERT INTO sections (test_id, section_name, section_order, total_questions)
                                          VALUES ($1, $2, $3, $4)
                                          RETURNING id`,
@@ -284,7 +284,7 @@ export async function POST({ request, fetch, locals }) {
 
                                 if (append_mode) {
                                         // In append mode, check if question with this question_id already exists
-                                        const existingQuestions = await run(fetch, {
+                                        const existingQuestions = await run(locals.db, {
                                                 text: `SELECT id FROM questions WHERE test_id = $1 AND question_id = $2`,
                                                 values: [final_test_id, questionData.question_id]
                                         });
@@ -292,20 +292,20 @@ export async function POST({ request, fetch, locals }) {
                                         if (existingQuestions.length > 0) {
                                                 // Update existing question
                                                 question_pk_id = existingQuestions[0].id;
-                                                await run(fetch, {
+                                                await run(locals.db, {
                                                         text: `UPDATE questions SET question_text = $1, section_id = $2
                                                          WHERE id = $3`,
                                                         values: [questionData.question_text, sectionId, question_pk_id]
                                                 });
 
                                                 // Delete existing choices for this question
-                                                await run(fetch, {
+                                                await run(locals.db, {
                                                         text: `DELETE FROM choices WHERE question_id = $1`,
                                                         values: [question_pk_id]
                                                 });
                                         } else {
                                                 // Insert new question
-                                                const qRow = await run(fetch, {
+                                                const qRow = await run(locals.db, {
                                                         text: `INSERT INTO questions (test_id, question_text, question_id, points, section_id)
                                                          VALUES ($1, $2, $3, $4, $5)
                                                          RETURNING id`,
@@ -321,7 +321,7 @@ export async function POST({ request, fetch, locals }) {
                                         }
                                 } else {
                                         // Full replacement mode - insert new question
-                                        const qRow = await run(fetch, {
+                                        const qRow = await run(locals.db, {
                                                 text: `INSERT INTO questions (test_id, question_text, question_id, points, section_id)
                                                  VALUES ($1, $2, $3, $4, $5)
                                                  RETURNING id`,
@@ -341,7 +341,7 @@ export async function POST({ request, fetch, locals }) {
 					for (let i = 0; i < questionData.choices.length; i++) {
 						const choice = questionData.choices[i];
 						if (choice.text) {
-                                                        await run(fetch, {
+                                                        await run(locals.db, {
                                                                 text: `INSERT INTO choices (question_id, choice_text, is_correct)
                                                                  VALUES ($1, $2, $3)`,
                                                                 values: [question_pk_id, choice.text, choice.isCorrect === true]

@@ -47,7 +47,7 @@ function retryAfterHeader(target) {
 	return delta > 0 ? String(delta) : undefined;
 }
 
-export async function POST({ request, fetch, cookies }) {
+export async function POST({request, cookies, locals}) {
 	try {
 		const body = await request.json();
 		const role = body?.role;
@@ -95,7 +95,7 @@ export async function POST({ request, fetch, cookies }) {
                 }
 
                 const identifierHash = deriveLoginIdentifier(role, pin);
-		const lock = await getLock(fetch, identifierHash);
+		const lock = await getLock(locals.db, identifierHash);
 		if (lock?.lockedUntil && lock.lockedUntil.getTime() > Date.now()) {
 			const headers = {};
 			const retry = retryAfterHeader(lock.lockedUntil);
@@ -105,15 +105,14 @@ export async function POST({ request, fetch, cookies }) {
 
 		const { table, columns, condition = '', transform } = ROLE_CONFIG[role];
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT ${columns} FROM ${table} WHERE TRUE ${condition}`
 			)
 		);
 
 		const match = rows.find((row) => verifyPin(pin, row.pin));
 		if (!match) {
-			const result = await recordFailure(fetch, identifierHash, lock?.failCount ?? 0);
+			const result = await recordFailure(locals.db, identifierHash, lock?.failCount ?? 0);
 			if (result.lockedUntil && result.lockedUntil.getTime() > Date.now()) {
 				const headers = {};
 				const retry = retryAfterHeader(result.lockedUntil);
@@ -125,8 +124,7 @@ export async function POST({ request, fetch, cookies }) {
 
 		if (typeof match.pin === 'string' && !match.pin.includes(':')) {
 			const hashed = hashPin(pin);
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`UPDATE ${table} SET pin = '${escapeSql(hashed)}' WHERE id = ${match.id}`
 			);
 			match.pin = hashed;
@@ -137,9 +135,9 @@ export async function POST({ request, fetch, cookies }) {
 			? transform({ ...safe, pin: _pin })
 			: { ...safe, role };
 
-		await clearFailures(fetch, identifierHash);
+		await clearFailures(locals.db, identifierHash);
 
-		const sessionRecord = await createSession(fetch, formatted);
+		const sessionRecord = await createSession(locals.db, formatted);
 		cookies.set(
 			getSessionCookieName(),
 			makeSessionCookieValue(sessionRecord),

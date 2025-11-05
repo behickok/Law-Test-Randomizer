@@ -10,14 +10,13 @@ function requireNumeric(value, field) {
 	return Number(value);
 }
 
-export async function GET({ params, request, fetch }) {
+export async function GET({params, request, locals}) {
 	try {
 		const imageId = requireNumeric(params.id, 'image id');
 		const teacherId = requireNumeric(request.headers.get('x-teacher-id'), 'x-teacher-id');
 
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT id, name, description, mime_type, base64_data, file_size, created_at
 				 FROM images
 				 WHERE id = ${imageId} AND uploaded_by = ${teacherId}
@@ -38,7 +37,7 @@ export async function GET({ params, request, fetch }) {
 	}
 }
 
-export async function PUT({ params, request, fetch }) {
+export async function PUT({params, request, locals}) {
 	try {
 		const imageId = requireNumeric(params.id, 'image id');
 		const body = await request.json();
@@ -54,8 +53,7 @@ export async function PUT({ params, request, fetch }) {
 		const description = typeof body?.description === 'string' ? body.description.trim() : '';
 
 		const result = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`UPDATE images
 				 SET name = '${escapeSql(name)}',
 				     description = '${escapeSql(description)}'
@@ -77,14 +75,13 @@ export async function PUT({ params, request, fetch }) {
 	}
 }
 
-export async function DELETE({ params, request, fetch }) {
+export async function DELETE({params, request, locals}) {
 	try {
 		const imageId = requireNumeric(params.id, 'image id');
 		const teacherId = requireNumeric(request.headers.get('x-teacher-id'), 'x-teacher-id');
 
 		const usage = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT id
 				 FROM questions
 				 WHERE image_references LIKE '%"${imageId}"%'`
@@ -99,8 +96,7 @@ export async function DELETE({ params, request, fetch }) {
 		}
 
 		const result = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`DELETE FROM images
 				 WHERE id = ${imageId} AND uploaded_by = ${teacherId}
 				 RETURNING id`

@@ -6,14 +6,14 @@ export async function load() {
 }
 
 export const actions = {
-	upload: async ({ request, fetch }) => {
+	upload: async ({ request, locals }) => {
 		const formData = await request.formData();
 		const file = formData.get('sql_file');
 		if (!file) {
 			return fail(400, { error: 'No file provided' });
 		}
                 try {
-                        await runQueryFile(fetch, formData);
+                        await runQueryFile(locals.db, file);
                         return { success: true };
                 } catch {
                         return fail(400, { error: 'Upload failed' });

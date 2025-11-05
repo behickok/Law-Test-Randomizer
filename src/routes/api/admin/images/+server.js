@@ -20,7 +20,7 @@ function requireString(value, field) {
 	return value.trim();
 }
 
-export async function GET({ request, fetch, locals }) {
+export async function GET({ request, locals }) {
 	try {
 		const teacher = requireTeacher(locals);
 		const teacherIdHeader = request.headers.get('x-teacher-id');
@@ -33,8 +33,7 @@ export async function GET({ request, fetch, locals }) {
 		}
 
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT id, name, description, mime_type, base64_data, file_size, created_at
 				 FROM images
 				 WHERE uploaded_by = ${teacherId}
@@ -51,7 +50,7 @@ export async function GET({ request, fetch, locals }) {
 	}
 }
 
-export async function POST({ request, fetch, locals }) {
+export async function POST({ request, locals }) {
 	try {
 		const teacher = requireTeacher(locals);
 		const body = await request.json();
@@ -71,8 +70,7 @@ export async function POST({ request, fetch, locals }) {
 		const fileSize = Math.round((base64Data.length * 3) / 4);
 
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`INSERT INTO images (name, description, mime_type, base64_data, uploaded_by, file_size)
 				 VALUES ('${escapeSql(name)}', '${escapeSql(description)}', '${escapeSql(mimeType)}', '${escapeSql(
 					base64Data

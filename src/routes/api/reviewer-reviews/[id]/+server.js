@@ -10,7 +10,7 @@ function requireNumeric(value, field) {
 	return Number(value);
 }
 
-export async function POST({ params, request, fetch }) {
+export async function POST({params, request, locals}) {
 	try {
 		const reviewId = requireNumeric(params.id, 'reviewId');
 		const body = await request.json();
@@ -40,8 +40,7 @@ export async function POST({ params, request, fetch }) {
 				? escapeSql(body.suggestions.trim())
 				: null;
 
-		await runQuery(
-			fetch,
+		await runQuery(locals.db,
 			`UPDATE question_reviews
 			 SET rating = ${rating ?? 'NULL'},
 			     feedback = ${feedback ? `'${feedback}'` : 'NULL'},

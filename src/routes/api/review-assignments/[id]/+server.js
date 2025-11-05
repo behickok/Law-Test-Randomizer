@@ -11,7 +11,7 @@ function requireNumeric(value, field) {
 	return Number(value);
 }
 
-export async function PUT({ params, request, fetch, locals }) {
+export async function PUT({ params, request, locals }) {
         try {
                 const teacher = requireTeacher(locals);
                 const assignmentId = requireNumeric(params.id, 'assignmentId');
@@ -25,8 +25,7 @@ export async function PUT({ params, request, fetch, locals }) {
 			return json({ error: 'title is required' }, { status: 400 });
 		}
 
-                await runQuery(
-                        fetch,
+                await runQuery(locals.db,
                         `UPDATE review_assignments
                          SET title = '${escapeSql(title)}',
                              description = '${escapeSql(description)}'
@@ -42,7 +41,7 @@ export async function PUT({ params, request, fetch, locals }) {
 	}
 }
 
-export async function PATCH({ params, request, fetch, locals }) {
+export async function PATCH({ params, request, locals }) {
         try {
                 const teacher = requireTeacher(locals);
                 const assignmentId = requireNumeric(params.id, 'assignmentId');
@@ -59,8 +58,7 @@ export async function PATCH({ params, request, fetch, locals }) {
 
 		const completedAt = status === 'completed' ? 'CURRENT_TIMESTAMP' : 'NULL';
 
-                await runQuery(
-                        fetch,
+                await runQuery(locals.db,
                         `UPDATE review_assignments
                          SET status = '${status}', completed_at = ${completedAt}
                          WHERE id = ${assignmentId} AND assigner_id = ${teacher.id}`
@@ -75,19 +73,17 @@ export async function PATCH({ params, request, fetch, locals }) {
 	}
 }
 
-export async function DELETE({ params, fetch, locals }) {
+export async function DELETE({ params, locals }) {
         try {
                 const teacher = requireTeacher(locals);
                 const assignmentId = requireNumeric(params.id, 'assignmentId');
 
-                await runQuery(
-                        fetch,
+                await runQuery(locals.db,
 			`DELETE FROM question_reviews WHERE assignment_id = ${assignmentId}`
 		);
 
                 const deleted = normaliseResult(
-                        await runQuery(
-                                fetch,
+                        await runQuery(locals.db,
                                 `DELETE FROM review_assignments
                                  WHERE id = ${assignmentId} AND assigner_id = ${teacher.id}
                                  RETURNING id`

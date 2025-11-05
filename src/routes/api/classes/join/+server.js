@@ -19,15 +19,14 @@ function requireString(value, field) {
 	return value.trim();
 }
 
-export async function POST({ request, fetch }) {
+export async function POST({request, locals}) {
 	try {
 		const body = await request.json();
 		const studentId = requireNumeric(body?.studentId, 'studentId');
 		const inviteCode = requireString(body?.inviteCode, 'inviteCode');
 
 		const teacherRow = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT id FROM teachers WHERE invite_code = '${escapeSql(inviteCode)}' LIMIT 1`
 			)
 		);
@@ -38,8 +37,7 @@ export async function POST({ request, fetch }) {
 
 		const teacherId = teacherRow[0].id;
 
-		await runQuery(
-			fetch,
+		await runQuery(locals.db,
 			`INSERT INTO classes (teacher_id, student_id, status)
 			 VALUES (${teacherId}, ${studentId}, 'active')
 			 ON CONFLICT (teacher_id, student_id)

@@ -10,9 +10,9 @@ import {
 	makeSessionCookieValue
 } from '$lib/server/session';
 
-async function ensureUniqueReviewerEmail(fetch, email) {
+async function ensureUniqueReviewerEmail(db, email) {
         const checks = normaliseResult(
-                await runQuery(fetch, {
+                await runQuery(db, {
                         text: `SELECT 1 FROM reviewers WHERE email = $1 LIMIT 1`,
                         values: [email]
                 })
@@ -24,7 +24,7 @@ async function ensureUniqueReviewerEmail(fetch, email) {
 	}
 }
 
-export async function POST({ request, fetch, cookies }) {
+export async function POST({ request, cookies, locals }) {
 	try {
 		const body = await request.json();
 		const role = body?.role;
@@ -47,7 +47,7 @@ export async function POST({ request, fetch, cookies }) {
 			return json({ error: 'Name is required' }, { status: 400 });
 		}
 
-                if (await pinExists(fetch, pin)) {
+                if (await pinExists(locals.db, pin)) {
                         return json(
                                 { error: 'Passphrase already exists. Please choose a different value.' },
                                 { status: 400 }
@@ -58,7 +58,7 @@ export async function POST({ request, fetch, cookies }) {
 		let inviteDetails = null;
 		if (role === 'reviewer' && inviteCode) {
                         const inviteRows = normaliseResult(
-                                await runQuery(fetch, {
+                                await runQuery(locals.db, {
                                         text: `SELECT reviewer_email, reviewer_name
                                          FROM reviewer_invitations
                                          WHERE invite_code = $1
@@ -77,7 +77,7 @@ export async function POST({ request, fetch, cookies }) {
                         const hashedPin = hashPin(pin);
                         const invite = randomUUID();
                         rows = normaliseResult(
-                                await runQuery(fetch, {
+                                await runQuery(locals.db, {
                                         text: `INSERT INTO teachers (name, pin, invite_code)
                                          VALUES ($1, $2, $3)
                                          RETURNING id, name, 'teacher' as role`,
@@ -87,7 +87,7 @@ export async function POST({ request, fetch, cookies }) {
                 } else if (role === 'student') {
                         const hashedPin = hashPin(pin);
                         rows = normaliseResult(
-                                await runQuery(fetch, {
+                                await runQuery(locals.db, {
                                         text: `INSERT INTO students (name, pin)
                                          VALUES ($1, $2)
                                          RETURNING id, name, 'student' as role`,
@@ -101,12 +101,12 @@ export async function POST({ request, fetch, cookies }) {
 
                         const reviewerEmail = inviteDetails ? inviteDetails.reviewer_email : email;
 
-                        await ensureUniqueReviewerEmail(fetch, reviewerEmail);
+                        await ensureUniqueReviewerEmail(locals.db, reviewerEmail);
 
                         const hashedPin = hashPin(pin);
                         const reviewerInviteCode = inviteDetails ? inviteCode : randomUUID();
                         rows = normaliseResult(
-                                await runQuery(fetch, {
+                                await runQuery(locals.db, {
                                         text: `INSERT INTO reviewers (name, email, pin, invite_code, is_active)
                                          VALUES ($1, $2, $3, $4, TRUE)
                                          RETURNING id, name, email, 'reviewer' as role`,
@@ -115,7 +115,7 @@ export async function POST({ request, fetch, cookies }) {
                         );
 
                         if (inviteDetails) {
-                                await runQuery(fetch, {
+                                await runQuery(locals.db, {
                                         text: `UPDATE reviewer_invitations
                                          SET status = 'accepted', accepted_at = CURRENT_TIMESTAMP
                                          WHERE invite_code = $1`,
@@ -129,7 +129,7 @@ export async function POST({ request, fetch, cookies }) {
 		}
 
 		const userPayload = rows[0];
-		const sessionRecord = await createSession(fetch, userPayload);
+		const sessionRecord = await createSession(locals.db, userPayload);
 		cookies.set(
 			getSessionCookieName(),
 			makeSessionCookieValue(sessionRecord),

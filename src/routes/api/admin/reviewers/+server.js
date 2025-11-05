@@ -13,12 +13,11 @@ function requireString(value, field) {
 	return value.trim();
 }
 
-export async function GET({ fetch, locals }) {
+export async function GET({ locals }) {
 	try {
 		requireTeacher(locals);
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT id, name, email, pin, is_active, created_at
 				 FROM reviewers
 				 ORDER BY created_at DESC`
@@ -38,7 +37,7 @@ export async function GET({ fetch, locals }) {
 	}
 }
 
-export async function POST({ request, fetch, locals }) {
+export async function POST({ request, locals }) {
 	try {
 		requireTeacher(locals);
 		const body = await request.json();
@@ -51,13 +50,12 @@ export async function POST({ request, fetch, locals }) {
                         return json({ error: validationError.message }, { status: 400 });
                 }
 
-                if (await pinExists(fetch, pin)) {
+                if (await pinExists(locals.db, pin)) {
                         return json({ error: 'Credential already exists. Choose a different value.' }, { status: 400 });
                 }
 
 		const emailCheck = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT 1 FROM reviewers WHERE email = '${escapeSql(email)}' LIMIT 1`
 			)
 		);
@@ -68,8 +66,7 @@ export async function POST({ request, fetch, locals }) {
 		const hashedPin = hashPin(pin);
 
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`INSERT INTO reviewers (name, email, pin, is_active)
 				 VALUES ('${escapeSql(name)}', '${escapeSql(email)}', '${escapeSql(hashedPin)}', TRUE)
 				 RETURNING id, name, email, pin, is_active`

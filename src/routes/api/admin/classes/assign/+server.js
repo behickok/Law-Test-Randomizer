@@ -11,15 +11,14 @@ function requireNumeric(value, field) {
 	return Number(value);
 }
 
-export async function POST({ request, fetch, locals }) {
+export async function POST({ request, locals }) {
 	try {
 		requireTeacher(locals);
 		const body = await request.json();
 		const studentId = requireNumeric(body?.studentId, 'studentId');
 		const teacherId = requireNumeric(body?.teacherId, 'teacherId');
 
-		await runQuery(
-			fetch,
+		await runQuery(locals.db,
 			`INSERT INTO classes (teacher_id, student_id, status)
 			 VALUES (${teacherId}, ${studentId}, 'active')
 			 ON CONFLICT (teacher_id, student_id)

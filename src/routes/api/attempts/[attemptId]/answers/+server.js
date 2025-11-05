@@ -11,7 +11,7 @@ function requireNumeric(value, field) {
 	return Number(value);
 }
 
-export async function POST({ params, request, fetch, locals }) {
+export async function POST({ params, request, locals }) {
         try {
                 const attemptId = requireNumeric(params.attemptId, 'attemptId');
                 let body = {};
@@ -29,7 +29,7 @@ export async function POST({ params, request, fetch, locals }) {
                 const teacherId = resolveTeacherId(locals, body?.teacherId);
 
                 const ownership = normaliseResult(
-                        await runQuery(fetch, {
+                        await runQuery(locals.db, {
                                 text: `SELECT ta.id
                                  FROM test_attempts ta
                                  JOIN tests t ON t.id = ta.test_id
@@ -44,7 +44,7 @@ export async function POST({ params, request, fetch, locals }) {
 		}
 
                 const rows = normaliseResult(
-                        await runQuery(fetch, {
+                        await runQuery(locals.db, {
                                 text: `SELECT aa.id,
                                                 q.question_text,
                                                 q.points,

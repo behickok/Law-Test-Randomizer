@@ -11,15 +11,14 @@ function requireNumeric(value, field) {
 	return Number(value);
 }
 
-export async function GET({ params, url, fetch, locals }) {
+export async function GET({ params, url, locals }) {
         try {
                 const testId = requireNumeric(params.id, 'testId');
                 const teacherParam = url.searchParams.get('teacherId');
                 const teacherId = resolveTeacherId(locals, teacherParam ?? undefined);
 
 		const ownership = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT id FROM tests WHERE id = ${testId} AND teacher_id = ${teacherId} LIMIT 1`
 			)
 		);
@@ -29,8 +28,7 @@ export async function GET({ params, url, fetch, locals }) {
 		}
 
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT q.id as question_id,
 				        q.question_text,
 				        q.points,

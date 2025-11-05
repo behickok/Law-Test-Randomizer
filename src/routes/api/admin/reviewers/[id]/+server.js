@@ -22,7 +22,7 @@ function requireString(value, field) {
 	return value.trim();
 }
 
-export async function PUT({ params, request, fetch, locals }) {
+export async function PUT({ params, request, locals }) {
 	try {
 		requireTeacher(locals);
 		const id = requireNumericParam(params.id);
@@ -40,7 +40,7 @@ export async function PUT({ params, request, fetch, locals }) {
                         } catch (validationError) {
                                 return json({ error: validationError.message }, { status: 400 });
                         }
-                        if (await pinExists(fetch, pin, { table: 'reviewers', id })) {
+                        if (await pinExists(locals.db, pin, { table: 'reviewers', id })) {
                                 return json({ error: 'Credential already exists. Choose a different value.' }, { status: 400 });
                         }
                         const hashedPin = hashPin(pin);
@@ -48,8 +48,7 @@ export async function PUT({ params, request, fetch, locals }) {
                 }
 
 		const emailCheck = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT 1 FROM reviewers WHERE email = '${escapeSql(email)}' AND id <> ${id} LIMIT 1`
 			)
 		);
@@ -57,8 +56,7 @@ export async function PUT({ params, request, fetch, locals }) {
 			return json({ error: 'Email already exists. Choose a different email.' }, { status: 400 });
 		}
 
-		await runQuery(
-			fetch,
+		await runQuery(locals.db,
 			`UPDATE reviewers
 			 SET name = '${escapeSql(name)}',
 			     email = '${escapeSql(email)}',
@@ -76,12 +74,11 @@ export async function PUT({ params, request, fetch, locals }) {
 	}
 }
 
-export async function DELETE({ params, fetch, locals }) {
+export async function DELETE({ params, locals }) {
 	try {
 		requireTeacher(locals);
 		const id = requireNumericParam(params.id);
-		await runQuery(
-			fetch,
+		await runQuery(locals.db,
 			`UPDATE reviewers
 			 SET is_active = FALSE
 			 WHERE id = ${id}`

@@ -25,7 +25,7 @@ function sanitiseUserPayload(user) {
 	}
 }
 
-export async function createSession(fetch, user) {
+export async function createSession(db, user) {
 	const sessionId = randomUUID();
 	const token = randomBytes(32).toString('hex');
 	const tokenHash = hashToken(token);
@@ -33,7 +33,7 @@ export async function createSession(fetch, user) {
 	const payload = sanitiseUserPayload(user);
 
 	await runQuery(
-		fetch,
+		db,
 		`INSERT INTO auth_sessions (id, token_hash, user_id, role, user_payload, expires_at)
 		 VALUES ('${escapeSql(sessionId)}', '${escapeSql(tokenHash)}', ${Number(user.id)}, '${escapeSql(user.role)}', '${escapeSql(
 			payload
@@ -47,12 +47,12 @@ export async function createSession(fetch, user) {
 	};
 }
 
-export async function destroySession(fetch, sessionId) {
+export async function destroySession(db, sessionId) {
 	if (!sessionId) return;
-	await runQuery(fetch, `DELETE FROM auth_sessions WHERE id = '${escapeSql(sessionId)}'`);
+	await runQuery(db, `DELETE FROM auth_sessions WHERE id = '${escapeSql(sessionId)}'`);
 }
 
-export async function readSession(fetch, cookieValue) {
+export async function readSession(db, cookieValue) {
 	if (!cookieValue || typeof cookieValue !== 'string') {
 		return null;
 	}
@@ -64,7 +64,7 @@ export async function readSession(fetch, cookieValue) {
 
 	const rows = normaliseResult(
 		await runQuery(
-			fetch,
+			db,
 			`SELECT id, token_hash, role, user_id, user_payload, expires_at
 			 FROM auth_sessions
 			 WHERE id = '${escapeSql(sessionId)}'
@@ -78,13 +78,13 @@ export async function readSession(fetch, cookieValue) {
 	const expectedHash = session.token_hash;
 	const incomingHash = hashToken(token);
 	if (incomingHash !== expectedHash) {
-		await destroySession(fetch, sessionId);
+		await destroySession(db, sessionId);
 		return null;
 	}
 
 	const expiry = new Date(session.expires_at);
 	if (Number.isNaN(expiry.valueOf()) || expiry.getTime() < now().getTime()) {
-		await destroySession(fetch, sessionId);
+		await destroySession(db, sessionId);
 		return null;
 	}
 
@@ -96,7 +96,7 @@ export async function readSession(fetch, cookieValue) {
 	}
 
 	await runQuery(
-		fetch,
+		db,
 		`UPDATE auth_sessions
 		 SET last_used_at = CURRENT_TIMESTAMP
 		 WHERE id = '${escapeSql(sessionId)}'`

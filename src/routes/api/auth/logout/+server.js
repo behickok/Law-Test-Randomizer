@@ -5,7 +5,7 @@ import {
 	getSessionCookieName
 } from '$lib/server/session';
 
-export async function POST({ fetch, cookies, locals }) {
+export async function POST({ cookies, locals }) {
 	const cookieName = getSessionCookieName();
 	let sessionId = locals?.sessionId;
 	if (!sessionId) {
@@ -17,7 +17,7 @@ export async function POST({ fetch, cookies, locals }) {
 	}
 
 	if (sessionId) {
-		await destroySession(fetch, sessionId);
+		await destroySession(locals.db, sessionId);
 	}
 
 	cookies.delete(cookieName, clearSessionCookieOptions());

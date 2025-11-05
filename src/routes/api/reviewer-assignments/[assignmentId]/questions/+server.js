@@ -10,7 +10,7 @@ function requireNumeric(value, field) {
 	return Number(value);
 }
 
-export async function GET({ params, request, fetch }) {
+export async function GET({params, request, locals}) {
 	try {
 		const assignmentId = requireNumeric(params.assignmentId, 'assignmentId');
 		const url = new URL(request.url);
@@ -21,8 +21,7 @@ export async function GET({ params, request, fetch }) {
 		const reviewerId = requireNumeric(reviewerParam, 'reviewerId');
 
 		const rows = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`SELECT qr.id as review_id,
 				        q.id as question_id,
 				        q.question_text,

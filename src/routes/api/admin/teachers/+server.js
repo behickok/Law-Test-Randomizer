@@ -14,11 +14,11 @@ function requireString(value, field) {
 	return value.trim();
 }
 
-export async function GET({ fetch, locals }) {
+export async function GET({ locals }) {
 	try {
 		requireTeacher(locals);
 		const rows = normaliseResult(
-			await runQuery(fetch, 'SELECT id, name FROM teachers ORDER BY name')
+			await runQuery(locals.db, 'SELECT id, name FROM teachers ORDER BY name')
 		);
 		return json({ teachers: rows });
 	} catch (error) {
@@ -29,7 +29,7 @@ export async function GET({ fetch, locals }) {
 	}
 }
 
-export async function POST({ request, fetch, locals }) {
+export async function POST({ request, locals }) {
 	try {
 		requireTeacher(locals);
 		const body = await request.json();
@@ -41,15 +41,14 @@ export async function POST({ request, fetch, locals }) {
                         return json({ error: validationError.message }, { status: 400 });
                 }
 
-                if (await pinExists(fetch, pin)) {
+                if (await pinExists(locals.db, pin)) {
                         return json({ error: 'Credential already exists. Choose a different value.' }, { status: 400 });
                 }
 
                 const hashedPin = hashPin(pin);
 
 		const result = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`INSERT INTO teachers (name, pin, invite_code)
 				 VALUES ('${escapeSql(name)}', '${escapeSql(hashedPin)}', '${randomUUID()}')
 				 RETURNING id, name`

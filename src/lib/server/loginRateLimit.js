@@ -8,10 +8,10 @@ export function deriveLoginIdentifier(role, pin) {
 	return createHash('sha256').update(`${role}|${pin}`).digest('hex');
 }
 
-export async function getLock(fetch, identifierHash) {
+export async function getLock(db, identifierHash) {
 	const rows = normaliseResult(
 		await runQuery(
-			fetch,
+			db,
 			`SELECT identifier_hash, fail_count, locked_until
 			 FROM auth_login_limits
 			 WHERE identifier_hash = '${escapeSql(identifierHash)}'
@@ -26,13 +26,13 @@ export async function getLock(fetch, identifierHash) {
 	};
 }
 
-export async function recordFailure(fetch, identifierHash, currentFailCount) {
+export async function recordFailure(db, identifierHash, currentFailCount) {
 	const nextFailCount = currentFailCount + 1;
 	const shouldLock = nextFailCount >= MAX_ATTEMPTS;
 	const lockUntil = shouldLock ? new Date(Date.now() + LOCK_DURATION_MS) : null;
 
 	await runQuery(
-		fetch,
+		db,
 		`INSERT INTO auth_login_limits (identifier_hash, fail_count, locked_until, last_attempt)
 		 VALUES ('${escapeSql(identifierHash)}', ${shouldLock ? 0 : nextFailCount}, ${
 			shouldLock ? `'${escapeSql(lockUntil.toISOString())}'` : 'NULL'
@@ -50,8 +50,8 @@ export async function recordFailure(fetch, identifierHash, currentFailCount) {
 	};
 }
 
-export async function clearFailures(fetch, identifierHash) {
-	await runQuery(fetch, `DELETE FROM auth_login_limits WHERE identifier_hash = '${escapeSql(identifierHash)}'`);
+export async function clearFailures(db, identifierHash) {
+	await runQuery(db, `DELETE FROM auth_login_limits WHERE identifier_hash = '${escapeSql(identifierHash)}'`);
 }
 
 export function formatLockoutResponse(lockedUntil) {

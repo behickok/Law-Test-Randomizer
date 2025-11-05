@@ -10,7 +10,7 @@
 
 | Status | Area | Description | Notes |
 | --- | --- | --- | --- |
-| ✅ | Security | Move backend passphrase to private env and centralise server DB helper | Server routes now read `BACKEND_SERVICE_TOKEN` via private env helper |
+| ✅ | Security | Move database access behind Cloudflare D1 binding | Server routes now receive the `DB` binding via `hooks.server` and the shared helper executes directly against D1 |
 | ✅ | Security | Replace client login/signup SQL calls with server endpoints and remove bearer token exposure | `/api/auth/*` endpoints added; login UI no longer injects bearer token |
 | ✅ | Security | Lock down remaining API calls (tests, assignments, reviews) behind server endpoints with ownership checks | All teacher/student flows now use REST (attempt lifecycle, class rosters, signup/login); preparing for credential hardening |
 | ✅ | Security | Remove generic SQL proxy endpoints and client helpers | `/api/query` and `/api/query-file` removed; SvelteKit pages now call server helpers directly (`src/routes/tests/[id]/+page.server.js:1`, `src/routes/+page.server.js:1`). Introduced `/api/tests/[id]` DELETE endpoint for secure cascade removal (`src/routes/api/tests/[id]/+server.js:1`), and client SDK now targets it (`src/lib/api.js:1`). Next: audit admin tooling for any remaining raw SQL affordances. |

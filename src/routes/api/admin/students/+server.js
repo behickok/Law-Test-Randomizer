@@ -22,11 +22,11 @@ function requireIntegerString(value, field) {
         return String(value).trim();
 }
 
-export async function GET({ fetch, locals }) {
+export async function GET({ locals }) {
 	try {
 		requireTeacher(locals);
 		const rows = normaliseResult(
-			await runQuery(fetch, 'SELECT id, name, pin FROM students ORDER BY name')
+			await runQuery(locals.db, 'SELECT id, name, pin FROM students ORDER BY name')
 		);
 		const students = rows.map(({ id, name, pin }) => ({
 			id,
@@ -43,7 +43,7 @@ export async function GET({ fetch, locals }) {
 	}
 }
 
-export async function POST({ request, fetch, locals }) {
+export async function POST({ request, locals }) {
 	try {
 		requireTeacher(locals);
 		const body = await request.json();
@@ -57,15 +57,14 @@ export async function POST({ request, fetch, locals }) {
                 const teacherId =
                         body?.teacherId === undefined ? undefined : requireIntegerString(body.teacherId, 'teacherId');
 
-                if (await pinExists(fetch, pin)) {
+                if (await pinExists(locals.db, pin)) {
                         return json({ error: 'Credential already exists. Choose a different value.' }, { status: 400 });
                 }
 
 		const hashedPin = hashPin(pin);
 
 		const insertedStudent = normaliseResult(
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`INSERT INTO students (name, pin)
 				 VALUES ('${escapeSql(name)}', '${escapeSql(hashedPin)}')
 				 RETURNING id, name, pin`
@@ -74,8 +73,7 @@ export async function POST({ request, fetch, locals }) {
 		const student = insertedStudent[0];
 
 		if (teacherId !== undefined) {
-			await runQuery(
-				fetch,
+			await runQuery(locals.db,
 				`INSERT INTO classes (teacher_id, student_id, status)
 				 VALUES (${teacherId}, ${student.id}, 'active')
 				 ON CONFLICT (teacher_id, student_id)
